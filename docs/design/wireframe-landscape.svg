@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="460" viewBox="0 0 900 460" role="img" aria-labelledby="title desc">
+  <title id="title">CartCheck phone landscape cart wireframe</title>
+  <desc id="desc">A low fidelity landscape cart screen with compact top navigation, item list on the left, and budget summary on the right.</desc>
+  <style>
+    .bg{fill:#eceeea}.screen{fill:#fff;stroke:#87918b;stroke-width:2}.box{fill:#f3f4f1;stroke:#b7beb8}.line{stroke:#cbd0cb}.text{fill:#2d342e;font:14px Arial,sans-serif}.small{fill:#4c574e;font:11px Arial,sans-serif}.head{fill:#1c261e;font:bold 18px Arial,sans-serif}.label{fill:#27312a;font:bold 17px Arial,sans-serif}.button{fill:#445b49}.buttontext{fill:#fff;font:bold 12px Arial,sans-serif}.check{fill:#fff;stroke:#536255;stroke-width:2}
+  </style>
+  <rect class="bg" width="900" height="460"/>
+  <text class="label" x="20" y="28">Phone landscape · active cart</text>
+  <rect class="screen" x="20" y="45" width="860" height="390" rx="16"/>
+  <text class="head" x="44" y="80">CartCheck</text>
+  <text class="small" x="370" y="78">Cart     Catalog     Trips     Settings</text>
+  <line class="line" x1="40" y1="97" x2="860" y2="97"/>
+  <text class="head" x="44" y="130">My cart</text>
+  <text class="small" x="43" y="150">2 items · □ Hide checked</text>
+  <rect class="check" x="44" y="177" width="21" height="21" rx="3"/><text class="small" x="49" y="192">✓</text>
+  <text class="text" x="78" y="188">Rice</text><text class="small" x="78" y="206">2 kg × ₱65/kg</text><text class="text" x="407" y="189">₱130</text>
+  <line class="line" x1="42" y1="222" x2="527" y2="222"/>
+  <rect class="check" x="44" y="240" width="21" height="21" rx="3"/>
+  <text class="text" x="78" y="252">Milk</text><text class="small" x="78" y="270">1 L × unknown</text><text class="small" x="412" y="252">Edit</text>
+  <rect class="button" x="43" y="317" width="184" height="42" rx="6"/><text class="buttontext" x="89" y="343">+ Add product</text>
+  <rect class="box" x="561" y="119" width="293" height="245" rx="7"/>
+  <text class="head" x="582" y="148">Trip summary</text>
+  <text class="text" x="582" y="180">Budget ₱1,000  [Edit]</text>
+  <text class="text" x="582" y="210">Known ₱130 · Bought ₱130</text>
+  <text class="small" x="582" y="239">₱870 left after bought</text>
+  <text class="small" x="582" y="258">Estimate incomplete: 1 unknown price</text>
+  <rect class="button" x="581" y="292" width="252" height="44" rx="6"/>
+  <text class="buttontext" x="675" y="320">Finish Trip</text>
+  <text class="small" x="43" y="400">Controls stay visible without horizontal scrolling or hover.</text>
+</svg>

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="380" height="590" viewBox="0 0 380 590" role="img" aria-labelledby="title desc">
+  <title id="title">CartCheck mobile settings wireframe</title>
+  <desc id="desc">A low fidelity settings screen for preferred currency, light or dark theme, and signing out.</desc>
+  <style>
+    .bg{fill:#eceeea}.screen{fill:#fff;stroke:#87918b;stroke-width:2}.box{fill:#f3f4f1;stroke:#b7beb8}.nav{fill:#f1f3ef;stroke:#cbd0cb}.line{stroke:#cbd0cb}.text{fill:#2d342e;font:15px Arial,sans-serif}.small{fill:#4c574e;font:12px Arial,sans-serif}.tiny{fill:#4c574e;font:11px Arial,sans-serif}.head{fill:#1c261e;font:bold 19px Arial,sans-serif}.label{fill:#27312a;font:bold 17px Arial,sans-serif}.button{fill:#445b49}.buttontext{fill:#fff;font:bold 13px Arial,sans-serif}
+  </style>
+  <rect class="bg" width="380" height="590"/>
+  <text class="label" x="20" y="28">7 · Settings</text>
+  <rect class="screen" x="20" y="44" width="340" height="520" rx="18"/>
+  <text class="head" x="40" y="82">Settings</text>
+  <text class="small" x="40" y="126">Preferred currency</text>
+  <rect class="box" x="40" y="140" width="300" height="43" rx="6"/>
+  <text class="text" x="54" y="167">PHP (₱)                         ▾</text>
+  <text class="tiny" x="40" y="205">Used for new carts. Past trips and the</text>
+  <text class="tiny" x="40" y="223">current cart keep their own currency.</text>
+  <line class="line" x1="40" y1="246" x2="340" y2="246"/>
+  <text class="small" x="40" y="277">Appearance</text>
+  <rect class="box" x="40" y="292" width="300" height="43" rx="6"/>
+  <text class="text" x="56" y="319">System     Light     Dark</text>
+  <text class="tiny" x="40" y="359">Theme follows the chosen setting.</text>
+  <line class="line" x1="40" y1="383" x2="340" y2="383"/>
+  <rect class="button" x="40" y="409" width="300" height="43" rx="6"/>
+  <text class="buttontext" x="159" y="436">Sign out</text>
+  <rect class="nav" x="20" y="494" width="340" height="70"/>
+  <text class="small" x="44" y="528">Cart</text><text class="small" x="119" y="528">Catalog</text><text class="small" x="222" y="528">Trips</text><text class="small" x="289" y="528">Settings</text>
+</svg>

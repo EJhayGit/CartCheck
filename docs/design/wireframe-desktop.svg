@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800" role="img" aria-labelledby="title desc">
+  <title id="title">CartCheck desktop cart wireframe</title>
+  <desc id="desc">A low fidelity desktop cart with side navigation, cart list, budget summary, and Finish Trip action.</desc>
+  <style>
+    .bg{fill:#eceeea}.surface{fill:#fff;stroke:#a8b2a9;stroke-width:1.5}.soft{fill:#f4f5f2;stroke:#c3cbc4}.line{stroke:#cbd0cb}.text{fill:#283129;font:17px Arial,sans-serif}.small{fill:#4e5a50;font:14px Arial,sans-serif}.tiny{fill:#4e5a50;font:12px Arial,sans-serif}.head{fill:#1e2a20;font:bold 30px Arial,sans-serif}.subhead{fill:#1e2a20;font:bold 19px Arial,sans-serif}.brand{fill:#1e2a20;font:bold 23px Arial,sans-serif}.button{fill:#445b49}.buttontext{fill:#fff;font:bold 15px Arial,sans-serif}.check{fill:#fff;stroke:#536255;stroke-width:2}
+  </style>
+  <rect class="bg" width="1280" height="800"/>
+  <rect class="surface" x="20" y="20" width="1240" height="760" rx="12"/>
+  <rect class="soft" x="20" y="20" width="222" height="760" rx="12"/>
+  <text class="brand" x="49" y="74">CartCheck</text>
+  <text class="small" x="50" y="126">●  Cart</text><text class="small" x="50" y="176">○  Catalog</text><text class="small" x="50" y="226">○  Trips</text><text class="small" x="50" y="276">○  Settings</text>
+  <line class="line" x1="42" y1="706" x2="219" y2="706"/>
+  <text class="tiny" x="50" y="741">Signed in · Sign out</text>
+
+  <text class="head" x="286" y="81">My cart</text>
+  <text class="small" x="287" y="110">Edit items as you shop. Finish Trip when you are done.</text>
+  <rect class="button" x="965" y="54" width="245" height="48" rx="7"/>
+  <text class="buttontext" x="1038" y="84">+ Add product</text>
+
+  <rect class="soft" x="286" y="144" width="585" height="62" rx="7"/>
+  <text class="small" x="307" y="180">3 items     □ Hide checked (1)     Sort: added order</text>
+  <text class="tiny" x="300" y="238">ITEM</text><text class="tiny" x="607" y="238">QUANTITY / UNIT</text><text class="tiny" x="778" y="238">LINE TOTAL</text>
+  <line class="line" x1="286" y1="252" x2="871" y2="252"/>
+
+  <rect class="check" x="300" y="275" width="24" height="24" rx="3"/><text class="small" x="305" y="293">✓</text>
+  <text class="text" x="340" y="294">Rice</text><text class="tiny" x="340" y="316">Pantry · last paid ₱65/kg</text>
+  <text class="small" x="608" y="292">2 kg × ₱65/kg</text><text class="small" x="780" y="292">₱130</text><text class="tiny" x="825" y="317">Edit</text>
+  <line class="line" x1="286" y1="340" x2="871" y2="340"/>
+  <rect class="check" x="300" y="361" width="24" height="24" rx="3"/>
+  <text class="text" x="340" y="381">Milk</text><text class="tiny" x="340" y="402">Dairy · no price history</text>
+  <text class="small" x="608" y="380">1 L × unknown</text><text class="small" x="780" y="380">—</text><text class="tiny" x="825" y="405">Edit</text>
+  <line class="line" x1="286" y1="428" x2="871" y2="428"/>
+  <rect class="check" x="300" y="449" width="24" height="24" rx="3"/><text class="small" x="305" y="467">✓</text>
+  <text class="text" x="340" y="469">Eggs</text><text class="tiny" x="340" y="490">Dairy · per item</text>
+  <text class="small" x="608" y="468">6 each × ₱12</text><text class="small" x="780" y="468">₱72</text><text class="tiny" x="825" y="493">Edit</text>
+  <line class="line" x1="286" y1="516" x2="871" y2="516"/>
+  <text class="small" x="300" y="557">Empty or failed states appear here with a clear next action.</text>
+
+  <rect class="soft" x="903" y="144" width="307" height="351" rx="8"/>
+  <text class="subhead" x="925" y="181">Trip summary</text>
+  <text class="small" x="925" y="221">Budget</text><text class="small" x="1103" y="221">₱1,000</text><text class="tiny" x="925" y="242">Edit budget</text>
+  <line class="line" x1="925" y1="261" x2="1188" y2="261"/>
+  <text class="small" x="925" y="291">Known cart total</text><text class="small" x="1128" y="291">₱202</text>
+  <text class="small" x="925" y="329">Marked bought</text><text class="small" x="1128" y="329">₱202</text>
+  <text class="small" x="925" y="367">Left after bought</text><text class="small" x="1128" y="367">₱798</text>
+  <text class="tiny" x="925" y="401">Incomplete estimate: 1 unknown price.</text>
+  <rect class="button" x="925" y="427" width="263" height="47" rx="7"/>
+  <text class="buttontext" x="1006" y="457">Finish Trip</text>
+  <text class="tiny" x="903" y="539">Review bought and not-bought items</text>
+  <text class="tiny" x="903" y="558">before confirming this trip.</text>
+  <text class="tiny" x="286" y="734">Desktop layout · navigation rail + flexible list + visible summary · low fidelity</text>
+</svg>

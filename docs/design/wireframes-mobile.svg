@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="1140" viewBox="0 0 1120 1140" role="img" aria-labelledby="title desc">
+  <title id="title">CartCheck mobile wireframes</title>
+  <desc id="desc">Six low fidelity mobile screens: account access, active cart, catalog search, product detail, Finish Trip review, and trip history.</desc>
+  <style>
+    .bg{fill:#eceeea}.screen{fill:#fff;stroke:#87918b;stroke-width:2}.line{stroke:#cbd0cb;stroke-width:1}.box{fill:#f3f4f1;stroke:#b7beb8}.strong{fill:#d9ded8;stroke:#89958a}.text{fill:#2d342e;font:15px Arial,sans-serif}.small{fill:#4c574e;font:12px Arial,sans-serif}.tiny{fill:#4c574e;font:11px Arial,sans-serif}.head{fill:#1c261e;font:bold 19px Arial,sans-serif}.label{fill:#27312a;font:bold 17px Arial,sans-serif}.button{fill:#445b49}.buttontext{fill:#fff;font:bold 13px Arial,sans-serif}.nav{fill:#f1f3ef;stroke:#cbd0cb}.check{fill:#fff;stroke:#4d5d51;stroke-width:2}.muted{fill:#dce1db}
+  </style>
+  <rect class="bg" width="1120" height="1140"/>
+
+  <g transform="translate(20 28)">
+    <text class="label" x="0" y="0">1 · Account access</text>
+    <rect class="screen" x="0" y="16" width="340" height="510" rx="18"/>
+    <text class="head" x="24" y="72">CartCheck</text>
+    <text class="small" x="24" y="98">A calmer way to track a grocery trip.</text>
+    <text class="head" x="24" y="150">Sign in</text>
+    <text class="small" x="24" y="185">Email</text><rect class="box" x="24" y="195" width="292" height="42" rx="6"/>
+    <text class="small" x="24" y="265">Password</text><rect class="box" x="24" y="275" width="292" height="42" rx="6"/>
+    <text class="tiny" x="24" y="336">Errors appear beside the affected field.</text>
+    <rect class="button" x="24" y="359" width="292" height="46" rx="7"/><text class="buttontext" x="145" y="387">Sign in</text>
+    <text class="small" x="77" y="443">New here?  Register account</text>
+    <line class="line" x1="24" y1="468" x2="316" y2="468"/>
+    <text class="tiny" x="24" y="491">Busy and error messages stay visible.</text>
+  </g>
+
+  <g transform="translate(390 28)">
+    <text class="label" x="0" y="0">2 · Active cart</text>
+    <rect class="screen" x="0" y="16" width="340" height="510" rx="18"/>
+    <text class="head" x="20" y="53">My cart</text><text class="small" x="249" y="51">Settings</text>
+    <rect class="box" x="18" y="72" width="304" height="94" rx="8"/>
+    <text class="small" x="30" y="96">Budget  ₱1,000  [Edit]</text>
+    <text class="small" x="30" y="120">Known ₱130  ·  Bought ₱130</text>
+    <text class="tiny" x="30" y="144">₱870 left after bought · 1 price unknown</text>
+    <text class="small" x="20" y="194">2 items</text><text class="small" x="211" y="194">□ Hide checked</text>
+    <line class="line" x1="18" y1="207" x2="322" y2="207"/>
+    <rect class="check" x="20" y="223" width="22" height="22" rx="3"/><text class="small" x="24" y="240">✓</text><text class="text" x="53" y="241">Rice</text><text class="tiny" x="53" y="262">2 kg × ₱65/kg</text><text class="small" x="259" y="244">₱130</text>
+    <line class="line" x1="18" y1="276" x2="322" y2="276"/>
+    <rect class="check" x="20" y="290" width="22" height="22" rx="3"/><text class="text" x="53" y="308">Milk</text><text class="tiny" x="53" y="329">1 L × price unknown</text><text class="small" x="268" y="310">Edit</text>
+    <line class="line" x1="18" y1="343" x2="322" y2="343"/>
+    <rect class="button" x="18" y="366" width="144" height="42" rx="6"/><text class="buttontext" x="48" y="392">+ Add product</text>
+    <rect class="strong" x="178" y="366" width="144" height="42" rx="6"/><text class="small" x="217" y="392">Finish Trip</text>
+    <rect class="nav" x="0" y="456" width="340" height="70" rx="0"/>
+    <text class="small" x="24" y="489">Cart</text><text class="small" x="99" y="489">Catalog</text><text class="small" x="202" y="489">Trips</text><text class="small" x="269" y="489">Settings</text>
+  </g>
+
+  <g transform="translate(760 28)">
+    <text class="label" x="0" y="0">3 · Catalog search</text>
+    <rect class="screen" x="0" y="16" width="340" height="510" rx="18"/>
+    <text class="head" x="20" y="53">Catalog</text><text class="small" x="269" y="51">Cart (3)</text>
+    <rect class="box" x="18" y="72" width="304" height="43" rx="6"/><text class="small" x="31" y="98">Search products…</text>
+    <text class="small" x="20" y="141">All     Produce     Pantry     Drinks</text>
+    <line class="line" x1="18" y1="155" x2="322" y2="155"/>
+    <rect class="muted" x="20" y="171" width="44" height="44" rx="5"/><text class="text" x="76" y="190">Rice</text><text class="tiny" x="76" y="209">kg · Last paid ₱65/kg</text><text class="small" x="278" y="193">Add</text>
+    <line class="line" x1="18" y1="229" x2="322" y2="229"/>
+    <rect class="muted" x="20" y="245" width="44" height="44" rx="5"/><text class="text" x="76" y="264">Milk</text><text class="tiny" x="76" y="283">L · No price yet</text><text class="small" x="278" y="267">Add</text>
+    <line class="line" x1="18" y1="303" x2="322" y2="303"/>
+    <text class="tiny" x="20" y="333">No match? Keep your search text.</text>
+    <rect class="button" x="18" y="355" width="304" height="43" rx="6"/><text class="buttontext" x="113" y="382">Register product</text>
+    <rect class="nav" x="0" y="456" width="340" height="70"/>
+    <text class="small" x="24" y="489">Cart</text><text class="small" x="99" y="489">Catalog</text><text class="small" x="202" y="489">Trips</text><text class="small" x="269" y="489">Settings</text>
+  </g>
+
+  <g transform="translate(20 590)">
+    <text class="label" x="0" y="0">4 · Product / registration</text>
+    <rect class="screen" x="0" y="16" width="340" height="510" rx="18"/>
+    <text class="small" x="20" y="48">← Catalog</text><text class="head" x="20" y="83">Product details</text>
+    <rect class="muted" x="20" y="105" width="66" height="66" rx="7"/>
+    <text class="text" x="101" y="128">Milk</text><text class="tiny" x="101" y="150">Last paid: no history</text>
+    <text class="small" x="20" y="195">Name</text><rect class="box" x="20" y="202" width="300" height="36" rx="5"/><text class="tiny" x="30" y="225">Milk</text>
+    <text class="small" x="20" y="260">Category</text><rect class="box" x="20" y="267" width="140" height="36" rx="5"/><text class="tiny" x="30" y="290">Dairy  ▾</text>
+    <text class="small" x="176" y="260">Price unit</text><rect class="box" x="176" y="267" width="144" height="36" rx="5"/><text class="tiny" x="186" y="290">L  ▾</text>
+    <text class="small" x="20" y="327">Image URL (optional)</text><rect class="box" x="20" y="335" width="300" height="36" rx="5"/>
+    <text class="tiny" x="20" y="393">Reference price is an estimate, not history.</text>
+    <rect class="button" x="20" y="414" width="300" height="43" rx="6"/><text class="buttontext" x="129" y="441">Save product</text>
+    <text class="tiny" x="20" y="489">Price history: none yet · View history</text>
+  </g>
+
+  <g transform="translate(390 590)">
+    <text class="label" x="0" y="0">5 · Finish Trip review</text>
+    <rect class="screen" x="0" y="16" width="340" height="510" rx="18"/>
+    <text class="small" x="20" y="48">← Back to cart</text><text class="head" x="20" y="82">Finish Trip?</text>
+    <text class="tiny" x="20" y="105">Review before saving this trip.</text>
+    <text class="small" x="20" y="143">Bought · 2 items</text>
+    <line class="line" x1="20" y1="153" x2="320" y2="153"/>
+    <text class="text" x="20" y="181">Rice</text><text class="tiny" x="20" y="199">2 kg × ₱65/kg</text><text class="small" x="268" y="184">₱130</text>
+    <line class="line" x1="20" y1="212" x2="320" y2="212"/>
+    <text class="text" x="20" y="239">Eggs</text><text class="tiny" x="20" y="257">6 each × ₱12</text><text class="small" x="277" y="242">₱72</text>
+    <text class="small" x="20" y="298">Not bought · 1 item</text>
+    <text class="tiny" x="20" y="323">Milk · 1 L · archived as not bought</text>
+    <rect class="box" x="20" y="347" width="300" height="50" rx="6"/>
+    <text class="small" x="31" y="369">Bought total  ₱202</text><text class="tiny" x="31" y="387">Budget  ₱1,000 · Remaining  ₱798</text>
+    <rect class="button" x="20" y="420" width="300" height="43" rx="6"/><text class="buttontext" x="111" y="447">Confirm Finish Trip</text>
+    <text class="tiny" x="20" y="490">Confirmation creates a new empty cart.</text>
+  </g>
+
+  <g transform="translate(760 590)">
+    <text class="label" x="0" y="0">6 · Trips / trip detail</text>
+    <rect class="screen" x="0" y="16" width="340" height="510" rx="18"/>
+    <text class="head" x="20" y="53">Trips</text><text class="small" x="265" y="51">Settings</text>
+    <rect class="box" x="18" y="74" width="304" height="65" rx="6"/>
+    <text class="text" x="30" y="98">Sep 23 trip</text><text class="tiny" x="30" y="122">2 bought · 1 not bought · ₱202</text>
+    <text class="small" x="20" y="172">Trip detail</text><text class="small" x="268" y="172">Edit</text>
+    <line class="line" x1="18" y1="187" x2="322" y2="187"/>
+    <text class="small" x="20" y="213">Bought</text>
+    <text class="text" x="20" y="239">Rice</text><text class="tiny" x="20" y="257">2 kg · ₱65/kg</text><text class="small" x="269" y="239">₱130</text>
+    <text class="text" x="20" y="296">Eggs</text><text class="tiny" x="20" y="314">6 each · ₱12/each</text><text class="small" x="278" y="296">₱72</text>
+    <line class="line" x1="18" y1="333" x2="322" y2="333"/>
+    <text class="small" x="20" y="359">Not bought</text><text class="tiny" x="20" y="382">Milk · 1 L</text>
+    <text class="tiny" x="20" y="425">Past corrections update totals and prices.</text>
+    <rect class="nav" x="0" y="456" width="340" height="70"/>
+    <text class="small" x="24" y="489">Cart</text><text class="small" x="99" y="489">Catalog</text><text class="small" x="202" y="489">Trips</text><text class="small" x="269" y="489">Settings</text>
+  </g>
+</svg>
