@@ -1,181 +1,124 @@
 # CartCheck technical system design
 
-**Status:** Proposed for review; no application implementation is authorized by this document.
+**Status:** Approved planning baseline (2026-09-24). This document proposes implementation contracts; no application code or hosted database has been changed.
 
-## Basis and boundaries
+## Basis and change from the earlier design
 
-This design follows [product requirements](../PRODUCT_REQUIREMENTS.md), [project scope](../PROJECT_SCOPE.md), [user flows](../USER_FLOWS.md), and the [UI/UX specification](../design/README.md). Those files still carry draft/proposed labels, while the current task states that the requirements and design have been established. The behavior described there is the working baseline. The short supported-currency list remains an explicit review choice below.
+Follow the [product requirements](../PRODUCT_REQUIREMENTS.md), [scope](../PROJECT_SCOPE.md), [user flows](../USER_FLOWS.md), and [design specification](../design/README.md). CartCheck is primarily a checklist. The previous unit-price model and per-product price-history queries are removed; estimated and actual **item totals** are independent, optional amounts. This trades automatic last-paid suggestions and unit-price comparisons for faster entry. Dated trip history and corrections remain.
 
-The professor's starter is a working **HAUnted Sightings** example, not a CartCheck implementation: React 18 and Vite 6 in `client/`, plain JavaScript, an HTTP/mock API facade, Express 4 and `pg` in `server/`, PostgreSQL 17 in Compose, health checks, and a client-only GitHub Pages workflow. It has no authentication, migrations, tests, or grocery domain. Reuse the stack and useful patterns (API facade, parameterized repository queries, server validation, loading/error states, readiness endpoint). Replace the sightings schema, routes, demo data, and UI in implementation milestones. Do not treat the localStorage sightings mock or Pages demo as secure account storage.
+The current repository is still the professor's HAUnted Sightings starter: React/Vite client, Express API, `pg` PostgreSQL access, a localStorage mock, health checks, and a client-only Pages workflow. Reuse the package boundaries and useful API/validation patterns. Replace sightings data only in implementation milestones. The Pages preview and localStorage mock cannot be the private final application.
 
-## 1. System architecture
+## 1. Runtime architecture and hosting
 
 ```mermaid
 flowchart LR
-    B[Shopper browser<br/>React + Vite build] -->|HTTPS, same origin| E[Express application]
-    E -->|static assets and SPA fallback| B
-    E --> M[Auth, validation, rate limits,<br/>ownership and error middleware]
-    M --> R[Route and service modules<br/>catalog, cart, trips, settings]
-    R --> Q[Parameterized SQL repositories]
-    Q --> P[(PostgreSQL)]
-    R --> C[Totals and currency rules]
+    B[Browser: React/Vite build] -->|HTTPS, same origin| E[Render: Express web service]
+    E -->|static files and SPA fallback| B
+    E --> A[Session, validation, ownership, rate limits]
+    A --> S[Catalog, list, trips, settings services]
+    S --> Q[Parameterized pg queries and transactions]
+    Q --> P[(Supabase hosted PostgreSQL)]
 ```
 
-In development, Vite serves the client and proxies `/api` to Express as the template already does. In production, one HTTPS origin serves both the built React files and Express `/api` routes; the database is reachable only by the server. Build and deploy both packages together, with the API host serving `client/dist`. Keep `GET /healthz` and `GET /readyz`. The existing GitHub Pages workflow can remain a separate nonprivate visual preview while transitioning, but the **delivered account application** must use the real API and PostgreSQL. Production must fail visibly if API configuration is missing; it must not silently fall back to the localStorage mock.
+One Render web service serves `client/dist` and `/api`. Vite proxies `/api` to Express during local development. The database connection string exists only on the server as `DATABASE_URL`; no database URL or secret key goes in a `VITE_` variable. Keep `GET /healthz` and `GET /readyz`. Production fails visibly when its API/database configuration is unavailable and never silently switches to the mock.
 
-This single-origin plan adds no gateway, SSR framework, hosted auth product, or second runtime. It does require an application host capable of running Node and PostgreSQL, rather than Pages alone. TLS termination may be provided by that host; Express should trust only its configured proxy.
+Render is a persistent Node backend, so use a direct Supabase PostgreSQL connection when its networking supports IPv6; otherwise use Supabase's session-mode pooler. Choose the actual endpoint from the project's **Connect** panel after both accounts exist, use TLS, and cap the `pg` pool to the project's connection allowance. Do not assume a pooler hostname or use transaction pooling without evaluating its session limitations. Local/disposable PostgreSQL remains the development and test target; do not create tables or alter a Supabase project as part of this planning revision.
 
-## 2. Main application components
+Supabase initially supplies PostgreSQL only. Keep all browser data access through Express and disable the Supabase Data API if it is unused. Put app tables in a non-exposed schema where practical, restrict database role privileges, and enforce ownership in server queries. If any table is later exposed through Supabase Data API, grant only intended access and enable matching row-level security before use. Do not expose a service-role or database credential in the client.
+
+## 2. Components and rules
 
 | Component | Responsibility |
 | --- | --- |
-| React app shell | Auth gate; Cart, Catalog, Trips, Settings navigation; responsive layouts and theme. |
-| `client/src/api` facade | Named domain requests, credentials, status/error normalization. Mock adapter only for isolated UI development with fictitious data. |
-| Express route modules | Parse requests, authenticate, validate, return predictable JSON/status codes. Thin handlers. |
-| Domain services | Catalog resolution, cart mutations and totals, finish-trip transaction, trip correction, last-paid query. |
-| SQL repositories | Parameterized queries with account ownership predicates and explicit transactions. |
-| PostgreSQL | Durable accounts, sessions, reusable products, one active cart per account, finished trips and immutable-at-creation item snapshots. |
+| React shell and screens | Auth gate; Cart, Catalog, Trips, Settings navigation; responsive checklist and secondary money controls. |
+| Client API facade | Named HTTP requests, cookie credentials, normalized loading and errors; fictitious mock fixtures only for isolated UI work. |
+| Express routes | Authenticate, validate, handle status codes, return decimal strings and predictable JSON. |
+| Services | Catalog resolution, list mutations/totals, transaction-safe finish and correction. |
+| Repositories | Parameterized SQL with account ownership predicates and transactions. |
+| PostgreSQL | Durable accounts, sessions, shared starter items, private catalog items, one active trip and completed snapshots. |
 
-The ~100 starter rows are read-only seed templates. Registration copies them into that shopper's private product catalog. This uses a little more storage but gives every catalog query a simple owner rule and a stable private product ID; later template changes do not overwrite shopper edits. A shopper may also register a custom product. Registering does **not** add it to the cart; the flow returns to the add step. A product can appear only once in a cart. Re-adding sets an absolute desired quantity and price rather than an increment that a network retry could repeat. If the product's current unit differs from the existing cart snapshot, require an explicit replacement/edit instead of silently merging quantities.
+Starter rows are read-only templates without prices. On registration, copying approximately 100 templates into the shopper's private catalog gives stable owner-scoped product IDs and private edits. A new custom catalog item is private. Registering it returns the shopper to the add step; it does not silently add a list entry.
 
-### Core workflows and consistency
+One catalog product has at most one entry in the active trip. Selecting it again opens a prefilled edit; `PUT` sets absolute desired entry values, so a retry cannot increase quantity. The entry's displayed name can differ from the catalog name without changing the catalog. A later catalog edit cannot rewrite an active or completed item snapshot.
 
-* **Cart totals:** Server computes each priced line as `ROUND(quantity × unit_price, 2)`, then sums rounded lines. Return estimated total for all priced entries, bought subtotal for checked entries, and unknown-price counts. Mark estimates incomplete whenever a relevant price is null. `0.00` is a known price. The active-cart remaining/over amount compares budget with the planned estimate; the finish review compares budget with the checked-item total. A warning never blocks finishing.
-* **Finish Trip:** Client presents bought and unbought item snapshots, then posts the **explicit cart ID** and revision. One PostgreSQL transaction locks that owned `shopping_trips` row, checks revision and bought-item prices, changes its status to `completed`, sets its finish date, and creates the next empty `active` trip with a null budget and the account's *current* preferred currency. A retry for the same cart ID returns the existing completed trip; a stale revision returns `409`. Every cart mutation locks the same parent row and increments its revision. Empty-cart finish is rejected; a nonempty cart with no bought items is allowed after explicit review. Unchecked items are archived as **not bought**, with no automatic rollover.
-* **Trip correction:** Client reviews a complete proposed item set before submitting it with the trip revision. A transaction locks the owned completed trip, validates all items, replaces/adds/removes its snapshot rows, and increments revision. Preserve `completed_at` and trip currency. A stale revision returns `409`. Recalculate totals from the current trip items rather than maintaining a second cache. Product last-paid and price history are derived from bought trip items, so corrections immediately affect them.
-* **Product changes:** Each cart/trip item stores its selected name/category/unit snapshot on addition. Later catalog edits cannot reinterpret an active item's unit or rewrite history. To use a changed unit in an active cart, explicitly replace the row. Historical price lookup filters by product, currency, and unit and labels both date and source.
+### Amounts and completion
 
-## 3. Data model and database design
+- `estimated_total` and `actual_total` are nullable nonnegative **item totals**, never unit prices. Quantity does not multiply either amount. Blank and `0.00` are distinct.
+- The estimated list subtotal sums known estimates for all entries and reports how many estimates are missing. Recorded spending sums known actual totals on **bought** entries and reports how many bought entries lack an actual amount. Unbought actual amounts, if entered in error, do not count toward spending.
+- A budget comparison uses the known estimated subtotal while planning and known recorded spending at finish. Whenever relevant prices are missing, label the comparison incomplete; do not imply that the known subtotal is the full amount. No price or budget is needed to mark bought or finish.
+- Supported currencies are **PHP, USD, EUR**, each with two decimal places. The account preference defaults to PHP; changing it affects new trips only. Every trip retains its currency and no cross-currency sum or conversion occurs.
+- Finish Trip posts an explicit active-trip ID and revision. In one transaction, lock the owned trip, verify revision and nonempty item set, set status/completion time, and create a new empty active trip with null budget and the current preference. A retry with the same completed ID returns the existing trip; a stale revision returns `409`. A nonempty trip with no bought items is allowed after review. Unchecked entries remain in the completed trip as **not bought**, with no rollover.
+- A past-trip correction submits a reviewed complete proposed item set and revision. Lock the owned completed trip, validate and apply changes transactionally, preserve `completed_at` and currency, and recalculate totals from entries. A stale revision returns `409`.
+
+## 3. Data model
 
 ```mermaid
 erDiagram
     USERS ||--o{ SESSIONS : has
+    USERS ||--o{ PRODUCTS : owns
     USERS ||--o{ SHOPPING_TRIPS : owns
-    USERS ||--o{ PRODUCTS : creates
     STARTER_PRODUCTS ||--o{ PRODUCTS : copied_from
     SHOPPING_TRIPS ||--o{ TRIP_ITEMS : contains
-    PRODUCTS ||--o{ TRIP_ITEMS : price_history_source
+    PRODUCTS ||--o{ TRIP_ITEMS : source_of
 ```
 
 | Table | Main columns and constraints |
 | --- | --- |
-| `users` | `id`, normalized unique `email`, `password_hash`, `preferred_currency DEFAULT 'PHP'`, timestamps. No profile data beyond account needs. |
-| `sessions` | `id`, `user_id`, unique hashed random session token, `expires_at`, `created_at`; logout removes session. Expired rows are pruned. |
-| `starter_products` | Stable seed `code`, name, category, unit (`each`, `kg`, `L`); no invented current price. Read-only after seeding. |
-| `products` | `id`, required `user_id`, optional `source_starter_code`, name/category/unit, optional `image_url`, nullable nonnegative `reference_price` plus `reference_currency`, timestamps. Unique `(user_id, source_starter_code)` for copied starters. No product deletion in v1. |
-| `shopping_trips` | `id`, `user_id`, `status` (`active`/`completed`), `currency`, nullable nonnegative `budget`, integer `revision`, `created_at`, nullable `completed_at`. Partial unique `(user_id) WHERE status='active'` enforces one active cart. Date and currency remain fixed after completion. |
-| `trip_items` | `id`, `trip_id`, `product_id`, snapshot name/category/unit, positive quantity, nullable nonnegative unit price, bought flag. Unique `(trip_id, product_id)` prevents duplicate lines. Unbought items may have unknown price. |
+| `users` | `id`, normalized unique `email`, `password_hash`, `preferred_currency DEFAULT 'PHP'`, timestamps. |
+| `sessions` | `id`, `user_id`, unique hashed token, expiry and creation timestamps. |
+| `starter_products` | Stable seed `code`, name and category. No brand, variant, package size or price requirement. |
+| `products` | `id`, required owner `user_id`, optional `source_starter_code`, name, category, optional `image_url`, timestamps. Unique `(user_id, source_starter_code)` for copied starters. No delete in v1. |
+| `shopping_trips` | `id`, owner `user_id`, `status` (`active`/`completed`), `currency`, nullable nonnegative `budget`, integer `revision`, creation and nullable completion timestamps. Partial unique active trip per user. |
+| `trip_items` | `id`, `trip_id`, `product_id`, snapshot `name`, `category`, positive `quantity`, optional short `unit_label`, nullable nonnegative `estimated_total`, nullable nonnegative `actual_total`, `bought`. Unique `(trip_id, product_id)`. |
 
-Use PostgreSQL `NUMERIC(12,2)` for prices and budgets and `NUMERIC(12,3)` for quantities. Restrict `each` to whole quantities in server validation and database checks; `kg`/`L` allow up to three decimal places. Calculate line totals and sums with PostgreSQL `NUMERIC` (or an exact decimal-string/fixed-point helper for pure tests), never JavaScript `Number` multiplication. Return decimal values as **strings** in JSON and format by trip currency in the client. The first release should support a small list of two-decimal currencies, proposed **PHP, USD, EUR**. Validate the code on both client and server. New carts copy the setting; existing carts and trips never convert or relabel amounts. No cross-currency total is produced. A reference price must have a currency when present; when price is null, currency is null too.
+Use `NUMERIC(12,2)` for money and `NUMERIC(12,3)` for quantity. Require positive quantity and limit unit-label length. Money calculations use PostgreSQL `NUMERIC` or an exact decimal helper, not JavaScript floating-point multiplication; send decimal strings in JSON. Validate currency, names, categories, precision, URLs, and ownership in Express, backed by SQL `CHECK`, foreign keys, indexes, and uniqueness constraints. Joined ownership is required when resolving an item or product ID. Unknown or foreign IDs return `404`.
 
-Indexes: unique normalized user email, session token hash, `products(user_id, name)`, unique product starter source per user, partial unique active trip per user, `shopping_trips(user_id, completed_at DESC)`, and `trip_items(product_id, bought)` with trip join for dated history. Use `CHECK`, foreign keys, and unique constraints as a second line of validation. Verify that a selected product and trip share the same owner in the service and, where practical, composite foreign keys. Queries for owned records include `user_id` (or join through an owned parent); an unknown or foreign ID returns `404` to avoid disclosing ownership.
+Store item snapshots when added to an active trip and retain them when completed. Corrections update that trip's snapshots only. Index normalized email, session hashes, owner/name product search, owner/completion trip lookup, and item trip/product uniqueness. Numbered migrations manage schema changes; an idempotent grocery seed replaces the starter's destructive sightings seed before any CartCheck database setup. Never run a reset against persistent data.
 
-Schema changes after first deployment use numbered SQL migrations; `db/schema.sql` remains the readable baseline for a fresh database. The starter `db:seed` truncates sightings and must be replaced with an idempotent grocery catalog seed before any CartCheck database setup. Never run that old reset/seed on retained data.
+## 4. API contract
 
-## 4. API structure
+All domain routes are JSON under `/api`. Mutations require a session, origin check, server validation, and ownership; auth routes are rate limited. Use `400` for malformed values, `401` for no session, `404` for missing/foreign records, `409` for stale state, and `429` for rate limits. Do not return SQL details.
 
-All routes below are JSON under `/api`, except health endpoints. Authentication uses the server-side session cookie. `GET` is read-only; mutating routes require session, CSRF origin check, server validation, and ownership. Use `400` for malformed input, `401` for no session, `404` for missing/foreign resources, `409` for stale revisions or conflicting state, and `429` for rate limits. Error responses use `{ "error": "...", "fields": { ... } }` when field errors exist; do not expose SQL details.
-
-| Method | Path | Purpose |
+| Method | Route | Purpose |
 | --- | --- | --- |
-| `POST` | `/api/auth/register`, `/api/auth/login`, `/api/auth/logout` | Create account/session, enter, leave. |
-| `GET` | `/api/auth/session` | Current account and settings for page reload/auth gate. |
-| `PATCH` | `/api/me/settings` | Preferred currency; affects only future carts. Theme may remain a local UI preference. |
-| `GET` | `/api/products?search=&category=&limit=&offset=` | Shopper's catalog, with bounded pagination and labeled price source. |
-| `POST` | `/api/products` | Register private product. |
-| `GET`, `PATCH` | `/api/products/:id` | Product details and edits to the shopper's private product. |
-| `GET` | `/api/products/:id/prices?currency=&unit=` | Dated bought prices and latest paid for that currency/unit. |
-| `GET` | `/api/cart` | Active cart, entries, totals, missing-price counts, budget and revision. |
-| `PATCH` | `/api/cart` | Edit budget using expected revision. |
-| `PUT` | `/api/cart/items/:productId` | Add/set the absolute desired quantity and price for an owned product, using expected revision. |
-| `PATCH`, `DELETE` | `/api/cart/items/:id` | Edit/remove owned entry; every mutation increments cart revision. |
-| `POST` | `/api/carts/:cartId/finish` | Confirm this exact cart; body carries expected revision. Retrying a completed cart returns that trip. |
-| `GET` | `/api/trips` | Paginated newest-first summaries with currency and corrected totals. |
-| `GET` | `/api/trips/:id` | Itemized bought/unbought trip with revision and original finish date. |
-| `PUT` | `/api/trips/:id` | Confirm full proposed correction set with expected revision. |
-| `GET` | `/healthz`, `/readyz` | Process and database checks from template. |
+| `POST` | `/api/auth/register`, `/api/auth/login`, `/api/auth/logout` | Account and session lifecycle. |
+| `GET` | `/api/auth/session` | Restore account and preference. |
+| `PATCH` | `/api/me/settings` | Preferred currency for future trips. Theme can remain local. |
+| `GET`, `POST` | `/api/products` | Search/filter/paginate private catalog; register custom item. |
+| `GET`, `PATCH` | `/api/products/:id` | Private catalog detail/edit. |
+| `GET`, `PATCH` | `/api/cart` | Active trip with entries, known totals, missing counts, budget and revision; edit budget. |
+| `PUT` | `/api/cart/items/:productId` | Add or set the single entry for a product to absolute desired values. |
+| `PATCH`, `DELETE` | `/api/cart/items/:id` | Edit displayed name, category, quantity, unit label, amounts or bought state; remove. |
+| `POST` | `/api/carts/:cartId/finish` | Confirm this exact trip using its revision; idempotent retry. |
+| `GET` | `/api/trips`, `/api/trips/:id` | Paginated history and itemized detail. |
+| `PUT` | `/api/trips/:id` | Confirm a full correction set using expected revision. |
+| `GET` | `/healthz`, `/readyz` | Process and database readiness. |
 
-Search is escaped, case-insensitive, bounded, and paginated; categories are a small controlled list. Product detail returns reference price separately from last-paid price, with source and currency labels. The reference price is suggested only when its currency and unit match the cart. An unknown price is JSON `null`, never inferred from a starter product. A last-paid suggestion is copied into a cart entry only after the shopper accepts or edits it.
+Search is escaped, case-insensitive, bounded, and paginated. Each cart/trip response explicitly distinguishes known subtotals from completeness flags and missing counts. An absent optional amount is JSON `null`, never `0` or an inferred catalog price.
 
-## 5. Frontend component organization
+## 5. Frontend and accessibility
 
-Keep a small `App` shell and organize by screen/feature rather than introducing a large state framework. React state and focused hooks are sufficient. Use the existing API facade so screens do not import transport details. Navigation can use the browser History API in a small local route layer; add a router dependency only if nested route/focus behavior makes that materially simpler. Preserve search/filter state in URL parameters and scroll/focus where practical.
+Keep the existing React/Vite package and API facade. A small app shell and feature modules need no state-management framework. The primary destinations remain Cart, Catalog, Trips, and Settings. Quick add and item editing should take fewer steps than optional money entry. A custom-item form asks for name and category, with optional image URL; do not create a price-history page. A finished trip detail includes a correction review.
 
-| Area | Components and behavior |
-| --- | --- |
-| Shared shell | `AppShell`, `Navigation`, `PageHeader`, `StatusMessage`, `ConfirmDialog`, `Money`, `ProductThumbnail`. Four labeled destinations at all widths. |
-| Auth | `SignInPage`, `RegisterPage`, `AuthGate`; distinct loading, invalid credentials, and retry states. |
-| Cart | `CartPage`, `BudgetSummary`, `CartItemRow`, `AddItemForm`, `FinishTripReview`; hide checked is local view state only. |
-| Catalog | `CatalogPage`, `ProductRow`, `ProductForm`, `ProductDetailPage`, `PriceHistory`; no-result registration preserves search text. |
-| Trips | `TripsPage`, `TripDetailPage`, `TripCorrectionForm`, `TripCorrectionReview`; original date stays visible. |
-| Settings | Currency preference, theme (`light`, `dark`, `system`), sign out. |
+Use [DESIGN_SYSTEM.md](../design/DESIGN_SYSTEM.md): semantic controls, visible focus, loading/empty/error states, phone portrait and landscape, desktop, light/dark, 200% zoom, reduced motion, and dialog focus return. Prices and budgets should not occupy the primary list controls. Optional images fall back to a neutral placeholder.
 
-Use the design tokens and patterns in `docs/design/DESIGN_SYSTEM.md`, semantic HTML and CSS. Start at 320px, then check phone landscape and desktop, 200% zoom, keyboard flow, focus return from dialogs, text contrast, and reduced motion. Keep loading, empty, offline/error, unknown-price, over-budget, and success states explicit. Image URLs are optional and fall back to a neutral placeholder; no upload service is needed.
+## 6. Authentication and security
 
-## 6. Authentication and authorization
+Keep Express-managed email/password authentication for the first release. This preserves the required Express API and matches the course checklist's bcrypt guidance without adding Supabase Auth or a browser Supabase client. Hash passwords with bcrypt; use an opaque random session token whose hash is stored in PostgreSQL. Send the token in an `HttpOnly`, `Secure` (production), `SameSite=Lax` cookie, revoke on logout, and expire old sessions. Every private repository query constrains by the authenticated owner. This choice can be revisited if the full professor assignment explicitly requires another auth mechanism; that instruction is not present in this repository.
 
-Use email/password accounts because private persistent data is required. Hash passwords with **bcrypt** as requested by the course security checklist. Generate an opaque random session token with Node `crypto`, store only its hash in PostgreSQL, and send the raw token in an `HttpOnly`, `Secure` (production), `SameSite=Lax` cookie. Rotate/revoke on login/logout and set an expiration. Session lookup adds `user_id` to the request; every private repository query constrains by that ID. Do not send or store tokens in localStorage.
+Serve browser and API on one HTTPS origin, check Origin on mutations, restrict development CORS, use `helmet`, rate-limit account endpoints, and keep secrets out of code and screenshots. Do not collect unnecessary personal data. Supabase's hosted database is not a reason to expose a direct browser data path.
 
-Serve the client and API from one origin in production, restrict CORS to the development Vite origin, check `Origin` on mutating requests, accept only JSON for mutations, and rate-limit registration/login and other abuse-prone endpoints. Use `helmet` for security headers. These two packages and a small rate-limit middleware are justified additions; avoid an external auth service. Validate fields, lengths, numeric precision, URL protocol (`http`/`https`), and ownership on the server. Use parameterized SQL, generic login errors, no credentials in client bundles or repository, and no stack traces in responses. The user interface gives a concise data-use notice and keeps fictitious seed data only.
+## 7. Verification and delivery
 
-## 7. Testing and verification strategy
+- Domain tests: quantity precision, absolute duplicate-add updates, independent estimated/actual item totals, missing versus zero, budget incompleteness, and currency isolation.
+- Disposable PostgreSQL/API integration: registration and logout, two-account isolation across resource families, idempotent starter seed, catalog/list snapshot stability, stale revisions, duplicate finish retry, unpriced bought items, unchecked snapshots, and trip correction totals.
+- Client walkthrough: complete checklist-only trip and priced trip against the real API; empty/loading/error states, keyboard/dialog focus, 320px portrait, landscape, desktop, dark mode and 200% zoom.
+- Release: public HTTPS full flow on Render with Supabase PostgreSQL, refresh nested routes, health/readiness, production mock disabled, dependency audit, security/privacy checklist, and course deliverables.
 
-* **Domain tests:** Node's built-in test runner for decimal/rounding rules, `each` versus decimal units, zero versus unknown price, budget warning, currency isolation, and validation. Test the exact API decimal-string contract.
-* **Database/API integration:** Run against a disposable PostgreSQL database with migrations and fictitious seed. Cover registration, session persistence/logout, two-account isolation for every resource family, private starter-copy editing, duplicate cart product behavior, stale revision `409`, finish retry returning one trip, bought price requirement, unchecked snapshot, correction changing totals/last-paid, and old snapshot stability after catalog edit.
-* **Client verification:** Build with `npm run build`, then walk the defined user flows against the real API. Check both light/dark and loading/empty/error states, keyboard-only and dialog focus, 320px portrait, phone landscape, desktop, and 200% zoom. Add focused component tests if repeated interaction defects emerge; avoid tests that only mirror markup.
-* **Deployment verification:** Exercise login and a complete trip on the public HTTPS origin with a real database, check `/healthz` and `/readyz`, refresh a nested URL, confirm account isolation, inspect browser network for cookie and CORS behavior, and confirm production cannot enter mock mode. Run dependency audit and the course security/privacy checklist before release.
+Tests and migrations must target disposable data until a hosted project is deliberately configured. Do not reset persistent Supabase data.
 
-No database reset or seed operation should run against persistent deployment data. Test fixtures use a separate database. Milestone gates in [ROADMAP.md](ROADMAP.md) keep verification small and attributable.
+Provider details should be checked again at setup: [Supabase PostgreSQL connection modes](https://supabase.com/docs/guides/database/connecting-to-postgres), [Supabase Data API security and disablement](https://supabase.com/docs/guides/api/securing-your-api), and [Render Express deployment](https://render.com/docs/deploy-node-express-app). The current proposal does not depend on Supabase Auth, Data API, Realtime, or Storage.
 
-## 8. Proposed project folder structure
+## Decisions retained
 
-```text
-CartCheck/
-├─ client/
-│  ├─ src/
-│  │  ├─ api/                 # domain facade and HTTP adapter; dev mock fixtures
-│  │  ├─ app/                 # App shell, navigation, auth gate, route state
-│  │  ├─ features/
-│  │  │  ├─ auth/
-│  │  │  ├─ cart/
-│  │  │  ├─ catalog/
-│  │  │  ├─ trips/
-│  │  │  └─ settings/
-│  │  ├─ components/          # shared accessible UI primitives
-│  │  ├─ lib/                 # formatting and view-only helpers
-│  │  └─ styles/              # tokens and responsive layouts
-│  └─ package.json
-├─ server/
-│  ├─ server.js               # boot and static asset serving
-│  ├─ app.js                  # Express configuration/middleware
-│  ├─ routes/                 # auth, products, cart, trips, settings
-│  ├─ services/               # transactions and domain rules
-│  ├─ repos/                  # owned parameterized SQL
-│  ├─ middleware/             # session, validation, errors, rate limit
-│  ├─ lib/                    # money and validation helpers
-│  ├─ db/
-│  │  ├─ schema.sql           # fresh-install schema
-│  │  ├─ migrations/          # numbered incremental SQL
-│  │  └─ seed-products.sql    # idempotent starter templates
-│  └─ test/                   # node:test unit and DB/API integration
-├─ docs/
-│  ├─ architecture/           # this design and roadmap
-│  └─ design/                 # approved UI/UX guidance
-└─ compose.yml                # local or self-hosted PostgreSQL/API
-```
-
-This is a target structure, not a request to move files before their implementation milestone. Existing `client`/`server` package boundaries and Vite proxy remain. No TypeScript conversion, ORM, queue, cache, analytics service, or state library is needed for the stated scope.
-
-## Decisions and tradeoffs for review
-
-| Decision | Reason and accepted tradeoff |
-| --- | --- |
-| One production origin | Reliable secure-cookie sessions and simple client API URL; requires a Node-capable web host rather than client-only Pages as the final app. |
-| PostgreSQL sessions | Logout/revocation and no browser token storage; adds one small table and periodic expiry cleanup. |
-| Private copy of starter templates | Simplifies ownership and editing; stores ~100 product rows per user and later template edits do not propagate. |
-| One active/completed trip lifecycle with snapshots | Avoids copying rows at finish and preserves history across catalog edits; stores a few repeated text fields and computes totals on reads. |
-| Explicit cart ID, optimistic revisions + transaction locks | Prevents stale review screens and duplicate Finish Trip; requires clients to handle `409` by reloading/reviewing. |
-| Two-decimal supported currencies | Keeps money rules clear and safe for first release; currencies with other minor-unit conventions need later schema/formatting work. |
-| Native React state and SQL | Fits template and app size; more manual wiring than a framework, with fewer dependencies and less setup. |
-
-**Review choice:** Confirm the initial supported currencies (proposed PHP, USD, EUR). The established rule that unchecked items are archived as not bought and the next cart begins empty is carried forward from the product flows. All other architecture choices above are implementation proposals for this review, not code changes.
+One active trip per account, private copies of starter catalog items, historical item snapshots, optimistic revisions plus transaction locks, and one production origin remain. They add modest schema and request handling but protect privacy, history accuracy, and duplicate Finish Trip behavior. PHP/USD/EUR, unchecked-as-not-bought, absolute duplicate-add edits, optional separate item totals, and Render plus Supabase hosting are approved scope decisions.

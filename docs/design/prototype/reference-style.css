@@ -1,0 +1,88 @@
+/* Header and card layout from the authoritative 03-design-system.pdf.
+   Exact light-theme colors are declared in styles.css. */
+
+.app-shell { display: block; }
+.sidebar { display: none; }
+.compact-header {
+  position: sticky;
+  z-index: 19;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  height: 76px;
+  padding: 0 max(32px, calc((100vw - 1200px) / 2));
+  border: 0;
+  background: var(--text);
+  color: #ffffff;
+}
+.compact-header .brand { color: #ffffff; font-size: 20px; font-weight: 800; letter-spacing: .015em; text-transform: uppercase; }
+.compact-header .brand-mark { width: 35px; height: 35px; background: var(--primary); color: #ffffff; }
+.compact-header .brand-period { color: #a9c9a5; }
+.landscape-nav { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.landscape-nav a { border-radius: 8px; padding: 9px 14px; color: #edf5ef; font-size: 14px; font-weight: 650; }
+.landscape-nav a[aria-current="page"] { background: #315143; color: #ffffff; }
+.compact-avatar { margin-left: 0; background: #315143; color: #ffffff; }
+
+.main-content { padding-top: 48px; }
+.eyebrow { color: var(--primary); }
+.eyebrow-line { background: var(--primary); }
+h1 { color: var(--text); font-weight: 780; }
+.page-heading { margin-bottom: 28px; }
+.button-primary { background: var(--primary); color: #ffffff; }
+.button-primary:hover { filter: brightness(1.06); }
+
+.progress-card { background: var(--surface); border-color: var(--border); }
+.progress-icon { background: var(--primary); color: #ffffff; }
+.progress-kicker, .progress-number strong { color: var(--primary); }
+.progress-track { background: #c8ddce; }
+.progress-track span { background: var(--primary); }
+
+.list-surface { overflow: visible; border: 0; background: transparent; }
+.list-tools { margin-bottom: 14px; padding: 20px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
+.search-field { background: var(--surface); }
+.filter-chip.selected { border-color: #b9c9be; background: #eef2ee; color: var(--text); }
+.section-heading { padding: 10px 2px 11px; }
+.section-heading h2 { font-size: 16px; }
+.count-badge { color: var(--primary); }
+.item-list { padding: 0; }
+.item-row, .item-row:last-child { min-height: 78px; margin-bottom: 9px; padding: 0 18px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--surface); }
+.item-check { border-color: #789a81; }
+.item-details strong { font-size: 15px; }
+.quantity { background: var(--canvas); }
+.purchased-heading { margin-top: 14px; padding-top: 12px; border-top: 0; background: transparent; }
+.purchased-list { padding-bottom: 0; background: transparent; }
+.is-done .item-check { border-color: var(--primary); background: var(--primary); color: #ffffff; }
+.is-done .item-details strong { text-decoration-color: #8baa94; }
+
+.budget-card { border-color: var(--border); }
+.budget-icon { background: var(--soft-olive); color: var(--primary); }
+.budget-link, .hide-text { color: var(--primary); }
+.finish-card { border-color: var(--border); background: var(--surface); }
+.finish-kicker { color: var(--primary); }
+.mobile-finish .button-primary { background: var(--primary); }
+
+@media (max-width: 1023px) {
+  .compact-header { height: 64px; padding: 0 24px; }
+  .compact-header .brand { font-size: 18px; }
+  .landscape-nav a { padding: 8px 10px; font-size: 13px; }
+  .main-content { padding-top: 34px; }
+}
+
+@media (max-width: 599px) {
+  .compact-header { height: 60px; padding: 0 16px; }
+  .compact-header .brand { font-size: 17px; }
+  .landscape-nav { display: none; }
+  .compact-avatar { margin-left: auto; }
+  .main-content { padding-top: 26px; }
+  .list-tools { padding: 15px 14px; }
+  .section-heading { padding: 10px 2px; }
+  .item-row, .item-row:last-child { min-height: 68px; margin-bottom: 8px; padding: 0 10px; }
+  .mobile-nav a[aria-current="page"] { color: var(--primary); }
+}
+
+@media (min-width: 600px) and (max-width: 959px) and (max-height: 550px) {
+  .compact-header { height: 52px; padding: 0 20px; }
+  .main-content { padding-top: 18px; }
+  .item-row, .item-row:last-child { min-height: 66px; }
+}

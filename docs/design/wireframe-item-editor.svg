@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="380" height="590" viewBox="0 0 380 590" role="img" aria-labelledby="title desc">
+  <title id="title">CartCheck item editor wireframe</title>
+  <desc id="desc">A low fidelity list item editor with required name and quantity, optional unit label and independent estimated and actual item totals.</desc>
+  <style>
+    .bg{fill:#eceeea}.screen{fill:#fff;stroke:#87918b;stroke-width:2}.box{fill:#f3f4f1;stroke:#b7beb8}.nav{fill:#f1f3ef;stroke:#cbd0cb}.line{stroke:#cbd0cb}.text{fill:#2d342e;font:15px Arial,sans-serif}.small{fill:#4c574e;font:12px Arial,sans-serif}.tiny{fill:#4c574e;font:11px Arial,sans-serif}.head{fill:#1c261e;font:bold 19px Arial,sans-serif}.label{fill:#27312a;font:bold 17px Arial,sans-serif}.button{fill:#445b49}.buttontext{fill:#fff;font:bold 13px Arial,sans-serif}
+  </style>
+  <rect class="bg" width="380" height="590"/>
+  <text class="label" x="20" y="28">8 · Add or edit a list item</text>
+  <rect class="screen" x="20" y="44" width="340" height="520" rx="18"/>
+  <text class="small" x="40" y="75">← Back to list</text>
+  <text class="head" x="40" y="106">Rice</text>
+  <text class="tiny" x="40" y="127">Existing item opens with current values.</text>
+  <text class="small" x="40" y="161">Item name</text>
+  <rect class="box" x="40" y="170" width="300" height="39" rx="6"/>
+  <text class="text" x="53" y="196">Rice</text>
+  <text class="small" x="40" y="237">Quantity</text><text class="small" x="211" y="237">Unit label (optional)</text>
+  <rect class="box" x="40" y="247" width="145" height="39" rx="6"/>
+  <text class="text" x="53" y="273">2</text>
+  <rect class="box" x="205" y="247" width="135" height="39" rx="6"/>
+  <text class="text" x="218" y="273">kg</text>
+  <line class="line" x1="40" y1="311" x2="340" y2="311"/>
+  <text class="small" x="40" y="338">Optional money details · PHP</text>
+  <text class="tiny" x="40" y="358">Each amount is a total for this item.</text>
+  <text class="small" x="40" y="385">Estimated total</text><text class="small" x="205" y="385">Actual total</text>
+  <rect class="box" x="40" y="393" width="145" height="39" rx="6"/>
+  <text class="text" x="53" y="419">₱130</text>
+  <rect class="box" x="205" y="393" width="135" height="39" rx="6"/>
+  <text class="tiny" x="40" y="447">Blank is unknown; zero is free.</text>
+  <rect class="button" x="40" y="451" width="300" height="40" rx="6"/>
+  <text class="buttontext" x="145" y="477">Save item</text>
+  <rect class="nav" x="20" y="494" width="340" height="70"/>
+  <text class="small" x="44" y="528">Cart</text><text class="small" x="119" y="528">Catalog</text><text class="small" x="222" y="528">Trips</text><text class="small" x="289" y="528">Settings</text>
+</svg>

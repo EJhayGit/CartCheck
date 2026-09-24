@@ -1,37 +1,39 @@
-# CartCheck product requirements (proposed)
+# CartCheck product requirements
 
-**Status:** Draft for review. No CartCheck functionality exists in the current starter application.
+**Status:** Approved planning baseline (2026-09-24). CartCheck functionality has not yet been implemented in the course starter.
 
-## Objective and users
+## Objective
 
-Help grocery shoppers, including students and families, prepare a reusable checklist, stay aware of a shopping budget, and remember what they paid. The first version supports an individual account.
+Help an individual shopper, including a student or family member, prepare a reusable grocery checklist, track shopping progress, and review finished trips. Budget tracking is optional. A shopper must be able to complete the checklist flow without entering a price or budget.
 
-## Required functionality for a complete first version
+## Required first-release behavior
 
-1. **Private account:** A shopper can register, sign in, sign out, and return to their saved catalog, active list, and purchase history. One account cannot read or change another account's data.
-2. **Reusable catalog:** Provide approximately 100 common grocery starter products with a name, category, and pricing unit, but no invented current price. Shoppers can search them, register custom products, and edit their own product names, categories, image URLs, and reference prices. Changes to starter products are private to that shopper.
-3. **Active cart:** Registering a product saves it for future use; adding a product puts it in the active cart. A failed search offers registration with the search text filled in, then returns the shopper to adding it. Entries can be edited, removed, marked purchased, and unmarked. The shopper can hide checked items without deleting them.
-4. **Quantity and price:** Products are priced per item (`each`), kilogram (`kg`), or liter (`L`). `Each` quantities are positive whole numbers; kilogram and liter quantities may be positive decimals. The shopper enters or changes the expected price per selected unit on a cart entry. Line total is quantity times unit price, rounded to the selected currency's minor unit. Zero is a valid price for a genuinely free item. Unknown prices are allowed and clearly marked as missing from estimates.
-5. **Budget and currency:** A new cart starts with an optional budget, which remains editable until the trip is finished. The account setting defaults to PHP and chooses the currency for new carts; changing it does not convert or relabel existing trip amounts. Show the cart estimate, checked-item subtotal, and remaining budget or amount over budget. A budget warning does not block finishing a trip. Totals with unknown prices must say they are incomplete.
-6. **Finish Trip and history:** “Finish Trip” opens a confirmation showing checked and unchecked items, item prices, and the checked-item total. Confirmation finalizes the whole cart as one dated trip; checked items are recorded as bought and unchecked items as not bought. A fresh cart starts afterward with a newly chosen budget. Past trips can be corrected by adding or removing items or changing their bought status, quantity, or price. Totals and last-paid prices recalculate after an edit. Editing a catalog product must not silently rewrite a past trip's item details.
-7. **Usable interface:** Responsive phone portrait, phone landscape, and desktop layouts; simple neutral colors without gradients or neon; light and dark themes; keyboard-visible focus, readable contrast, and clear loading, empty, error, and confirmation states. Motion should be subtle and respect reduced-motion preferences.
-8. **Public deployment and security:** The React client, Express API, and PostgreSQL database must be deployed and reachable. Shopper data remains private behind login. Validate input on the server, protect account endpoints from abuse, use parameterized queries and account ownership checks, restrict CORS, and keep credentials out of the client and repository.
+1. **Private account:** Register, sign in, sign out, and return to saved catalog items, the active list, and trip history. An account cannot read or change another account's data.
+2. **Reusable catalog:** Supply approximately 100 common grocery starter items with names and categories, without invented prices. Search and filter by category, register a custom item when no suitable match exists, and edit private catalog items. Brand, variant, and package size are not required. An optional image URL may be supplied; missing images use a placeholder.
+3. **One active grocery list:** Add an item from the catalog, or register it and return to the add step. Edit a list item's displayed name and quantity, remove it, mark it bought or unbought, and optionally hide checked items without deleting them. The list can be searched or organized by category. One catalog item has at most one active entry: adding it again opens that entry with its current values and saving sets the desired values rather than incrementing them.
+4. **Simple quantities:** Each list entry has a positive quantity (whole or decimal, up to three decimal places) and an optional short unit label such as `kg`, `L`, or `packs`. Quantity describes what to buy; it is not used to calculate a normalized or per-unit price. Editing an entry's name or quantity does not silently change the reusable catalog.
+5. **Optional prices:** Each entry may have a nullable estimated **item total** and a separate nullable actual **item total**, both nonnegative in the trip currency. Neither price is required to add or mark an item bought, or to finish a trip. Actual spending totals use only bought entries with actual prices; estimates use entries with estimated prices. A missing price is shown as incomplete, never treated as zero. `0.00` is a known, valid free-item amount.
+6. **Optional budget and currency:** The active trip may have a nullable budget, editable until finish. The account's preferred currency is PHP by default and may be PHP, USD, or EUR; it applies to new trips only. Existing active and completed trips retain their currency, and amounts in different currencies are never combined or relabeled. When a budget exists, show comparisons against known estimated and actual totals with clear incomplete labels where relevant. An over-budget warning never blocks shopping or finishing.
+7. **Finish Trip and history:** A confirmation reviews bought and not-bought entries and any known amounts. Finishing records the whole list as one dated trip: unchecked entries are **not bought** and do not roll into the next list. Create a new empty active list with no budget. History shows the date, item snapshots, quantities, optional prices, recorded spending, and incompleteness. Past trip items may be added, removed, or corrected for name, category, quantity, bought state, and prices after confirmation; totals update while the original finish date remains. Catalog edits never rewrite a past trip.
+8. **Usable interface:** Responsive phone portrait, phone landscape, and desktop layouts; neutral colors, light and dark themes, keyboard-visible focus, readable contrast, clear loading/empty/error/confirmation states, and reduced-motion support. Checklist actions remain primary; prices and budget stay secondary.
+9. **Public deployment and security:** Deploy the React/Vite client and Express API on Render with PostgreSQL hosted by Supabase. Keep all shopper data private behind Express authentication. Validate server input, limit abusive account requests, use parameterized queries and ownership checks, restrict CORS, and keep credentials out of the browser and repository.
 
 ## Screens
 
-- **Sign in / register** for account access.
-- **Active cart** for budget, quantities, prices, purchase marks, and the hide-checked option.
-- **Catalog search** for starter and custom products, with a path to register missing products.
-- **Product form/detail** for registration, customization, last-paid price, and price history.
-- **Finish Trip review** to confirm bought and unbought items.
-- **Trip history/detail** for past trips, their itemized totals, and corrections.
+- Sign in / register.
+- Active list, including quick add, quantity editing, bought status, optional prices and budget, and hide-checked control.
+- Searchable catalog and simple custom-item form.
+- Finish Trip review.
+- Trip list/detail and correction review.
 
-Currency, theme, and sign-out controls can live in a small settings/navigation area; they do not need separate pages.
+Currency, theme, and sign-out controls may live in a small settings area. A separate product price-history screen is not part of the first release.
 
-## Essential data
+## Essential data and acceptance examples
 
-Account (including preferred currency); reusable product (owner or starter source, name, category, pricing unit, optional image URL and reference price); one active cart per account (optional budget and currency); cart entries (quantity, price, purchase mark); finished trip; and trip item snapshots (name, unit, quantity, price, bought state, and totals). Product price history is derived from bought items in finished trips. A reference price is an estimate, never a claimed past purchase. Edited trips retain their original completion date and reflect the corrected values.
+Store accounts and sessions, shared starter items, private catalog items, one active trip per account, trip entries, and completed trip snapshots. Each entry keeps separate nullable estimated and actual item totals. Completed entries preserve their recorded name, category, quantity, unit label, bought status, and amounts.
 
-## Acceptance examples
+A shopper can add a starter item and a custom item without prices, edit quantities, check and uncheck either item, hide checked rows, and finish the trip with incomplete spending clearly labeled. A second trip begins empty. A bought item with actual price `0.00` is recorded as known and free. A later correction updates that trip's totals without changing its original date. Signing out and back in restores the account's data; another account cannot access it.
 
-A new shopper can add a starter product and a custom product, calculate `each`, `kg`, and `L` totals, set or edit a budget, hide checked items, and see warnings for unknown prices or an exceeded budget. Finish Trip requires confirmation and records both bought and unbought items. A later correction to a finished trip updates its totals and the affected item's last-paid price. A zero-priced bought item is valid. The same data is available after signing out and back in, while another account cannot access it.
+## Approved simplification
+
+The earlier per-`each`/`kg`/`L` price model, reference/last-paid prices, and separate per-product price history are removed from the first release. This gives up automatic repeat-purchase price suggestions and unit-price comparison. Dated trip history and corrections remain so shoppers can review and fix what they recorded. Mandatory brands, variants, package-size comparisons, automatic price comparisons, and price-history charts are outside scope.

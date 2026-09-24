@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>My Shopping List · CartCheck visual prototype</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="reference-style.css" />
+  </head>
+  <body>
+    <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <symbol id="icon-checkbag" viewBox="0 0 32 32">
+        <path d="M7 11.5h18l-1.5 15H8.5L7 11.5Z" />
+        <path d="M11.5 12V9a4.5 4.5 0 0 1 9 0v3" />
+        <path d="m12 19 2.5 2.5 5.5-6" />
+      </symbol>
+      <symbol id="icon-list" viewBox="0 0 24 24">
+        <path d="M8 6h12M8 12h12M8 18h12M3.5 6h.01M3.5 12h.01M3.5 18h.01" />
+      </symbol>
+      <symbol id="icon-grid" viewBox="0 0 24 24">
+        <rect x="3" y="3" width="7" height="7" rx="1.4" />
+        <rect x="14" y="3" width="7" height="7" rx="1.4" />
+        <rect x="3" y="14" width="7" height="7" rx="1.4" />
+        <rect x="14" y="14" width="7" height="7" rx="1.4" />
+      </symbol>
+      <symbol id="icon-clock" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3.5 2" />
+      </symbol>
+      <symbol id="icon-settings" viewBox="0 0 24 24">
+        <path d="M4 6h16M4 12h16M4 18h16" />
+        <circle cx="9" cy="6" r="2" /><circle cx="16" cy="12" r="2" /><circle cx="8" cy="18" r="2" />
+      </symbol>
+      <symbol id="icon-search" viewBox="0 0 24 24">
+        <circle cx="10.5" cy="10.5" r="6.5" /><path d="m15.5 15.5 5 5" />
+      </symbol>
+      <symbol id="icon-plus" viewBox="0 0 24 24">
+        <path d="M12 4v16M4 12h16" />
+      </symbol>
+      <symbol id="icon-arrow" viewBox="0 0 24 24">
+        <path d="M4 12h15m-6-6 6 6-6 6" />
+      </symbol>
+      <symbol id="icon-more" viewBox="0 0 24 24">
+        <circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" />
+      </symbol>
+      <symbol id="icon-wallet" viewBox="0 0 24 24">
+        <path d="M4 7V5.5A2.5 2.5 0 0 1 6.5 3H18v4M4 7h15a2 2 0 0 1 2 2v11H6a2 2 0 0 1-2-2V7Z" />
+        <path d="M21 12h-5a2 2 0 0 0 0 4h5" />
+      </symbol>
+    </svg>
+
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="Primary navigation">
+        <a class="brand" href="#shopping-list" aria-label="CartCheck home">
+          <span class="brand-mark"><svg aria-hidden="true"><use href="#icon-checkbag" /></svg></span>
+          <span>CartCheck<span class="brand-period">.</span></span>
+        </a>
+
+        <p class="nav-kicker">YOUR SPACE</p>
+        <nav class="side-nav" aria-label="Main navigation">
+          <a class="nav-link active" href="#shopping-list" aria-current="page"><svg aria-hidden="true"><use href="#icon-list" /></svg><span>Cart</span></a>
+          <a class="nav-link" href="screens.html#catalog"><svg aria-hidden="true"><use href="#icon-grid" /></svg><span>Catalog</span></a>
+          <a class="nav-link" href="screens.html#history"><svg aria-hidden="true"><use href="#icon-clock" /></svg><span>Trips</span></a>
+          <a class="nav-link" href="screens.html#settings"><svg aria-hidden="true"><use href="#icon-settings" /></svg><span>Settings</span></a>
+        </nav>
+
+        <div class="sidebar-foot">
+          <span class="account-avatar" aria-hidden="true">A</span>
+          <span class="account-copy"><strong>Alex Rivera</strong><small>Personal account</small></span>
+        </div>
+      </aside>
+
+      <div class="workspace">
+        <header class="compact-header">
+          <a class="brand" href="#shopping-list" aria-label="CartCheck home">
+            <span class="brand-mark"><svg aria-hidden="true"><use href="#icon-checkbag" /></svg></span>
+            <span>CartCheck<span class="brand-period">.</span></span>
+          </a>
+          <nav class="landscape-nav" aria-label="Main navigation">
+            <a href="#shopping-list" aria-current="page">Cart</a>
+            <a href="screens.html#catalog">Catalog</a>
+            <a href="screens.html#history">Trips</a>
+            <a href="screens.html#settings">Settings</a>
+          </nav>
+          <span class="compact-avatar" aria-label="Alex Rivera">A</span>
+        </header>
+
+        <main class="main-content" id="shopping-list">
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow"><span class="eyebrow-line"></span> TODAY'S TRIP <span class="eyebrow-dot">·</span> THURSDAY, SEP 24</p>
+              <h1>My Shopping List</h1>
+              <p class="page-subtitle">Everything you need, in one easy list.</p>
+            </div>
+            <a class="button button-primary add-button" href="screens.html#add-item"><svg aria-hidden="true"><use href="#icon-plus" /></svg>Add Item</a>
+          </div>
+
+          <div class="content-grid">
+            <section class="list-column" aria-label="Shopping list">
+              <section class="progress-card" aria-label="Shopping progress">
+                <div class="progress-copy">
+                  <span class="progress-icon" aria-hidden="true">✓</span>
+                  <div>
+                    <p class="progress-kicker">SHOPPING PROGRESS</p>
+                    <p class="progress-title">You're making good progress</p>
+                  </div>
+                </div>
+                <div class="progress-number"><strong>3 <span>/ 7</span></strong><small>items picked up</small></div>
+                <div class="progress-track" role="img" aria-label="3 of 7 items purchased"><span></span></div>
+              </section>
+
+              <section class="list-surface" aria-label="Grocery items">
+                <div class="list-tools">
+                  <label class="search-field">
+                    <svg aria-hidden="true"><use href="#icon-search" /></svg>
+                    <span class="visually-hidden">Search grocery items</span>
+                    <input type="search" placeholder="Search your groceries" aria-label="Search grocery items" />
+                  </label>
+                  <div class="filter-row" aria-label="Categories">
+                    <span class="filter-chip selected">All items <span>7</span></span>
+                    <span class="filter-chip">Produce</span>
+                    <span class="filter-chip">Dairy</span>
+                    <span class="filter-chip">Pantry</span>
+                    <span class="filter-chip">Household</span>
+                  </div>
+                </div>
+
+                <div class="section-heading"><div><h2>Still to buy</h2><span class="count-badge">4 items</span></div><span class="section-hint">Tap a circle as you shop</span></div>
+                <ul class="item-list" aria-label="Items still to buy">
+                  <li class="item-row">
+                    <span class="item-check" aria-hidden="true"></span>
+                    <span class="item-details"><strong>Fresh milk</strong><small>Dairy</small></span>
+                    <span class="quantity">2 cartons</span>
+                    <button class="more-button" type="button" aria-label="More options for Fresh milk"><svg aria-hidden="true"><use href="#icon-more" /></svg></button>
+                  </li>
+                  <li class="item-row">
+                    <span class="item-check" aria-hidden="true"></span>
+                    <span class="item-details"><strong>Bananas</strong><small>Produce</small></span>
+                    <span class="quantity">1.5 kg</span>
+                    <button class="more-button" type="button" aria-label="More options for Bananas"><svg aria-hidden="true"><use href="#icon-more" /></svg></button>
+                  </li>
+                  <li class="item-row">
+                    <span class="item-check" aria-hidden="true"></span>
+                    <span class="item-details"><strong>Tomatoes</strong><small>Produce</small></span>
+                    <span class="quantity">750 g</span>
+                    <button class="more-button" type="button" aria-label="More options for Tomatoes"><svg aria-hidden="true"><use href="#icon-more" /></svg></button>
+                  </li>
+                  <li class="item-row">
+                    <span class="item-check" aria-hidden="true"></span>
+                    <span class="item-details"><strong>Dish soap</strong><small>Household</small></span>
+                    <span class="quantity">1 bottle</span>
+                    <button class="more-button" type="button" aria-label="More options for Dish soap"><svg aria-hidden="true"><use href="#icon-more" /></svg></button>
+                  </li>
+                </ul>
+
+                <div class="section-heading purchased-heading"><div><h2>Purchased</h2><span class="count-badge purchased-count">3 items</span></div><span class="hide-text">Hide purchased</span></div>
+                <ul class="item-list purchased-list" aria-label="Purchased items">
+                  <li class="item-row is-done">
+                    <span class="item-check" aria-hidden="true">✓</span>
+                    <span class="item-details"><strong>Rice</strong><small>Pantry</small></span>
+                    <span class="quantity">2 kg</span>
+                    <button class="more-button" type="button" aria-label="More options for Rice"><svg aria-hidden="true"><use href="#icon-more" /></svg></button>
+                  </li>
+                  <li class="item-row is-done">
+                    <span class="item-check" aria-hidden="true">✓</span>
+                    <span class="item-details"><strong>Eggs</strong><small>Dairy</small></span>
+                    <span class="quantity">1 dozen</span>
+                    <button class="more-button" type="button" aria-label="More options for Eggs"><svg aria-hidden="true"><use href="#icon-more" /></svg></button>
+                  </li>
+                  <li class="item-row is-done">
+                    <span class="item-check" aria-hidden="true">✓</span>
+                    <span class="item-details"><strong>Whole wheat bread</strong><small>Pantry</small></span>
+                    <span class="quantity">1 loaf</span>
+                    <button class="more-button" type="button" aria-label="More options for Whole wheat bread"><svg aria-hidden="true"><use href="#icon-more" /></svg></button>
+                  </li>
+                </ul>
+              </section>
+            </section>
+
+            <aside class="summary-column" aria-label="Trip options">
+              <section class="budget-card" aria-labelledby="budget-title">
+                <div class="budget-heading"><span class="budget-icon"><svg aria-hidden="true"><use href="#icon-wallet" /></svg></span><span class="optional-tag">OPTIONAL</span></div>
+                <h2 id="budget-title">Your budget</h2>
+                <p class="budget-description">Keep track of spending if it helps. Your list works just as well without it.</p>
+                <div class="budget-state"><span>Budget</span><strong>Not set</strong></div>
+                <div class="budget-state"><span>Recorded spending</span><strong>No prices entered</strong></div>
+                <button class="budget-link" type="button">Add a budget <svg aria-hidden="true"><use href="#icon-arrow" /></svg></button>
+              </section>
+
+              <section class="finish-card" aria-labelledby="finish-title">
+                <p class="finish-kicker">WHEN YOU'RE READY</p>
+                <h2 id="finish-title">All done shopping?</h2>
+                <p>Finish your trip to save what you picked up. The rest will be recorded as not bought.</p>
+                <a class="button button-primary finish-button" href="screens.html#finish-shopping">Finish Shopping <svg aria-hidden="true"><use href="#icon-arrow" /></svg></a>
+              </section>
+            </aside>
+          </div>
+        </main>
+
+        <div class="mobile-finish"><a class="button button-primary" href="screens.html#finish-shopping">Finish Shopping <svg aria-hidden="true"><use href="#icon-arrow" /></svg></a></div>
+        <nav class="mobile-nav" aria-label="Mobile navigation">
+          <a href="#shopping-list" aria-current="page"><svg aria-hidden="true"><use href="#icon-list" /></svg><span>Cart</span></a>
+          <a href="screens.html#catalog"><svg aria-hidden="true"><use href="#icon-grid" /></svg><span>Catalog</span></a>
+          <a href="screens.html#history"><svg aria-hidden="true"><use href="#icon-clock" /></svg><span>Trips</span></a>
+          <a href="screens.html#settings"><svg aria-hidden="true"><use href="#icon-settings" /></svg><span>Settings</span></a>
+        </nav>
+      </div>
+    </div>
+  </body>
+</html>
