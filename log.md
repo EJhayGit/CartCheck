@@ -1,0 +1,14 @@
+# Development log
+
+## 2026-09-27 — Milestone 2 accounts and API shell
+
+- Confirmed the Supabase plugin can list the healthy Cart Check development project and query its private `cartcheck` schema. Baseline: 7 tables, 108 unique starter products, no users or sessions.
+- Confirmed the server's existing development PostgreSQL configuration connects through the Supabase session pooler with TLS. A sandboxed connection returned `EACCES`; the authorized network preflight succeeded outside the sandbox.
+- Replaced the starter sightings React screen with CartCheck sign-in, registration, session restore/error, and signed-in placeholder screens. The UI uses the approved sign-in/register mockups and design tokens, with cookie-based `/api/auth` requests.
+- Replaced the client HTTP facade for authentication and confirmed the client production build passes.
+- Added Express-managed account registration/login, `/api/auth/me` (and `/session` alias), logout, bcrypt password hashes, random opaque session cookies, PostgreSQL session hashes, expiry and revocation. Registration copies the starter catalog into owner-scoped rows and creates one active trip. Removed the public starter sightings routes.
+- Added server-side credential validation, an auth request rate limit, Origin enforcement, credentialed allowlisted CORS, Helmet, safe error logging, and static serving of the built React client from Express.
+- Automated checks: `server/npm test` passed 9 unit tests (the opt-in database test is skipped in this default command); the PostgreSQL HTTP integration test separately passed against the configured development database. It checked lifecycle, hashing, cookies, expiry, logout, denied and missing origins, each session's own identity, and separate owner-scoped initial data. Generated users and dependent rows were removed; Supabase query confirmed zero users, sessions, products, and trips afterward. `client/npm run build` passed.
+- Manual checks: local Vite sign-in and registration screens rendered; the production React build rendered through Express. `/` and the logo asset returned 200; unauthenticated `/api/auth/me` returned 401; unknown `/api/unknown` returned 404; malformed auth JSON returned 400. The server log printed only error metadata, without the test password.
+- Security review found and fixed missing production static serving, unsafe body-parser error logging, and a missing-Origin bypass on auth mutations. `npm audit --omit=dev` reported zero vulnerabilities in both client and server. `server/.env` is ignored and no `.env`, `.pem`, or `id_rsa` file is tracked.
+- Scope limit: no private catalog/list/history endpoints exist in Milestone 2, so cross-account HTTP access to those resource families cannot yet be exercised. The integration test verified ownership of initial database rows for two accounts.

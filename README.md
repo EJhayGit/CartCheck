@@ -1,8 +1,8 @@
 # CartCheck
 
-CartCheck is a planned grocery checklist for an individual shopper. Find or register reusable items, manage one active shopping list, mark purchases, optionally record prices and a budget, then finish and review a dated trip. The [approved product requirements](docs/PRODUCT_REQUIREMENTS.md), [design specification](docs/design/README.md), and [implementation roadmap](docs/architecture/ROADMAP.md) define the next development work.
+CartCheck is a grocery checklist for an individual shopper. Milestone 2 provides private accounts and a real API shell; catalog and shopping flows are planned for later milestones. The [approved product requirements](docs/PRODUCT_REQUIREMENTS.md), [design specification](docs/design/README.md), and [implementation roadmap](docs/architecture/ROADMAP.md) define the remaining work.
 
-**Current status:** Milestone 1 database files, value helpers, and server connection configuration are prepared and verified against the Supabase development database. The React UI and Express sightings routes are still the professor's **HAUnted Sightings** example; CartCheck account and shopping functionality begins in Milestone 2. No Render service has been created.
+**Current status:** Milestone 1 database files are verified against the Supabase development database. Milestone 2 adds Express-managed registration, sign-in, session restoration, sign-out, and a minimal React account UI. No grocery screens or Render service have been created.
 
 See [Milestone 1 local setup](docs/MILESTONE_1_SETUP.md) for safe database initialization and verification.
 
@@ -31,20 +31,26 @@ The [professor's mockup document](docs/02-mockup.md) links to 48 final PNG expor
 
 Per-unit pricing, last-paid suggestions, and a separate product price-history screen were removed from the first release to keep the checklist fast. Trip-level spending history and correction remain.
 
-## Running the current starter locally
+## Running Milestone 2 locally
 
-Install Node.js 20 or newer and npm. To view the existing browser-only sightings example:
+Install Node.js 20 or newer and npm. Configure `server/.env` using `server/.env.example` and the approved development PostgreSQL connection, then run the server and client in separate terminals:
+
+```powershell
+cd server
+npm ci
+npm run db:preflight
+npm run dev
+```
 
 ```powershell
 cd client
 npm ci
-Copy-Item .env.example .env
 npm run dev
 ```
 
-Open `http://localhost:5173`. It currently shows **HAUnted Sightings**, using localStorage demo data. This setup has not been verified in this checkout.
+Open `http://localhost:5173`. Vite proxies `/api` to Express on port 3000. Use `npm test` in `server` for unit tests. The opt-in PostgreSQL integration test requires `CARTCHECK_TEST_DATABASE_URL` pointing at a disposable development database and the configured TLS CA when applicable; it creates and cleans up its own accounts.
 
-The sightings API remains available as starter code, but its old table is no longer created by the CartCheck migration. Use the documented disposable CartCheck database for migration checks. The non-destructive commands are now `npm run db:migrate` and `npm run db:seed`; there is no reset command. Milestone 2 will replace the sightings API and browser mock with private CartCheck flows.
+The old sightings API and browser mock are not part of the Milestone 2 flow. Use the documented disposable CartCheck database for migration checks. The non-destructive commands are `npm run db:migrate` and `npm run db:seed`; there is no reset command.
 
 `VITE_` values are public in the browser bundle. Database URLs, passwords, and session secrets belong only in server or hosting environment variables. The development Vite `/api` proxy does not replace production Express hosting.
 

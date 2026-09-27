@@ -1,127 +1,28 @@
-/* Deliberately plain. Module 3 covered styling in React properly: CSS modules,
-   Tailwind, styled-components, a component library. Replace this with whichever
-   you chose and can defend. */
-
-:root {
-  color-scheme: light dark;
-  --bg: #fbfbfd;
-  --fg: #1a1a1f;
-  --muted: #5c5c6b;
-  --line: #dcdce6;
-  --card: #ffffff;
-  --accent: #4a3f8f;
-  --warn-bg: #fff6dd;
-  --warn-line: #e0bf6a;
-  --error-bg: #fdeaea;
-  --error-line: #d98a8a;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #14141a;
-    --fg: #ececf2;
-    --muted: #a0a0b0;
-    --line: #33333f;
-    --card: #1d1d25;
-    --accent: #a99cf0;
-    --warn-bg: #3a3320;
-    --warn-line: #7d6a30;
-    --error-bg: #3a2323;
-    --error-line: #7d4040;
-  }
-}
-
+:root { font-family: system-ui, -apple-system, 'Segoe UI', Arial, sans-serif; color: #172b26; background: #f4f7f4; font-synthesis: none; }
 * { box-sizing: border-box; }
-
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--fg);
-  font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
-}
-
-.page { max-width: 44rem; margin: 0 auto; padding: 2rem 1rem 4rem; }
-
-h1 { margin: 0 0 .25rem; font-size: 1.9rem; }
-h2 { margin: 0 0 .75rem; font-size: 1.15rem; }
-h3 { margin: 0; font-size: 1.05rem; }
-
-.lede, .muted { color: var(--muted); }
-.lede { margin-top: 0; }
-
-.demo-notice {
-  background: var(--warn-bg);
-  border: 1px solid var(--warn-line);
-  border-radius: .5rem;
-  padding: .9rem 1rem;
-  margin: 1.5rem 0;
-}
-
-.error {
-  background: var(--error-bg);
-  border: 1px solid var(--error-line);
-  border-radius: .5rem;
-  padding: .75rem 1rem;
-}
-
-.card {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: .5rem;
-  padding: 1rem;
-  margin-bottom: 1rem;
-}
-
-form.card { display: flex; flex-direction: column; gap: .35rem; }
-
-label { font-size: .85rem; color: var(--muted); margin-top: .5rem; }
-
-input, textarea {
-  font: inherit;
-  color: inherit;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: .35rem;
-  padding: .5rem .6rem;
-}
-
-button {
-  font: inherit;
-  cursor: pointer;
-  border: 1px solid var(--accent);
-  background: var(--accent);
-  color: #fff;
-  border-radius: .35rem;
-  padding: .45rem .9rem;
-  margin-top: .75rem;
-  align-self: flex-start;
-}
-
-button:disabled { opacity: .6; cursor: default; }
-
-/* Never remove a focus outline without replacing it. Keyboard users need to
-   see where they are, and it is checked. */
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-.list { list-style: none; padding: 0; margin: 0; }
-
-.row-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
-
-.spooky { color: var(--accent); letter-spacing: .15em; }
-
-.card footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  margin-top: .5rem;
-  font-size: .85rem;
-  color: var(--muted);
-}
-
-.card footer button {
-  margin-top: 0;
-  background: transparent;
-  color: var(--muted);
-  border-color: var(--line);
-}
+body { margin: 0; min-width: 320px; }
+button, input { font: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: default; opacity: .65; }
+:focus-visible { outline: 3px solid #176b45; outline-offset: 3px; }
+.site-header { height: 76px; background: #172b26; }
+.header-inner { max-width: 1200px; height: 100%; margin: auto; padding: 0 24px; display: flex; align-items: center; }
+.brand { display: block; width: 175px; height: auto; }
+.auth-main { min-height: calc(100vh - 76px); display: grid; place-items: center; padding: 32px 16px 64px; }
+.auth-card { width: min(100%, 450px); padding: 32px; background: #fff; border: 1px solid #d7e2d9; border-radius: 12px; }
+.eyebrow { margin: 0 0 12px; color: #176b45; font-size: 11px; font-weight: 800; letter-spacing: .07em; }
+h1 { margin: 0; font-size: 34px; line-height: 1.2; letter-spacing: -.035em; }
+.intro, .signed-in > p:not(.eyebrow) { margin: 6px 0 24px; font-size: 14px; line-height: 1.5; color: #42584e; }
+form { display: flex; flex-direction: column; }
+label { margin: 0 0 7px; font-size: 13px; font-weight: 700; }
+input { width: 100%; min-height: 46px; padding: 10px 13px; margin-bottom: 21px; border: 1px solid #d7e2d9; border-radius: 8px; background: #fff; color: #172b26; }
+input::placeholder { color: #42584e; opacity: 1; }
+.primary-button { width: 100%; min-height: 48px; margin-top: 20px; padding: 10px 16px; border: 0; border-radius: 8px; background: #176b45; color: #fff; font-size: 14px; font-weight: 700; }
+.primary-button:hover:not(:disabled) { background: #125537; }
+.switch-prompt { margin: 20px 0 0; text-align: center; font-size: 13px; color: #42584e; }
+.text-button { padding: 0; border: 0; background: none; color: #176b45; font-size: inherit; font-weight: 700; }
+.text-button:hover { text-decoration: underline; }
+.alert { margin: 0 0 8px; padding: 10px 12px; border: 1px solid #e4b7b7; border-radius: 8px; color: #9c3737; background: #fff5f5; font-size: 14px; }
+.signed-in .account-email { margin: 24px 0 0; padding: 14px; border: 1px solid #d7e2d9; border-radius: 8px; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .site-header { height: 64px; } .header-inner { padding: 0 16px; } .brand { width: 155px; } .auth-main { min-height: calc(100vh - 64px); place-items: start center; padding-top: 22px; } .auth-card { padding: 28px 24px; } h1 { font-size: 30px; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }

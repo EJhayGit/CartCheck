@@ -1,169 +1,100 @@
 import { useEffect, useState } from 'react'
-import { listSightings, createSighting, deleteSighting } from './api'
-import DemoNotice from './components/DemoNotice.jsx'
+import { getSession, login, logout, register } from './api/httpApi.js'
 
-// A deliberately small working app. Replace all of it with your own project.
-//
-// What is worth keeping is the SHAPE: four states rather than two, a loading
-// message that admits a free-tier server can be slow to wake, and errors that
-// say something rather than rendering an empty list.
-
-const EMPTY_FORM = { place: '', description: '', spookiness: 3 }
+const EMPTY_FORM = { email: '', password: '' }
 
 export default function App() {
-  const [status, setStatus] = useState('loading')   // loading | ready | error
-  const [rows, setRows] = useState([])
-  const [error, setError] = useState(null)
-  const [slow, setSlow] = useState(false)
+  const [status, setStatus] = useState('loading')
+  const [user, setUser] = useState(null)
+  const [mode, setMode] = useState('login')
   const [form, setForm] = useState(EMPTY_FORM)
-  const [saving, setSaving] = useState(false)
-
-  async function load() {
-    setStatus('loading')
-    setError(null)
-
-    // A free-tier API sleeps. If this is taking a while, say so rather than
-    // spinning silently, which looks broken. See page 6.
-    const timer = setTimeout(() => setSlow(true), 3000)
-
-    try {
-      setRows(await listSightings())
-      setStatus('ready')
-    } catch (caught) {
-      setError(caught)
-      setStatus('error')
-    } finally {
-      clearTimeout(timer)
-      setSlow(false)
-    }
-  }
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    load()
+    let active = true
+    getSession().then((result) => {
+      if (active) { setUser(result.user); setStatus('ready') }
+    }).catch((caught) => {
+      if (active) {
+        if (caught.status !== 401) setError('We could not restore your session. Please try again.')
+        setStatus(caught.status === 401 ? 'ready' : 'error')
+      }
+    })
+    return () => { active = false }
   }, [])
 
-  async function handleSubmit(event) {
-    event.preventDefault()
-    if (!form.place.trim()) return
-
-    setSaving(true)
+  async function retryRestore() {
+    setError('')
+    setStatus('loading')
     try {
-      const created = await createSighting({
-        place: form.place.trim(),
-        description: form.description.trim(),
-        spookiness: Number(form.spookiness),
-      })
-      setRows([created, ...rows])
-      setForm(EMPTY_FORM)
+      const result = await getSession()
+      setUser(result.user)
+      setStatus('ready')
     } catch (caught) {
-      setError(caught)
-    } finally {
-      setSaving(false)
+      setStatus(caught.status === 401 ? 'ready' : 'error')
+      if (caught.status !== 401) setError('We could not restore your session. Please try again.')
     }
   }
 
-  async function handleDelete(id) {
-    const previous = rows
-    setRows(rows.filter((row) => row.id !== id))   // optimistic
+  function switchMode(nextMode) {
+    setMode(nextMode)
+    setForm(EMPTY_FORM)
+    setError('')
+  }
+
+  async function submit(event) {
+    event.preventDefault()
+    setBusy(true)
+    setError('')
     try {
-      await deleteSighting(id)
+      const result = await (mode === 'login' ? login(form) : register(form))
+      setUser(result.user)
+      setForm(EMPTY_FORM)
     } catch (caught) {
-      setRows(previous)                            // put it back on failure
-      setError(caught)
-    }
+      setError(caught.message)
+    } finally { setBusy(false) }
+  }
+
+  async function signOut() {
+    setBusy(true)
+    setError('')
+    try {
+      await logout()
+      setUser(null)
+      switchMode('login')
+    } catch (caught) {
+      setError(caught.message)
+    } finally { setBusy(false) }
   }
 
   return (
-    <div className="page">
-      <header>
-        <h1>HAUnted Sightings</h1>
-        <p className="lede">
-          Replace this with your own project. This one is here so the template
-          has something that works.
-        </p>
-      </header>
-
-      <DemoNotice />
-
-      {error && (
-        <p className="error" role="alert">
-          {error.message} <button onClick={load}>Try again</button>
-        </p>
-      )}
-
-      <form onSubmit={handleSubmit} className="card">
-        <h2>Report a sighting</h2>
-
-        <label htmlFor="place">Place</label>
-        <input
-          id="place"
-          value={form.place}
-          onChange={(event) => setForm({ ...form, place: event.target.value })}
-          maxLength={120}
-          required
-        />
-
-        <label htmlFor="description">What happened</label>
-        <textarea
-          id="description"
-          value={form.description}
-          onChange={(event) => setForm({ ...form, description: event.target.value })}
-          maxLength={2000}
-          rows={3}
-        />
-
-        <label htmlFor="spookiness">Spookiness, 1 to 5</label>
-        <input
-          id="spookiness"
-          type="number"
-          min="1"
-          max="5"
-          value={form.spookiness}
-          onChange={(event) => setForm({ ...form, spookiness: event.target.value })}
-          required
-        />
-
-        <button type="submit" disabled={saving}>
-          {saving ? 'Saving...' : 'Add sighting'}
-        </button>
-      </form>
-
-      {/* Four states. Empty and error are different things and must not look
-          the same: an empty list means "nothing here yet", an error means
-          "we could not find out". */}
-      {status === 'loading' && (
-        <p className="muted">
-          Loading{slow ? '. The server may be waking up, which can take up to a minute.' : '...'}
-        </p>
-      )}
-
-      {status === 'ready' && rows.length === 0 && (
-        <p className="muted">No sightings reported yet. Add the first one above.</p>
-      )}
-
-      {status === 'ready' && rows.length > 0 && (
-        <ul className="list">
-          {rows.map((row) => (
-            <li key={row.id} className="card">
-              <div className="row-head">
-                <h3>{row.place}</h3>
-                <span className="spooky" aria-label={`Spookiness ${row.spookiness} of 5`}>
-                  {'*'.repeat(row.spookiness)}
-                </span>
-              </div>
-              {row.description
-                ? <p>{row.description}</p>
-                : <p className="muted">No description given.</p>}
-              <footer>
-                <time dateTime={row.reported_at}>
-                  {new Date(row.reported_at).toLocaleString()}
-                </time>
-                <button onClick={() => handleDelete(row.id)}>Delete</button>
-              </footer>
-            </li>
-          ))}
-        </ul>
-      )}
+    <div className="app">
+      <header className="site-header"><div className="header-inner"><img src="/cartcheck-logo-on-dark.svg" alt="CartCheck" className="brand" /></div></header>
+      <main className="auth-main">
+        {status === 'loading' && <section className="auth-card" role="status"><p className="eyebrow">CARTCHECK</p><h1>Restoring your session</h1><p>Checking your account…</p></section>}
+        {status === 'error' && <section className="auth-card"><h1>Could not connect</h1><p className="alert" role="alert">{error}</p><button className="primary-button" onClick={retryRestore}>Try again</button></section>}
+        {status === 'ready' && user && <section className="auth-card signed-in">
+          <p className="eyebrow">WELCOME TO CARTCHECK</p><h1>You’re signed in</h1>
+          <p>Your private CartCheck space is ready.</p><p className="account-email">{user.email}</p>
+          {error && <p className="alert" role="alert">{error}</p>}
+          <button className="primary-button" onClick={signOut} disabled={busy}>{busy ? 'Signing out…' : 'Sign out'}</button>
+        </section>}
+        {status === 'ready' && !user && <section className="auth-card">
+          <p className="eyebrow">{mode === 'login' ? 'WELCOME BACK' : 'GET STARTED'}</p>
+          <h1>{mode === 'login' ? 'Sign in' : 'Create your account'}</h1>
+          <p className="intro">{mode === 'login' ? 'Your shopping list, catalog, and trip history are ready.' : 'Keep your catalog, active list, and shopping history together.'}</p>
+          <form onSubmit={submit}>
+            <label htmlFor="email">Email address</label>
+            <input id="email" type="email" autoComplete="email" placeholder="you@example.com" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} maxLength={320} required />
+            <label htmlFor="password">Password</label>
+            <input id="password" type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} placeholder={mode === 'login' ? 'Enter your password' : 'Create a password'} value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} minLength={8} required />
+            {error && <p className="alert" role="alert">{error}</p>}
+            <button className="primary-button" type="submit" disabled={busy}>{busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}</button>
+          </form>
+          <p className="switch-prompt">{mode === 'login' ? 'New to CartCheck?' : 'Already have an account?'}{' '}<button className="text-button" type="button" onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}>{mode === 'login' ? 'Create an account' : 'Sign in'}</button></p>
+        </section>}
+      </main>
     </div>
   )
 }

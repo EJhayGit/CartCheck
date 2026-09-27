@@ -21,4 +21,3 @@ backup*.sql
 # Logs
 *.log
 npm-debug.log*
-log.md
