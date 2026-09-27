@@ -13,14 +13,14 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: haunted
+      POSTGRES_DB: cartcheck
     volumes:
       - pgdata:/var/lib/postgresql/data
       # Runs the FIRST time the volume is created, and never again. Later schema
       # changes go through your own migration files.
       - ./server/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U postgres -d haunted']
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d cartcheck']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -33,7 +33,7 @@ services:
     restart: unless-stopped
     environment:
       # "db" is the service name above; Compose resolves it for you.
-      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/haunted
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/cartcheck
       CORS_ORIGINS: ${CORS_ORIGINS}
       NODE_ENV: production
       PORT: 3000

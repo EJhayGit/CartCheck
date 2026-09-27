@@ -6,9 +6,11 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --env-file=.env --watch server.js",
-    "db:schema": "node --env-file=.env db/run.js db/schema.sql",
-    "db:seed": "node --env-file=.env db/run.js db/seed.sql",
-    "db:reset": "npm run db:schema && npm run db:seed"
+    "db:migrate": "node --env-file=.env db/run.js migrate",
+    "db:seed": "node --env-file=.env db/run.js seed",
+    "db:verify": "node --env-file=.env db/verify.js",
+    "db:preflight": "node --env-file=.env db/preflight.js",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=20"

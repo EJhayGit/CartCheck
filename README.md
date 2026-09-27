@@ -2,7 +2,9 @@
 
 CartCheck is a planned grocery checklist for an individual shopper. Find or register reusable items, manage one active shopping list, mark purchases, optionally record prices and a budget, then finish and review a dated trip. The [approved product requirements](docs/PRODUCT_REQUIREMENTS.md), [design specification](docs/design/README.md), and [implementation roadmap](docs/architecture/ROADMAP.md) define the next development work.
 
-**Current status:** The application code is still the professor's **HAUnted Sightings** example. No CartCheck functionality, Render service, or Supabase project has been created or verified by this documentation revision.
+**Current status:** Milestone 1 database files, value helpers, and server connection configuration are prepared and verified against the Supabase development database. The React UI and Express sightings routes are still the professor's **HAUnted Sightings** example; CartCheck account and shopping functionality begins in Milestone 2. No Render service has been created.
+
+See [Milestone 1 local setup](docs/MILESTONE_1_SETUP.md) for safe database initialization and verification.
 
 ## Approved architecture
 
@@ -42,7 +44,7 @@ npm run dev
 
 Open `http://localhost:5173`. It currently shows **HAUnted Sightings**, using localStorage demo data. This setup has not been verified in this checkout.
 
-The current PostgreSQL-backed sightings example uses a disposable local `haunted` database. In `server/`, run `npm ci`, copy `.env.example` to `.env`, set `DATABASE_URL`, run `npm run db:schema`, then `npm run dev`. In `client/.env`, set `VITE_USE_MOCK_API=false` and restart the client. The current example's `db:seed` truncates sightings; **do not run `db:seed` or `db:reset` against retained data**. These instructions describe the starter, not a working CartCheck setup, and have not been verified here.
+The sightings API remains available as starter code, but its old table is no longer created by the CartCheck migration. Use the documented disposable CartCheck database for migration checks. The non-destructive commands are now `npm run db:migrate` and `npm run db:seed`; there is no reset command. Milestone 2 will replace the sightings API and browser mock with private CartCheck flows.
 
 `VITE_` values are public in the browser bundle. Database URLs, passwords, and session secrets belong only in server or hosting environment variables. The development Vite `/api` proxy does not replace production Express hosting.
 
