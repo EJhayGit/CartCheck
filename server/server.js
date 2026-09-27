@@ -8,7 +8,9 @@ import { fileURLToPath } from 'node:url'
 import { pool } from './db/pool.js'
 import * as authRepo from './authRepo.js'
 import * as catalogRepo from './catalogRepo.js'
+import * as cartRepo from './cartRepo.js'
 import { CATALOG_CATEGORIES, parseCatalogId, validateCatalogInput, validateCatalogQuery } from './catalogValidation.js'
+import { parseItemId, validateItemChanges } from './cartValidation.js'
 import { normalizeEmail, publicUser, validatePassword } from './authValidation.js'
 import {
   createAuthRateLimiter,
@@ -200,6 +202,52 @@ app.delete('/api/catalog/:id', checkRequestOrigin, authenticate, async (request,
     if (error.code === '23503') return response.status(409).json({ error: 'This item is used by a shopping trip and cannot be deleted' })
     next(error)
   }
+})
+
+app.get('/api/cart', authenticate, async (request, response, next) => {
+  try { response.json(await cartRepo.getCart(pool, request.user.id)) }
+  catch (error) { next(error) }
+})
+
+app.post('/api/cart/items', checkRequestOrigin, authenticate, async (request, response, next) => {
+  const body = request.body
+  if (!body || typeof body !== 'object' || Array.isArray(body) ||
+      Object.keys(body).length !== 1 || !Object.hasOwn(body, 'productId')) {
+    return response.status(400).json({ error: 'Provide a catalog product ID' })
+  }
+  if (typeof body.productId !== 'string' && typeof body.productId !== 'number') {
+    return response.status(400).json({ error: 'Invalid catalog product ID' })
+  }
+  const productId = parseCatalogId(String(body.productId))
+  if (productId === null) return response.status(400).json({ error: 'Invalid catalog product ID' })
+  try {
+    const result = await cartRepo.addCatalogItem(pool, request.user.id, productId)
+    if (!result) return response.status(404).json({ error: 'Catalog item not found' })
+    response.status(result.created ? 201 : 200).json(result)
+  } catch (error) { next(error) }
+})
+
+app.patch('/api/cart/items/:id', checkRequestOrigin, authenticate, async (request, response, next) => {
+  const id = parseItemId(request.params.id)
+  if (id === null) return response.status(400).json({ error: 'Invalid list item ID' })
+  const changes = validateItemChanges(request.body)
+  if (changes.error) return response.status(400).json({ error: changes.error })
+  try {
+    const item = await cartRepo.updateItem(pool, request.user.id, id, changes)
+    if (!item) return response.status(404).json({ error: 'List item not found' })
+    response.json({ item })
+  } catch (error) { next(error) }
+})
+
+app.delete('/api/cart/items/:id', checkRequestOrigin, authenticate, async (request, response, next) => {
+  const id = parseItemId(request.params.id)
+  if (id === null) return response.status(400).json({ error: 'Invalid list item ID' })
+  try {
+    if (!await cartRepo.deleteItem(pool, request.user.id, id)) {
+      return response.status(404).json({ error: 'List item not found' })
+    }
+    response.status(204).end()
+  } catch (error) { next(error) }
 })
 
 // Is the process alive?

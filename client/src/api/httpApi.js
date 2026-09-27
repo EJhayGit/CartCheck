@@ -32,3 +32,7 @@ export const getCatalog = ({ search = '', category = '' } = {}) => {
 export const createCatalogItem = (input) => request('/api/catalog', { method: 'POST', body: JSON.stringify(input) })
 export const updateCatalogItem = (id, input) => request(`/api/catalog/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(input) })
 export const deleteCatalogItem = (id) => request(`/api/catalog/${encodeURIComponent(id)}`, { method: 'DELETE' })
+export const getCart = () => request('/api/cart')
+export const addCartItem = (productId) => request('/api/cart/items', { method: 'POST', body: JSON.stringify({ productId }) })
+export const updateCartItem = (id, input) => request(`/api/cart/items/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(input) })
+export const deleteCartItem = (id) => request(`/api/cart/items/${encodeURIComponent(id)}`, { method: 'DELETE' })

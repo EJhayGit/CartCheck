@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { getSession, login, logout, register } from './api/httpApi.js'
+import { addCartItem, getSession, login, logout, register } from './api/httpApi.js'
 import Catalog from './Catalog.jsx'
+import ShoppingList from './ShoppingList.jsx'
 
 const EMPTY_FORM = { email: '', password: '' }
 
@@ -11,6 +12,8 @@ export default function App() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [page, setPage] = useState('cart')
+  const [requestedEdit, setRequestedEdit] = useState(null)
 
   useEffect(() => {
     let active = true
@@ -63,16 +66,34 @@ export default function App() {
     try {
       await logout()
       setUser(null)
+      setPage('cart')
+      setRequestedEdit(null)
       switchMode('login')
     } catch (caught) {
       setError(caught.message)
     } finally { setBusy(false) }
   }
 
+  async function addItem(productId) {
+    const result = await addCartItem(productId)
+    setRequestedEdit(result.item)
+    setPage('cart')
+    return result
+  }
+
+  function navigation() {
+    return <>
+      <button type="button" className={page === 'cart' ? 'active' : ''} aria-current={page === 'cart' ? 'page' : undefined} onClick={() => setPage('cart')}>Shopping list</button>
+      <button type="button" className={page === 'catalog' ? 'active' : ''} aria-current={page === 'catalog' ? 'page' : undefined} onClick={() => setPage('catalog')}>Catalog</button>
+      <button type="button" className="future-nav" disabled title="Available in a future milestone">Trips</button>
+      <button type="button" onClick={signOut} disabled={busy}>Sign out</button>
+    </>
+  }
+
   return (
     <div className="app">
-      <header className="site-header"><div className="header-inner"><img src="/cartcheck-logo-on-dark.svg" alt="CartCheck" className="brand" />{user && <nav className="catalog-nav" aria-label="Main navigation"><span>Cart</span><span className="active" aria-current="page">Catalog</span><span>Trips</span><button type="button" onClick={signOut} disabled={busy}>Sign out</button></nav>}</div></header>
-      {status === 'ready' && user ? <>{error && <p className="alert" role="alert">{error}</p>}<Catalog /></> : <main className="auth-main">
+      <header className="site-header"><div className="header-inner"><img src="/cartcheck-logo-on-dark.svg" alt="CartCheck" className="brand" />{user && <nav className="catalog-nav" aria-label="Main navigation">{navigation()}</nav>}</div></header>
+      {status === 'ready' && user ? <>{error && <p className="alert" role="alert">{error}</p>}{page === 'cart' ? <ShoppingList editItem={requestedEdit} onEditHandled={() => setRequestedEdit(null)} onBrowseCatalog={() => setPage('catalog')} /> : <Catalog onAdd={addItem} />}</> : <main className="auth-main">
         {status === 'loading' && <section className="auth-card" role="status"><p className="eyebrow">CARTCHECK</p><h1>Restoring your session</h1><p>Checking your account…</p></section>}
         {status === 'error' && <section className="auth-card"><h1>Could not connect</h1><p className="alert" role="alert">{error}</p><button className="primary-button" onClick={retryRestore}>Try again</button></section>}
         {status === 'ready' && !user && <section className="auth-card">
@@ -90,7 +111,7 @@ export default function App() {
           <p className="switch-prompt">{mode === 'login' ? 'New to CartCheck?' : 'Already have an account?'}{' '}<button className="text-button" type="button" onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}>{mode === 'login' ? 'Create an account' : 'Sign in'}</button></p>
         </section>}
       </main>}
-      {status === 'ready' && user && <nav className="catalog-mobile-nav" aria-label="Mobile navigation"><span>Cart</span><span aria-current="page">Catalog</span><span>Trips</span><button type="button" onClick={signOut} disabled={busy}>Sign out</button></nav>}
+      {status === 'ready' && user && <nav className="catalog-mobile-nav" aria-label="Mobile navigation">{navigation()}</nav>}
     </div>
   )
 }
