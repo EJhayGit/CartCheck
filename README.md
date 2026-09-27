@@ -108,7 +108,7 @@ There is no screenshot of the **running** CartCheck app in this repository yet. 
 
 - Implement bought/unbought status, Finish Trip, optional prices/budget, and dated history; the **Trips** navigation is disabled today.
 - Verify the whole browser flow with an isolated database, resolve deployment, and capture a real app screenshot.
-- Complete the course proposal, security review, demo video, and [AI usage record](AI-USAGE.md). That file is still a template, so no student-written code share or AI mistake is claimed here.
+- Complete the course proposal, security review, demo video, and [AI usage record](AI-USAGE.md). The record now includes actual documentation assistance and one corrected mistake; student-written code evidence remains to be supplied by its author.
 
 The Week 2 security checklist and reflection are in the private course workspace. This README and the weekly report were drafted with Codex assistance; the owner should review them before submission.
 
