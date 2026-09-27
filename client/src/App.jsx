@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getSession, login, logout, register } from './api/httpApi.js'
+import Catalog from './Catalog.jsx'
 
 const EMPTY_FORM = { email: '', password: '' }
 
@@ -70,16 +71,10 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="site-header"><div className="header-inner"><img src="/cartcheck-logo-on-dark.svg" alt="CartCheck" className="brand" /></div></header>
-      <main className="auth-main">
+      <header className="site-header"><div className="header-inner"><img src="/cartcheck-logo-on-dark.svg" alt="CartCheck" className="brand" />{user && <nav className="catalog-nav" aria-label="Main navigation"><span>Cart</span><span className="active" aria-current="page">Catalog</span><span>Trips</span><button type="button" onClick={signOut} disabled={busy}>Sign out</button></nav>}</div></header>
+      {status === 'ready' && user ? <>{error && <p className="alert" role="alert">{error}</p>}<Catalog /></> : <main className="auth-main">
         {status === 'loading' && <section className="auth-card" role="status"><p className="eyebrow">CARTCHECK</p><h1>Restoring your session</h1><p>Checking your account…</p></section>}
         {status === 'error' && <section className="auth-card"><h1>Could not connect</h1><p className="alert" role="alert">{error}</p><button className="primary-button" onClick={retryRestore}>Try again</button></section>}
-        {status === 'ready' && user && <section className="auth-card signed-in">
-          <p className="eyebrow">WELCOME TO CARTCHECK</p><h1>You’re signed in</h1>
-          <p>Your private CartCheck space is ready.</p><p className="account-email">{user.email}</p>
-          {error && <p className="alert" role="alert">{error}</p>}
-          <button className="primary-button" onClick={signOut} disabled={busy}>{busy ? 'Signing out…' : 'Sign out'}</button>
-        </section>}
         {status === 'ready' && !user && <section className="auth-card">
           <p className="eyebrow">{mode === 'login' ? 'WELCOME BACK' : 'GET STARTED'}</p>
           <h1>{mode === 'login' ? 'Sign in' : 'Create your account'}</h1>
@@ -94,7 +89,8 @@ export default function App() {
           </form>
           <p className="switch-prompt">{mode === 'login' ? 'New to CartCheck?' : 'Already have an account?'}{' '}<button className="text-button" type="button" onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}>{mode === 'login' ? 'Create an account' : 'Sign in'}</button></p>
         </section>}
-      </main>
+      </main>}
+      {status === 'ready' && user && <nav className="catalog-mobile-nav" aria-label="Mobile navigation"><span>Cart</span><span aria-current="page">Catalog</span><span>Trips</span><button type="button" onClick={signOut} disabled={busy}>Sign out</button></nav>}
     </div>
   )
 }

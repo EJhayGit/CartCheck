@@ -23,3 +23,12 @@ export const getSession = () => request('/api/auth/me')
 export const login = (input) => request('/api/auth/login', { method: 'POST', body: JSON.stringify(input) })
 export const register = (input) => request('/api/auth/register', { method: 'POST', body: JSON.stringify(input) })
 export const logout = () => request('/api/auth/logout', { method: 'POST' })
+export const getCatalog = ({ search = '', category = '' } = {}) => {
+  const query = new URLSearchParams()
+  if (search) query.set('search', search)
+  if (category) query.set('category', category)
+  return request(`/api/catalog${query.size ? `?${query}` : ''}`)
+}
+export const createCatalogItem = (input) => request('/api/catalog', { method: 'POST', body: JSON.stringify(input) })
+export const updateCatalogItem = (id, input) => request(`/api/catalog/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(input) })
+export const deleteCatalogItem = (id) => request(`/api/catalog/${encodeURIComponent(id)}`, { method: 'DELETE' })

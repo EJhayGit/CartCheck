@@ -7,6 +7,8 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { pool } from './db/pool.js'
 import * as authRepo from './authRepo.js'
+import * as catalogRepo from './catalogRepo.js'
+import { CATALOG_CATEGORIES, parseCatalogId, validateCatalogInput, validateCatalogQuery } from './catalogValidation.js'
 import { normalizeEmail, publicUser, validatePassword } from './authValidation.js'
 import {
   createAuthRateLimiter,
@@ -147,6 +149,55 @@ app.post('/api/auth/logout', checkRequestOrigin, async (request, response, next)
     if (token) await authRepo.revokeSession(pool, hashSessionToken(token))
     response.set('Set-Cookie', expiredSessionCookie()).status(204).end()
   } catch (error) {
+    next(error)
+  }
+})
+
+app.get('/api/catalog', authenticate, async (request, response, next) => {
+  const filters = validateCatalogQuery(request.query)
+  if (filters.error) return response.status(400).json({ error: filters.error })
+  try {
+    const items = await catalogRepo.listCatalog(pool, request.user.id, filters)
+    response.json({ items, categories: CATALOG_CATEGORIES })
+  } catch (error) {
+    next(error)
+  }
+})
+
+app.post('/api/catalog', checkRequestOrigin, authenticate, async (request, response, next) => {
+  const input = validateCatalogInput(request.body)
+  if (input.error) return response.status(400).json({ error: input.error })
+  try {
+    const item = await catalogRepo.createCatalogItem(pool, request.user.id, input)
+    response.status(201).json({ item })
+  } catch (error) {
+    next(error)
+  }
+})
+
+app.patch('/api/catalog/:id', checkRequestOrigin, authenticate, async (request, response, next) => {
+  const id = parseCatalogId(request.params.id)
+  if (id === null) return response.status(400).json({ error: 'Invalid catalog item id' })
+  const changes = validateCatalogInput(request.body, { partial: true })
+  if (changes.error) return response.status(400).json({ error: changes.error })
+  try {
+    const item = await catalogRepo.updateCatalogItem(pool, request.user.id, id, changes)
+    if (!item) return response.status(404).json({ error: 'Catalog item not found' })
+    response.json({ item })
+  } catch (error) {
+    next(error)
+  }
+})
+
+app.delete('/api/catalog/:id', checkRequestOrigin, authenticate, async (request, response, next) => {
+  const id = parseCatalogId(request.params.id)
+  if (id === null) return response.status(400).json({ error: 'Invalid catalog item id' })
+  try {
+    const deleted = await catalogRepo.deleteCatalogItem(pool, request.user.id, id)
+    if (!deleted) return response.status(404).json({ error: 'Catalog item not found' })
+    response.status(204).end()
+  } catch (error) {
+    if (error.code === '23503') return response.status(409).json({ error: 'This item is used by a shopping trip and cannot be deleted' })
     next(error)
   }
 })

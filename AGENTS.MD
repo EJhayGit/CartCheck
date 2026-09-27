@@ -12,4 +12,6 @@ Avoid unrelated functionality and unnecessary dependencies.
 
 Run the relevant tests after implementation.
 
-Log everything in `log.md`.
+Log all work in `log.md` after each task. Append new dated entries; never replace or delete earlier entries.
+
+Keep `log.md` local and ignored by Git. Never add, commit, or push `log.md` to the repository, and do not remove its `.gitignore` rule.
