@@ -6,6 +6,7 @@ function item(row) {
     category: row.category,
     quantity: row.quantity,
     unitLabel: row.unit_label,
+    bought: row.bought,
   }
 }
 
@@ -27,7 +28,7 @@ async function activeTrip(pool, userId) {
 export async function getCart(pool, userId) {
   const trip = await activeTrip(pool, userId)
   const result = await pool.query(
-    `SELECT i.id, i.product_id, i.name, i.category, i.quantity, i.unit_label
+    `SELECT i.id, i.product_id, i.name, i.category, i.quantity, i.unit_label, i.bought
      FROM cartcheck.trip_items i
      JOIN cartcheck.shopping_trips t ON t.id = i.trip_id AND t.user_id = i.user_id
      WHERE t.user_id = $1 AND t.id = $2 AND t.status = 'active'
@@ -47,12 +48,12 @@ export async function addCatalogItem(pool, userId, productId) {
        AND EXISTS (SELECT 1 FROM cartcheck.shopping_trips t
                    WHERE t.id = $2 AND t.user_id = $1 AND t.status = 'active')
      ON CONFLICT (trip_id, product_id) DO NOTHING
-     RETURNING id, product_id, name, category, quantity, unit_label`,
+     RETURNING id, product_id, name, category, quantity, unit_label, bought`,
     [userId, trip.id, productId]
   )
   if (inserted.rows[0]) return { item: item(inserted.rows[0]), created: true }
   const existing = await pool.query(
-    `SELECT i.id, i.product_id, i.name, i.category, i.quantity, i.unit_label
+    `SELECT i.id, i.product_id, i.name, i.category, i.quantity, i.unit_label, i.bought
      FROM cartcheck.trip_items i
      JOIN cartcheck.shopping_trips t ON t.id = i.trip_id AND t.user_id = i.user_id
      WHERE t.user_id = $1 AND t.id = $2 AND t.status = 'active' AND i.product_id = $3`,
@@ -64,7 +65,7 @@ export async function addCatalogItem(pool, userId, productId) {
 export async function updateItem(pool, userId, itemId, changes) {
   const fields = []
   const values = [userId, itemId]
-  for (const [key, column] of [['name', 'name'], ['quantity', 'quantity'], ['unitLabel', 'unit_label']]) {
+  for (const [key, column] of [['name', 'name'], ['quantity', 'quantity'], ['unitLabel', 'unit_label'], ['bought', 'bought']]) {
     if (Object.hasOwn(changes, key)) {
       values.push(changes[key])
       fields.push(`${column} = $${values.length}`)
@@ -75,7 +76,7 @@ export async function updateItem(pool, userId, itemId, changes) {
      WHERE i.user_id = $1 AND i.id = $2
        AND EXISTS (SELECT 1 FROM cartcheck.shopping_trips t
                    WHERE t.id = i.trip_id AND t.user_id = $1 AND t.status = 'active')
-     RETURNING i.id, i.product_id, i.name, i.category, i.quantity, i.unit_label`,
+     RETURNING i.id, i.product_id, i.name, i.category, i.quantity, i.unit_label, i.bought`,
     values
   )
   return result.rows[0] ? item(result.rows[0]) : null

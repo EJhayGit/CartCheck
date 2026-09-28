@@ -110,6 +110,7 @@ test('cart lifecycle, snapshots, validation, and account isolation', {
     assert.equal(starterResult.item.category, starter.category)
     assert.equal(starterResult.item.quantity, '1.000')
     assert.equal(starterResult.item.unitLabel, null)
+    assert.equal(starterResult.item.bought, false)
 
     const duplicate = await request(baseUrl, '/api/cart/items', { method: 'POST', cookie: cookieA, body: { productId: starter.id } })
     assert.equal(duplicate.status, 200)
@@ -139,11 +140,41 @@ test('cart lifecycle, snapshots, validation, and account isolation', {
     const addedCustom = await request(baseUrl, '/api/cart/items', { method: 'POST', cookie: cookieA, body: { productId: customProduct.id } })
     assert.equal(addedCustom.status, 201)
     const customItem = (await addedCustom.json()).item
+    assert.equal(customItem.bought, false)
     const patch = await request(baseUrl, `/api/cart/items/${customItem.id}`, {
       method: 'PATCH', cookie: cookieA, body: { name: 'Whole wheat flour', quantity: 2.5, unitLabel: 'kg' },
     })
     assert.equal(patch.status, 200)
     assert.deepEqual((await patch.json()).item, { ...customItem, name: 'Whole wheat flour', quantity: '2.500', unitLabel: 'kg' })
+
+    const buyStarter = await request(baseUrl, `/api/cart/items/${starterResult.item.id}`, {
+      method: 'PATCH', cookie: cookieA, body: { bought: true },
+    })
+    assert.equal(buyStarter.status, 200)
+    assert.equal((await buyStarter.json()).item.bought, true)
+    const buyCustom = await request(baseUrl, `/api/cart/items/${customItem.id}`, {
+      method: 'PATCH', cookie: cookieA, body: { bought: true },
+    })
+    assert.equal(buyCustom.status, 200)
+    assert.equal((await buyCustom.json()).item.bought, true)
+    let shoppingProgress = await (await request(baseUrl, '/api/cart', { cookie: cookieA })).json()
+    assert.equal(shoppingProgress.items.filter((item) => item.bought).length, 2,
+      'multiple purchases persist after retrieval')
+    const unbuyCustom = await request(baseUrl, `/api/cart/items/${customItem.id}`, {
+      method: 'PATCH', cookie: cookieA, body: { bought: false },
+    })
+    assert.equal(unbuyCustom.status, 200)
+    assert.equal((await unbuyCustom.json()).item.bought, false)
+    shoppingProgress = await (await request(baseUrl, '/api/cart', { cookie: cookieA })).json()
+    assert.equal(shoppingProgress.items.filter((item) => item.bought).length, 1)
+    assert.equal(shoppingProgress.items.filter((item) => !item.bought).length, 1)
+    const catalogAfterPurchase = await client.query(
+      'SELECT id, name, category FROM cartcheck.products WHERE id = ANY($1::bigint[])',
+      [[starter.id, customProduct.id]]
+    )
+    assert.equal(catalogAfterPurchase.rows.find((row) => String(row.id) === starter.id)?.name, starter.name)
+    assert.equal(catalogAfterPurchase.rows.find((row) => String(row.id) === customProduct.id)?.name, customName,
+      'purchase toggles do not edit catalog rows')
 
     await request(baseUrl, `/api/catalog/${customProduct.id}`, { method: 'PATCH', cookie: cookieA, body: { name: 'Renamed catalog product' } })
     const persisted = await (await request(baseUrl, '/api/cart', { cookie: cookieA })).json()
@@ -151,9 +182,18 @@ test('cart lifecycle, snapshots, validation, and account isolation', {
     assert.equal(persisted.items.length, 2)
     assert.deepEqual(persisted.items[1], { ...customItem, name: 'Whole wheat flour', quantity: '2.500', unitLabel: 'kg' },
       'cart item keeps its name snapshot and edits after reload')
+    assert.equal(persisted.items[0].bought, true, 'bought status survives retrieval')
 
     const cartB = await (await request(baseUrl, '/api/cart', { cookie: cookieB })).json()
     assert.deepEqual(cartB.items, [], 'accounts have separate carts')
+    const starterB = (await (await request(baseUrl, '/api/catalog', { cookie: cookieB })).json()).items.find((product) => product.name === 'Apples')
+    const addedB = await request(baseUrl, '/api/cart/items', { method: 'POST', cookie: cookieB, body: { productId: starterB.id } })
+    assert.equal(addedB.status, 201)
+    const itemB = (await addedB.json()).item
+    assert.equal((await request(baseUrl, `/api/cart/items/${itemB.id}`, { method: 'PATCH', cookie: cookieA, body: { bought: true } })).status, 404)
+    assert.equal((await request(baseUrl, `/api/cart/items/${itemB.id}`, { method: 'PATCH', cookie: cookieA, body: { bought: false } })).status, 404)
+    assert.equal((await request(baseUrl, `/api/cart/items/${customItem.id}`, { method: 'PATCH', cookie: cookieB, body: { bought: true } })).status, 404)
+    assert.equal((await (await request(baseUrl, '/api/cart', { cookie: cookieB })).json()).items[0].bought, false)
     assert.equal((await request(baseUrl, `/api/cart/items/${customItem.id}`, { method: 'PATCH', cookie: cookieB, body: { quantity: 9 } })).status, 404)
     assert.equal((await request(baseUrl, `/api/cart/items/${customItem.id}`, { method: 'DELETE', cookie: cookieB })).status, 404)
 
@@ -163,6 +203,9 @@ test('cart lifecycle, snapshots, validation, and account isolation', {
     assert.equal((await request(baseUrl, `/api/cart/items/${customItem.id}`, { method: 'PATCH', cookie: cookieA, body: { quantity: 0 } })).status, 400)
     assert.equal((await request(baseUrl, `/api/cart/items/${customItem.id}`, { method: 'PATCH', cookie: cookieA, body: { unitLabel: 4 } })).status, 400)
     assert.equal((await request(baseUrl, `/api/cart/items/${customItem.id}`, { method: 'PATCH', cookie: cookieA, body: { category: 'Other' } })).status, 400)
+    assert.equal((await request(baseUrl, `/api/cart/items/${customItem.id}`, { method: 'PATCH', cookie: cookieA, body: { bought: 'true' } })).status, 400)
+    assert.equal((await request(baseUrl, '/api/cart/items/not-an-id', { method: 'PATCH', cookie: cookieA, body: { bought: true } })).status, 400)
+    assert.equal((await request(baseUrl, '/api/cart/items/999999999999', { method: 'PATCH', cookie: cookieA, body: { bought: true } })).status, 404)
     assert.equal((await request(baseUrl, '/api/cart/items/not-an-id', { method: 'DELETE', cookie: cookieA })).status, 400)
 
     const removed = await request(baseUrl, `/api/cart/items/${customItem.id}`, { method: 'DELETE', cookie: cookieA })

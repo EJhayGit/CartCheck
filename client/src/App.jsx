@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { addCartItem, getSession, login, logout, register } from './api/httpApi.js'
 import Catalog from './Catalog.jsx'
 import ShoppingList from './ShoppingList.jsx'
@@ -13,7 +13,26 @@ export default function App() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [page, setPage] = useState('cart')
+  const [catalogVisited, setCatalogVisited] = useState(false)
   const [requestedEdit, setRequestedEdit] = useState(null)
+  const [cartPending, setCartPending] = useState(false)
+  const [catalogAddPending, setCatalogAddPending] = useState(false)
+  const accountGeneration = useRef(0)
+  const cartPendingRef = useRef(false)
+  const catalogAddPendingRef = useRef(false)
+  const renderedGeneration = accountGeneration.current
+
+  function reportCartPending(pending) {
+    if (renderedGeneration !== accountGeneration.current) return
+    cartPendingRef.current = pending
+    setCartPending(pending)
+  }
+
+  function reportCatalogAddPending(pending) {
+    if (renderedGeneration !== accountGeneration.current) return
+    catalogAddPendingRef.current = pending
+    setCatalogAddPending(pending)
+  }
 
   useEffect(() => {
     let active = true
@@ -53,6 +72,7 @@ export default function App() {
     setError('')
     try {
       const result = await (mode === 'login' ? login(form) : register(form))
+      accountGeneration.current += 1
       setUser(result.user)
       setForm(EMPTY_FORM)
     } catch (caught) {
@@ -65,9 +85,15 @@ export default function App() {
     setError('')
     try {
       await logout()
+      accountGeneration.current += 1
       setUser(null)
       setPage('cart')
+      setCatalogVisited(false)
       setRequestedEdit(null)
+      cartPendingRef.current = false
+      catalogAddPendingRef.current = false
+      setCartPending(false)
+      setCatalogAddPending(false)
       switchMode('login')
     } catch (caught) {
       setError(caught.message)
@@ -75,16 +101,25 @@ export default function App() {
   }
 
   async function addItem(productId) {
+    const generation = accountGeneration.current
     const result = await addCartItem(productId)
+    if (generation !== accountGeneration.current) return result
     setRequestedEdit(result.item)
     setPage('cart')
     return result
   }
 
+  function browseCatalog() {
+    if (cartPendingRef.current || catalogAddPendingRef.current) return
+    setCatalogVisited(true)
+    setPage('catalog')
+  }
+
   function navigation() {
+    const switchingDisabled = cartPending || catalogAddPending
     return <>
-      <button type="button" className={page === 'cart' ? 'active' : ''} aria-current={page === 'cart' ? 'page' : undefined} onClick={() => setPage('cart')}>Shopping list</button>
-      <button type="button" className={page === 'catalog' ? 'active' : ''} aria-current={page === 'catalog' ? 'page' : undefined} onClick={() => setPage('catalog')}>Catalog</button>
+      <button type="button" className={page === 'cart' ? 'active' : ''} aria-current={page === 'cart' ? 'page' : undefined} onClick={() => { if (!cartPendingRef.current && !catalogAddPendingRef.current) setPage('cart') }} disabled={switchingDisabled}>Shopping list</button>
+      <button type="button" className={page === 'catalog' ? 'active' : ''} aria-current={page === 'catalog' ? 'page' : undefined} onClick={browseCatalog} disabled={switchingDisabled}>Catalog</button>
       <button type="button" className="future-nav" disabled title="Available in a future milestone">Trips</button>
       <button type="button" onClick={signOut} disabled={busy}>Sign out</button>
     </>
@@ -93,7 +128,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="site-header"><div className="header-inner"><img src="/cartcheck-logo-on-dark.svg" alt="CartCheck" className="brand" />{user && <nav className="catalog-nav" aria-label="Main navigation">{navigation()}</nav>}</div></header>
-      {status === 'ready' && user ? <>{error && <p className="alert" role="alert">{error}</p>}{page === 'cart' ? <ShoppingList editItem={requestedEdit} onEditHandled={() => setRequestedEdit(null)} onBrowseCatalog={() => setPage('catalog')} /> : <Catalog onAdd={addItem} />}</> : <main className="auth-main">
+      {status === 'ready' && user ? <>{error && <p className="alert" role="alert">{error}</p>}<div hidden={page !== 'cart'}><ShoppingList editItem={requestedEdit} onEditHandled={() => setRequestedEdit(null)} onBrowseCatalog={browseCatalog} onMutationPending={reportCartPending} /></div>{catalogVisited && <div hidden={page !== 'catalog'}><Catalog onAdd={addItem} onAddPending={reportCatalogAddPending} /></div>}</> : <main className="auth-main">
         {status === 'loading' && <section className="auth-card" role="status"><p className="eyebrow">CARTCHECK</p><h1>Restoring your session</h1><p>Checking your account…</p></section>}
         {status === 'error' && <section className="auth-card"><h1>Could not connect</h1><p className="alert" role="alert">{error}</p><button className="primary-button" onClick={retryRestore}>Try again</button></section>}
         {status === 'ready' && !user && <section className="auth-card">

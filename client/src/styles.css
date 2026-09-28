@@ -84,10 +84,17 @@ input::placeholder { color: #42584e; opacity: 1; }
 .list-summary span, .list-footnote { color: #42584e; font-size: 13px; }
 .shopping-items { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
 .shopping-item { display: flex; align-items: center; gap: 14px; min-height: 88px; padding: 16px; border: 1px solid #d7e2d9; border-radius: 12px; background: #fff; }
+.shopping-item.is-purchased { border-color: #b9c9be; background: #eef4ef; }
+.shopping-item.is-purchased .shopping-item-info strong { color: #42584e; text-decoration: line-through; text-decoration-thickness: 1px; }
 .shopping-item-info { display: grid; min-width: 0; gap: 4px; line-height: 1.35; }
 .shopping-item-info strong { overflow-wrap: anywhere; font-size: 16px; }
 .shopping-item-info small { color: #42584e; font-size: 12px; }
 .shopping-item-actions { display: flex; gap: 8px; margin-left: auto; }
+.list-summary-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.purchased-control { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 4px 8px; margin: 0; border-radius: 8px; color: #172b26; font-size: 12px; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.purchased-control input { appearance: auto; width: 22px; height: 22px; min-height: 22px; flex: none; margin: 0; padding: 0; border: 0; border-radius: 4px; background: transparent; accent-color: #176b45; cursor: pointer; }
+.purchased-control input:disabled { cursor: default; }
+.filtered-empty { margin-top: 4px; }
 .remove-button { color: #9c3737; }
 .list-footnote { margin: 18px 0; }
 .list-editor { margin-bottom: 20px; }
@@ -101,4 +108,74 @@ input::placeholder { color: #42584e; opacity: 1; }
 .empty-list h2 { font-size: 22px; }
 .empty-list p { max-width: 440px; }
 .empty-list-icon { display: grid; place-items: center; width: 54px; height: 54px; border-radius: 16px; background: #e8f0e9; color: #176b45; font-size: 28px; }
-@media (max-width: 700px) { .shopping-main { padding: 28px 16px 100px; } .shopping-heading { align-items: stretch; flex-direction: column; gap: 18px; } .shopping-heading h1 { font-size: 30px; } .shopping-heading .catalog-button { width: 100%; } .list-summary { align-items: stretch; flex-direction: column; } .list-summary .catalog-button { width: 100%; } .shopping-item { align-items: flex-start; flex-wrap: wrap; min-height: 76px; padding: 13px; } .shopping-item-info { flex: 1; padding-top: 2px; } .shopping-item-actions { width: 100%; margin-left: 56px; } .shopping-item-actions button { flex: 1; } .quantity-fields { grid-template-columns: 1fr; gap: 0; } .list-editor .catalog-form-actions { flex-direction: column-reverse; } .list-editor .catalog-form-actions button { width: 100%; } }
+@media (max-width: 700px) { .shopping-main { padding: 28px 16px 100px; } .shopping-heading { align-items: stretch; flex-direction: column; gap: 18px; } .shopping-heading h1 { font-size: 30px; } .shopping-heading .catalog-button { width: 100%; } .list-summary { align-items: stretch; flex-direction: column; } .list-summary-actions { flex-direction: column; } .list-summary-actions .catalog-button { width: 100%; } .shopping-item { align-items: flex-start; flex-wrap: wrap; min-height: 76px; padding: 13px; } .shopping-item-info { flex: 1; padding-top: 2px; } .shopping-item-actions { width: 100%; margin-left: 0; flex-wrap: wrap; } .shopping-item-actions button { flex: 1; } .purchased-control { flex: 1 0 100%; justify-content: flex-start; } .quantity-fields { grid-template-columns: 1fr; gap: 0; } .list-editor .catalog-form-actions { flex-direction: column-reverse; } .list-editor .catalog-form-actions button { width: 100%; } }
+
+/* Active shopping progress follows the approved separate remaining/purchased list layout. */
+.progress-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 16px; align-items: center; min-height: 124px; margin-bottom: 18px; padding: 22px 24px 17px; border: 1px solid #d5e1d4; border-radius: 12px; background: #edf2e9; }
+.progress-copy { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.progress-icon { display: grid; place-items: center; width: 43px; height: 43px; flex: none; border-radius: 50%; background: #176b45; color: #fff; font-size: 22px; font-weight: 700; }
+.progress-kicker { margin: 0 0 3px; color: #176b45; font-size: 10px; font-weight: 800; letter-spacing: .1em; }
+.progress-title { margin: 0; color: #172b26; font-size: 15px; font-weight: 700; line-height: 1.25; }
+.progress-summary { margin: 4px 0 0; color: #42584e; font-size: 12px; font-variant-numeric: tabular-nums; }
+.progress-number { display: grid; justify-items: end; line-height: 1.15; white-space: nowrap; }
+.progress-number strong { color: #176b45; font-size: 25px; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.progress-number strong span { color: #42584e; font-size: 17px; font-weight: 500; }
+.progress-number small { margin-top: 5px; color: #42584e; font-size: 11px; }
+.progress-track { grid-column: 1 / -1; height: 6px; overflow: hidden; border-radius: 99px; background: #cbd8ca; }
+.progress-track span { display: block; height: 100%; border-radius: inherit; background: #176b45; transition: width .2s ease; }
+.list-surface { overflow: hidden; border: 1px solid #d7e2d9; border-radius: 12px; background: #fff; }
+.section-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 18px 22px 7px; }
+.section-heading > div { display: flex; align-items: center; gap: 8px; }
+.section-heading h2 { margin: 0; font-size: 15px; font-weight: 750; letter-spacing: -.015em; }
+.count-badge { border-radius: 99px; padding: 2px 7px; background: #edf2e9; color: #176b45; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.section-hint { color: #42584e; font-size: 11px; }
+.hide-purchased-button { min-height: 40px; padding: 4px 0 4px 12px; border: 0; background: transparent; color: #176b45; font-size: 12px; font-weight: 700; cursor: pointer; }
+.hide-purchased-button:hover { text-decoration: underline; }
+.shopping-items { display: block; margin: 0; padding: 0 22px; list-style: none; }
+.shopping-item { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto auto; align-items: center; gap: 13px; min-height: 67px; padding: 0; border: 0; border-bottom: 1px solid #d7e2d9; border-radius: 0; background: transparent; }
+.shopping-items > .shopping-item:last-child { border-bottom: 0; }
+.shopping-item-info { display: grid; min-width: 0; gap: 3px; line-height: 1.35; }
+.shopping-item-info strong { overflow-wrap: anywhere; font-size: 14px; }
+.shopping-item-info small { color: #42584e; font-size: 11px; }
+.shopping-item-quantity { border-radius: 6px; padding: 5px 9px; background: #f4f7f4; color: #42584e; font-size: 12px; font-weight: 650; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.shopping-item-actions { display: flex; align-items: center; gap: 6px; margin: 0; }
+.shopping-item-actions .catalog-small-button { min-height: 36px; }
+.shopping-item.is-purchased { border-color: #d7e2d9; background: transparent; }
+.shopping-item.is-purchased .shopping-item-info strong { color: #42584e; text-decoration: line-through; text-decoration-color: #9aac9d; text-decoration-thickness: 1px; }
+.shopping-item.is-purchased .shopping-item-quantity { background: #fff; }
+.purchased-group { margin-top: 0; padding-bottom: 4px; background: #f7f9f7; }
+.purchased-heading { margin-top: 10px; padding-top: 17px; border-top: 1px solid #d7e2d9; background: #f7f9f7; }
+.purchased-count { background: #e8f0e9; }
+.purchased-group .shopping-items { background: #f7f9f7; }
+.purchased-control { position: relative; display: grid; place-items: center; width: 44px; height: 44px; margin: 0; cursor: pointer; }
+.purchased-control input { position: absolute; width: 1px; height: 1px; min-height: 1px; margin: 0; padding: 0; opacity: 0; }
+.purchased-checkmark { display: grid; place-items: center; width: 26px; height: 26px; border: 2px solid #8a998b; border-radius: 50%; color: #fff; font-size: 16px; line-height: 1; }
+.purchased-control input:checked + .purchased-checkmark { border-color: #176b45; background: #176b45; }
+.purchased-control input:checked + .purchased-checkmark::after { content: '✓'; }
+.purchased-control:focus-within .purchased-checkmark { outline: 3px solid #176b45; outline-offset: 3px; }
+.purchased-control input:disabled + .purchased-checkmark { opacity: .65; }
+.list-empty-message { margin: 0; padding: 13px 22px 20px 65px; color: #42584e; font-size: 13px; }
+.hidden-empty-state { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 22px 18px; }
+.hidden-empty-state p { margin: 0; color: #42584e; font-size: 13px; }
+.hidden-empty-state .hide-purchased-button { flex: none; padding-left: 8px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+@media (max-width: 700px) {
+  .progress-card { min-height: 104px; margin-bottom: 14px; padding: 16px; }
+  .progress-icon { width: 36px; height: 36px; font-size: 18px; }
+  .progress-title { font-size: 13px; }
+  .progress-number strong { font-size: 21px; }
+  .progress-number small { font-size: 10px; }
+  .section-heading { padding: 17px 14px 7px; }
+  .section-hint { display: none; }
+  .shopping-items { padding: 0 14px; }
+  .shopping-item { grid-template-columns: 30px minmax(0, 1fr) auto; gap: 8px; min-height: 65px; }
+  .shopping-item-info { grid-column: 2; grid-row: 1; }
+  .shopping-item-quantity { grid-column: 3; grid-row: 1; padding: 4px 6px; font-size: 11px; }
+  .shopping-item-actions { grid-column: 2 / -1; grid-row: 2; width: 100%; padding-bottom: 10px; }
+  .shopping-item-actions button { flex: 1; }
+  .purchased-control { grid-column: 1; grid-row: 1 / span 2; }
+  .list-empty-message { padding: 12px 14px 18px 52px; font-size: 12px; }
+  .hidden-empty-state { align-items: flex-start; flex-direction: column; gap: 2px; padding: 10px 14px 14px; }
+  .hidden-empty-state p { font-size: 12px; }
+}
+@media (prefers-reduced-motion: reduce) { .progress-track span { transition: none; } }

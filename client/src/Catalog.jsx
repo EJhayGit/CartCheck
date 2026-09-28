@@ -4,8 +4,10 @@ import { createCatalogItem, deleteCatalogItem, getCatalog, updateCatalogItem } f
 const CATEGORIES = ['Produce', 'Dairy & eggs', 'Meat & seafood', 'Bakery', 'Pantry', 'Frozen', 'Snacks', 'Beverages', 'Household', 'Other']
 const CATEGORY_LABELS = { 'Dairy & eggs': 'Dairy', 'Meat & seafood': 'Meat & seafood' }
 const EMPTY_ITEM = { name: '', category: 'Produce' }
+const sortItems = (items) => [...items].sort((a, b) =>
+  a.name.toLocaleLowerCase().localeCompare(b.name.toLocaleLowerCase()) || Number(a.id) - Number(b.id))
 
-export default function Catalog({ onAdd }) {
+export default function Catalog({ onAdd, onAddPending }) {
   const [items, setItems] = useState([])
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
@@ -21,11 +23,12 @@ export default function Catalog({ onAdd }) {
 
   useEffect(() => {
     let active = true
+    const controller = new AbortController()
+    setLoading(true)
+    setError('')
     const timer = setTimeout(async () => {
-      setLoading(true)
-      setError('')
       try {
-        const result = await getCatalog({ search: search.trim(), category })
+        const result = await getCatalog({ search: search.trim(), category, signal: controller.signal })
         if (active) setItems(result.items)
       } catch {
         if (active) setError('We could not load your catalog. Check your connection and try again.')
@@ -33,7 +36,7 @@ export default function Catalog({ onAdd }) {
         if (active) setLoading(false)
       }
     }, search ? 250 : 0)
-    return () => { active = false; clearTimeout(timer) }
+    return () => { active = false; clearTimeout(timer); controller.abort() }
   }, [search, category, refresh])
 
   function openCreate() {
@@ -58,12 +61,15 @@ export default function Catalog({ onAdd }) {
       const input = { name: form.name.trim(), category: form.category }
       if (editor.mode === 'create') {
         const created = await createCatalogItem(input)
-        setSearch(created.item.name)
+        if (search.trim() === created.item.name) setRefresh((value) => value + 1)
+        else setSearch(created.item.name)
+      } else {
+        const updated = await updateCatalogItem(editor.id, input)
+        if (search.trim() || category) setRefresh((value) => value + 1)
+        else setItems((current) => sortItems(current.map((item) => item.id === editor.id ? updated.item : item)))
       }
-      else await updateCatalogItem(editor.id, input)
       setNotice(editor.mode === 'create' ? 'Custom grocery saved to your catalog.' : 'Catalog item updated.')
       setEditor(null)
-      setRefresh((value) => value + 1)
     } catch (caught) {
       setFormError(caught.message)
     } finally { setBusy(false) }
@@ -75,7 +81,7 @@ export default function Catalog({ onAdd }) {
     try {
       await deleteCatalogItem(item.id)
       setNotice('Custom grocery deleted.')
-      setRefresh((value) => value + 1)
+      setItems((current) => current.filter((entry) => entry.id !== item.id))
     } catch (caught) { setError(caught.message) }
   }
 
@@ -83,12 +89,13 @@ export default function Catalog({ onAdd }) {
     setError('')
     setNotice('')
     setAddingId(item.id)
+    onAddPending(true)
     try {
       const result = await onAdd(item.id)
       if (result.created) setNotice(`${item.name} added to your shopping list.`)
     } catch (caught) {
       setError(`We could not add ${item.name} to your shopping list. ${caught.message}`)
-    } finally { setAddingId(null) }
+    } finally { onAddPending(false); setAddingId(null) }
   }
 
   return <main className="catalog-main">
