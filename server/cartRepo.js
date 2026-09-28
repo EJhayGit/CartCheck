@@ -6,6 +6,8 @@ function item(row) {
     category: row.category,
     quantity: row.quantity,
     unitLabel: row.unit_label,
+    estimatedTotal: row.estimated_total,
+    actualTotal: row.actual_total,
     bought: row.bought,
   }
 }
@@ -18,7 +20,7 @@ async function activeTrip(pool, userId) {
     [userId]
   )
   const result = await pool.query(
-    `SELECT id, currency FROM cartcheck.shopping_trips
+    `SELECT id, currency, budget FROM cartcheck.shopping_trips
      WHERE user_id = $1 AND status = 'active'`,
     [userId]
   )
@@ -28,14 +30,56 @@ async function activeTrip(pool, userId) {
 export async function getCart(pool, userId) {
   const trip = await activeTrip(pool, userId)
   const result = await pool.query(
-    `SELECT i.id, i.product_id, i.name, i.category, i.quantity, i.unit_label, i.bought
+    `SELECT i.id, i.product_id, i.name, i.category, i.quantity, i.unit_label,
+            i.estimated_total, i.actual_total, i.bought
      FROM cartcheck.trip_items i
      JOIN cartcheck.shopping_trips t ON t.id = i.trip_id AND t.user_id = i.user_id
      WHERE t.user_id = $1 AND t.id = $2 AND t.status = 'active'
      ORDER BY i.created_at, i.id`,
     [userId, trip.id]
   )
-  return { currency: trip.currency, items: result.rows.map(item) }
+  const totals = await pool.query(
+    `SELECT sum(estimated_total) AS estimated_total,
+            count(*) FILTER (WHERE estimated_total IS NULL)::int AS estimated_missing_count,
+            sum(actual_total) FILTER (WHERE bought) AS actual_total,
+            count(*) FILTER (WHERE bought AND actual_total IS NULL)::int AS actual_missing_count
+     FROM cartcheck.trip_items
+     WHERE user_id = $1 AND trip_id = $2`,
+    [userId, trip.id]
+  )
+  const total = totals.rows[0]
+  return {
+    budget: trip.budget,
+    currency: trip.currency,
+    items: result.rows.map(item),
+    summary: {
+      estimatedTotal: total.estimated_total,
+      estimatedMissingCount: total.estimated_missing_count,
+      actualTotal: total.actual_total,
+      actualMissingCount: total.actual_missing_count,
+    },
+  }
+}
+
+export async function updateActiveBudget(pool, userId, budget) {
+  const trip = await activeTrip(pool, userId)
+  const result = await pool.query(
+    `UPDATE cartcheck.shopping_trips
+     SET budget = $3, revision = revision + 1
+     WHERE id = $1 AND user_id = $2 AND status = 'active'
+     RETURNING budget, currency`,
+    [trip.id, userId, budget]
+  )
+  return result.rows[0] ?? null
+}
+
+export async function updatePreferredCurrency(pool, userId, preferredCurrency) {
+  const result = await pool.query(
+    `UPDATE cartcheck.users SET preferred_currency = $2, updated_at = now()
+     WHERE id = $1 RETURNING preferred_currency`,
+    [userId, preferredCurrency]
+  )
+  return result.rows[0]?.preferred_currency ?? null
 }
 
 export async function addCatalogItem(pool, userId, productId) {
@@ -48,12 +92,13 @@ export async function addCatalogItem(pool, userId, productId) {
        AND EXISTS (SELECT 1 FROM cartcheck.shopping_trips t
                    WHERE t.id = $2 AND t.user_id = $1 AND t.status = 'active')
      ON CONFLICT (trip_id, product_id) DO NOTHING
-     RETURNING id, product_id, name, category, quantity, unit_label, bought`,
+     RETURNING id, product_id, name, category, quantity, unit_label, estimated_total, actual_total, bought`,
     [userId, trip.id, productId]
   )
   if (inserted.rows[0]) return { item: item(inserted.rows[0]), created: true }
   const existing = await pool.query(
-    `SELECT i.id, i.product_id, i.name, i.category, i.quantity, i.unit_label, i.bought
+    `SELECT i.id, i.product_id, i.name, i.category, i.quantity, i.unit_label,
+            i.estimated_total, i.actual_total, i.bought
      FROM cartcheck.trip_items i
      JOIN cartcheck.shopping_trips t ON t.id = i.trip_id AND t.user_id = i.user_id
      WHERE t.user_id = $1 AND t.id = $2 AND t.status = 'active' AND i.product_id = $3`,
@@ -65,7 +110,10 @@ export async function addCatalogItem(pool, userId, productId) {
 export async function updateItem(pool, userId, itemId, changes) {
   const fields = []
   const values = [userId, itemId]
-  for (const [key, column] of [['name', 'name'], ['quantity', 'quantity'], ['unitLabel', 'unit_label'], ['bought', 'bought']]) {
+  for (const [key, column] of [
+    ['name', 'name'], ['quantity', 'quantity'], ['unitLabel', 'unit_label'],
+    ['estimatedTotal', 'estimated_total'], ['actualTotal', 'actual_total'], ['bought', 'bought'],
+  ]) {
     if (Object.hasOwn(changes, key)) {
       values.push(changes[key])
       fields.push(`${column} = $${values.length}`)
@@ -76,7 +124,8 @@ export async function updateItem(pool, userId, itemId, changes) {
      WHERE i.user_id = $1 AND i.id = $2
        AND EXISTS (SELECT 1 FROM cartcheck.shopping_trips t
                    WHERE t.id = i.trip_id AND t.user_id = $1 AND t.status = 'active')
-     RETURNING i.id, i.product_id, i.name, i.category, i.quantity, i.unit_label, i.bought`,
+     RETURNING i.id, i.product_id, i.name, i.category, i.quantity, i.unit_label,
+               i.estimated_total, i.actual_total, i.bought`,
     values
   )
   return result.rows[0] ? item(result.rows[0]) : null

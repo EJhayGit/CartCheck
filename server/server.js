@@ -10,7 +10,12 @@ import * as authRepo from './authRepo.js'
 import * as catalogRepo from './catalogRepo.js'
 import * as cartRepo from './cartRepo.js'
 import { CATALOG_CATEGORIES, parseCatalogId, validateCatalogInput, validateCatalogQuery } from './catalogValidation.js'
-import { parseItemId, validateItemChanges } from './cartValidation.js'
+import {
+  parseItemId,
+  validateCartChanges,
+  validateCurrencyChanges,
+  validateItemChanges,
+} from './cartValidation.js'
 import { normalizeEmail, publicUser, validatePassword } from './authValidation.js'
 import {
   createAuthRateLimiter,
@@ -145,6 +150,16 @@ app.get('/api/auth/session', authenticate, (request, response) => {
   response.json({ user: publicUser(request.user) })
 })
 
+app.patch('/api/me/settings', checkRequestOrigin, authenticate, async (request, response, next) => {
+  const changes = validateCurrencyChanges(request.body)
+  if (changes.error) return response.status(400).json({ error: changes.error })
+  try {
+    const preferredCurrency = await cartRepo.updatePreferredCurrency(pool, request.user.id, changes.preferredCurrency)
+    if (!preferredCurrency) return response.status(404).json({ error: 'Account not found' })
+    response.json({ preferredCurrency })
+  } catch (error) { next(error) }
+})
+
 app.post('/api/auth/logout', checkRequestOrigin, async (request, response, next) => {
   const token = readCookie(request)
   try {
@@ -207,6 +222,16 @@ app.delete('/api/catalog/:id', checkRequestOrigin, authenticate, async (request,
 app.get('/api/cart', authenticate, async (request, response, next) => {
   try { response.json(await cartRepo.getCart(pool, request.user.id)) }
   catch (error) { next(error) }
+})
+
+app.patch('/api/cart', checkRequestOrigin, authenticate, async (request, response, next) => {
+  const changes = validateCartChanges(request.body)
+  if (changes.error) return response.status(400).json({ error: changes.error })
+  try {
+    const cart = await cartRepo.updateActiveBudget(pool, request.user.id, changes.budget)
+    if (!cart) return response.status(404).json({ error: 'Active trip not found' })
+    response.json({ budget: cart.budget, currency: cart.currency })
+  } catch (error) { next(error) }
 })
 
 app.post('/api/cart/items', checkRequestOrigin, authenticate, async (request, response, next) => {

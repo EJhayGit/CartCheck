@@ -73,6 +73,8 @@ test('cart lifecycle, snapshots, validation, and account isolation', {
     assert.equal((await request(baseUrl, '/api/cart/items', { method: 'POST', body: { productId: '1' } })).status, 401)
     assert.equal((await request(baseUrl, '/api/cart/items/1', { method: 'PATCH', body: { quantity: 2 } })).status, 401)
     assert.equal((await request(baseUrl, '/api/cart/items/1', { method: 'DELETE' })).status, 401)
+    assert.equal((await request(baseUrl, '/api/cart', { method: 'PATCH', body: { budget: 20 } })).status, 401)
+    assert.equal((await request(baseUrl, '/api/me/settings', { method: 'PATCH', body: { preferredCurrency: 'USD' } })).status, 401)
 
     const registrations = await Promise.all(emails.map((email, index) => request(baseUrl, '/api/auth/register', {
       method: 'POST', body: { email, password: passwords[index] },
@@ -97,6 +99,31 @@ test('cart lifecycle, snapshots, validation, and account isolation', {
     const initial = await empty.json()
     assert.deepEqual(initial.items, [])
     assert.equal(typeof initial.currency, 'string')
+    assert.equal(initial.budget, null)
+    assert.deepEqual(initial.summary, {
+      estimatedTotal: null, estimatedMissingCount: 0, actualTotal: null, actualMissingCount: 0,
+    })
+
+    const budget = await request(baseUrl, '/api/cart', { method: 'PATCH', cookie: cookieA, body: { budget: '250.50' } })
+    assert.equal(budget.status, 200)
+    assert.deepEqual(await budget.json(), { budget: '250.50', currency: initial.currency })
+    assert.equal((await request(baseUrl, '/api/cart', { cookie: cookieA }).then((response) => response.json())).budget,
+      '250.50', 'budget persists when the active cart is reloaded')
+    assert.deepEqual(await (await request(baseUrl, '/api/cart', {
+      method: 'PATCH', cookie: cookieA, body: { budget: null },
+    })).json(), { budget: null, currency: initial.currency }, 'a budget can be cleared back to unknown')
+    await request(baseUrl, '/api/cart', { method: 'PATCH', cookie: cookieA, body: { budget: '250.50' } })
+    await request(baseUrl, '/api/cart', { method: 'PATCH', cookie: cookieB, body: { budget: '75.00' } })
+    assert.equal((await request(baseUrl, '/api/cart', { method: 'PATCH', cookie: cookieB, body: { budget: -1 } })).status, 400)
+    const currencyChange = await request(baseUrl, '/api/me/settings', {
+      method: 'PATCH', cookie: cookieA, body: { preferredCurrency: 'USD' },
+    })
+    assert.equal(currencyChange.status, 200)
+    assert.deepEqual(await currencyChange.json(), { preferredCurrency: 'USD' })
+    assert.equal((await request(baseUrl, '/api/cart', { cookie: cookieA }).then((response) => response.json())).currency,
+      initial.currency, 'changing the account preference does not relabel the active trip')
+    assert.equal((await request(baseUrl, '/api/cart', { cookie: cookieB }).then((response) => response.json())).currency,
+      'PHP', 'account currency settings are isolated')
 
     const catalogA = await (await request(baseUrl, '/api/catalog', { cookie: cookieA })).json()
     const starter = catalogA.items.find((product) => product.name === 'Apples')
@@ -142,10 +169,18 @@ test('cart lifecycle, snapshots, validation, and account isolation', {
     const customItem = (await addedCustom.json()).item
     assert.equal(customItem.bought, false)
     const patch = await request(baseUrl, `/api/cart/items/${customItem.id}`, {
-      method: 'PATCH', cookie: cookieA, body: { name: 'Whole wheat flour', quantity: 2.5, unitLabel: 'kg' },
+      method: 'PATCH', cookie: cookieA,
+      body: { name: 'Whole wheat flour', quantity: 2.5, unitLabel: 'kg', estimatedTotal: '2.50' },
     })
     assert.equal(patch.status, 200)
-    assert.deepEqual((await patch.json()).item, { ...customItem, name: 'Whole wheat flour', quantity: '2.500', unitLabel: 'kg' })
+    assert.deepEqual((await patch.json()).item, {
+      ...customItem, name: 'Whole wheat flour', quantity: '2.500', unitLabel: 'kg', estimatedTotal: '2.50',
+    })
+
+    const zeroActual = await request(baseUrl, `/api/cart/items/${customItem.id}`, {
+      method: 'PATCH', cookie: cookieA, body: { actualTotal: '0.00' },
+    })
+    assert.equal((await zeroActual.json()).item.actualTotal, '0.00', 'zero remains a known free-item amount')
 
     const buyStarter = await request(baseUrl, `/api/cart/items/${starterResult.item.id}`, {
       method: 'PATCH', cookie: cookieA, body: { bought: true },
@@ -168,6 +203,17 @@ test('cart lifecycle, snapshots, validation, and account isolation', {
     shoppingProgress = await (await request(baseUrl, '/api/cart', { cookie: cookieA })).json()
     assert.equal(shoppingProgress.items.filter((item) => item.bought).length, 1)
     assert.equal(shoppingProgress.items.filter((item) => !item.bought).length, 1)
+    assert.deepEqual(shoppingProgress.summary, {
+      estimatedTotal: '2.50', estimatedMissingCount: 1, actualTotal: null, actualMissingCount: 1,
+    }, 'estimates include unbought entries; actual total includes bought entries only')
+
+    assert.equal((await request(baseUrl, `/api/cart/items/${starterResult.item.id}`, {
+      method: 'PATCH', cookie: cookieA, body: { actualTotal: '12.34', estimatedTotal: '10.01' },
+    })).status, 200)
+    const completedPrices = await (await request(baseUrl, '/api/cart', { cookie: cookieA })).json()
+    assert.equal(completedPrices.summary.estimatedTotal, '12.51')
+    assert.equal(completedPrices.summary.actualTotal, '12.34')
+    assert.equal(completedPrices.summary.actualMissingCount, 0)
     const catalogAfterPurchase = await client.query(
       'SELECT id, name, category FROM cartcheck.products WHERE id = ANY($1::bigint[])',
       [[starter.id, customProduct.id]]
@@ -180,7 +226,10 @@ test('cart lifecycle, snapshots, validation, and account isolation', {
     const persisted = await (await request(baseUrl, '/api/cart', { cookie: cookieA })).json()
     assert.equal(persisted.currency, initial.currency)
     assert.equal(persisted.items.length, 2)
-    assert.deepEqual(persisted.items[1], { ...customItem, name: 'Whole wheat flour', quantity: '2.500', unitLabel: 'kg' },
+    assert.deepEqual(persisted.items[1], {
+      ...customItem, name: 'Whole wheat flour', quantity: '2.500', unitLabel: 'kg',
+      estimatedTotal: '2.50', actualTotal: '0.00',
+    },
       'cart item keeps its name snapshot and edits after reload')
     assert.equal(persisted.items[0].bought, true, 'bought status survives retrieval')
 
@@ -190,10 +239,19 @@ test('cart lifecycle, snapshots, validation, and account isolation', {
     const addedB = await request(baseUrl, '/api/cart/items', { method: 'POST', cookie: cookieB, body: { productId: starterB.id } })
     assert.equal(addedB.status, 201)
     const itemB = (await addedB.json()).item
+    assert.equal((await request(baseUrl, `/api/cart/items/${itemB.id}`, {
+      method: 'PATCH', cookie: cookieB, body: { actualTotal: '4.20' },
+    })).status, 200)
     assert.equal((await request(baseUrl, `/api/cart/items/${itemB.id}`, { method: 'PATCH', cookie: cookieA, body: { bought: true } })).status, 404)
     assert.equal((await request(baseUrl, `/api/cart/items/${itemB.id}`, { method: 'PATCH', cookie: cookieA, body: { bought: false } })).status, 404)
     assert.equal((await request(baseUrl, `/api/cart/items/${customItem.id}`, { method: 'PATCH', cookie: cookieB, body: { bought: true } })).status, 404)
-    assert.equal((await (await request(baseUrl, '/api/cart', { cookie: cookieB })).json()).items[0].bought, false)
+    const isolatedCartB = await (await request(baseUrl, '/api/cart', { cookie: cookieB })).json()
+    assert.equal(isolatedCartB.items[0].bought, false)
+    assert.equal(isolatedCartB.items[0].actualTotal, '4.20', 'account B retains its own optional price')
+    assert.equal(isolatedCartB.budget, '75.00', 'account B retains its own budget')
+    const isolatedCartA = await (await request(baseUrl, '/api/cart', { cookie: cookieA })).json()
+    assert.equal(isolatedCartA.budget, '250.50', 'account B budget changes do not affect account A')
+    assert.equal(isolatedCartA.summary.actualTotal, '12.34', 'account B prices do not affect account A totals')
     assert.equal((await request(baseUrl, `/api/cart/items/${customItem.id}`, { method: 'PATCH', cookie: cookieB, body: { quantity: 9 } })).status, 404)
     assert.equal((await request(baseUrl, `/api/cart/items/${customItem.id}`, { method: 'DELETE', cookie: cookieB })).status, 404)
 
@@ -204,6 +262,11 @@ test('cart lifecycle, snapshots, validation, and account isolation', {
     assert.equal((await request(baseUrl, `/api/cart/items/${customItem.id}`, { method: 'PATCH', cookie: cookieA, body: { unitLabel: 4 } })).status, 400)
     assert.equal((await request(baseUrl, `/api/cart/items/${customItem.id}`, { method: 'PATCH', cookie: cookieA, body: { category: 'Other' } })).status, 400)
     assert.equal((await request(baseUrl, `/api/cart/items/${customItem.id}`, { method: 'PATCH', cookie: cookieA, body: { bought: 'true' } })).status, 400)
+    for (const value of ['-0.01', '0.001', '1e4']) {
+      assert.equal((await request(baseUrl, `/api/cart/items/${customItem.id}`, {
+        method: 'PATCH', cookie: cookieA, body: { actualTotal: value },
+      })).status, 400)
+    }
     assert.equal((await request(baseUrl, '/api/cart/items/not-an-id', { method: 'PATCH', cookie: cookieA, body: { bought: true } })).status, 400)
     assert.equal((await request(baseUrl, '/api/cart/items/999999999999', { method: 'PATCH', cookie: cookieA, body: { bought: true } })).status, 404)
     assert.equal((await request(baseUrl, '/api/cart/items/not-an-id', { method: 'DELETE', cookie: cookieA })).status, 400)

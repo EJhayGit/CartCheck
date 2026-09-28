@@ -1,13 +1,21 @@
 const BASE = import.meta.env.VITE_API_BASE_URL || ''
 
 async function request(path, options = {}) {
-  const response = await fetch(`${BASE}${path}`, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  })
+  let response
+  try {
+    response = await fetch(`${BASE}${path}`, {
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      ...options,
+    })
+  } catch (error) {
+    if (error.name === 'AbortError') throw error
+    throw new Error('Could not connect to the server. Please try again.')
+  }
   if (!response.ok) {
-    let message = `${response.status} ${response.statusText}`
+    let message = response.status >= 500
+      ? 'The server is unavailable. Please try again.'
+      : `${response.status} ${response.statusText}`
     try {
       const body = await response.json()
       if (body?.error) message = body.error
@@ -33,6 +41,8 @@ export const createCatalogItem = (input) => request('/api/catalog', { method: 'P
 export const updateCatalogItem = (id, input) => request(`/api/catalog/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(input) })
 export const deleteCatalogItem = (id) => request(`/api/catalog/${encodeURIComponent(id)}`, { method: 'DELETE' })
 export const getCart = () => request('/api/cart')
+export const updateCart = (input) => request('/api/cart', { method: 'PATCH', body: JSON.stringify(input) })
+export const updateSettings = (input) => request('/api/me/settings', { method: 'PATCH', body: JSON.stringify(input) })
 export const addCartItem = (productId) => request('/api/cart/items', { method: 'POST', body: JSON.stringify({ productId }) })
 export const updateCartItem = (id, input) => request(`/api/cart/items/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(input) })
 export const deleteCartItem = (id) => request(`/api/cart/items/${encodeURIComponent(id)}`, { method: 'DELETE' })

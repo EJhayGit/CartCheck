@@ -179,3 +179,28 @@ input::placeholder { color: #42584e; opacity: 1; }
   .hidden-empty-state p { font-size: 12px; }
 }
 @media (prefers-reduced-motion: reduce) { .progress-track span { transition: none; } }
+
+.optional-help { margin: 6px 0 16px; color: #42584e; font-size: 13px; line-height: 1.5; }
+.item-price { font-variant-numeric: tabular-nums; }
+.shopping-content { display: grid; grid-template-columns: minmax(0, 1fr) 280px; align-items: start; gap: 24px; }
+.shopping-primary { min-width: 0; }
+.budget-panel { padding: 22px; border: 1px solid #d7e2d9; border-radius: 12px; background: #fff; }
+.budget-panel-heading { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.budget-panel-heading h2 { margin: 0; font-size: 20px; }
+.currency-label { padding: 4px 8px; border: 1px solid #d7e2d9; border-radius: 8px; color: #42584e; font-size: 12px; font-weight: 700; }
+.budget-stat { display: flex; justify-content: space-between; gap: 16px; padding: 11px 0; border-top: 1px solid #d7e2d9; font-size: 14px; }
+.budget-stat strong { text-align: right; font-variant-numeric: tabular-nums; }
+.incomplete-note, .budget-warning, .budget-comparison { margin: 0 0 10px; font-size: 13px; line-height: 1.5; }
+.incomplete-note, .budget-warning { color: #8b4b36; }
+.budget-comparison { color: #42584e; }
+.budget-edit-button { min-height: 44px; padding: 7px 0; border: 0; background: transparent; color: #176b45; font-weight: 700; }
+.budget-edit-button:hover { text-decoration: underline; }
+.budget-form { margin-top: 10px; }
+.budget-form input { margin-bottom: 10px; }
+.settings-main { max-width: 720px; margin: 0 auto; padding: 50px 24px 100px; }
+.settings-main h1 { margin-bottom: 10px; }
+.settings-main select { width: 100%; min-height: 46px; margin: 0 0 20px; padding: 10px 13px; border: 1px solid #d7e2d9; border-radius: 8px; background: #fff; color: #172b26; }
+.settings-main .catalog-button { align-self: flex-start; }
+.mobile-sign-out { display: none; }
+@media (max-width: 959px) { .shopping-content { grid-template-columns: 1fr; gap: 20px; } }
+@media (max-width: 700px) { .shopping-content { grid-template-columns: 1fr; gap: 20px; } .budget-panel { padding: 18px 16px; } .settings-main { padding: 28px 16px 100px; } .catalog-mobile-nav button:last-child { display: none; } .mobile-sign-out { display: block; margin-top: 24px; } }
