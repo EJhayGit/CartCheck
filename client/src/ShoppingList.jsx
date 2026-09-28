@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { deleteCartItem, getCart, updateCart, updateCartItem } from './api/httpApi.js'
+import { deleteCartItem, finishTrip, getCart, updateCart, updateCartItem } from './api/httpApi.js'
 import { getShoppingProgress } from './shoppingProgress.js'
 import { formatMoney, moneyDifference, moneySummary, normalizeMoney } from './money.js'
 
@@ -13,9 +13,24 @@ function displayQuantity(value) {
   return String(value).replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1')
 }
 
-export default function ShoppingList({ editItem, onEditHandled, onBrowseCatalog, onMutationPending }) {
+function ReviewRows({ items, currency }) {
+  if (!items.length) return <p className="optional-help">No items in this group.</p>
+  return <ul className="trip-review-list">{items.map((item) => <li key={item.id}><span><strong>{item.name}</strong><small>{displayQuantity(item.quantity)}{item.unitLabel ? ` ${item.unitLabel}` : ''} · Estimate: {item.estimatedTotal == null ? 'not recorded' : formatMoney(item.estimatedTotal, currency)} · Actual: {item.actualTotal == null ? 'not recorded' : formatMoney(item.actualTotal, currency)}</small></span><span className="trip-status">{item.bought ? 'BOUGHT' : 'NOT BOUGHT'}</span></li>)}</ul>
+}
+
+export default function ShoppingList({ editItem, onEditHandled, onBrowseCatalog, onMutationPending, onReviewChange }) {
   const [items, setItems] = useState([])
   const [currency, setCurrency] = useState('PHP')
+  const [tripId, setTripId] = useState(null)
+  const [revision, setRevision] = useState(null)
+  const [reviewing, setReviewing] = useState(false)
+  const [finishBusy, setFinishBusy] = useState(false)
+  const [reviewBusy, setReviewBusy] = useState(false)
+  const [finishError, setFinishError] = useState('')
+  const [finished, setFinished] = useState(false)
+  const reviewRef = useRef(null)
+  const reviewSurfaceRef = useRef(null)
+  const finishTriggerRef = useRef(null)
   const [budget, setBudget] = useState(null)
   const [budgetDraft, setBudgetDraft] = useState('')
   const [budgetEditing, setBudgetEditing] = useState(false)
@@ -35,6 +50,8 @@ export default function ShoppingList({ editItem, onEditHandled, onBrowseCatalog,
   const pendingMutation = useRef(false)
   const addedItemVersion = useRef(0)
   const editorVersion = useRef(0)
+
+  useEffect(() => { onReviewChange(reviewing) }, [reviewing, onReviewChange])
 
   useEffect(() => {
     if (!editItem) return
@@ -58,6 +75,8 @@ export default function ShoppingList({ editItem, onEditHandled, onBrowseCatalog,
     getCart().then((result) => {
       if (!active) return
       setCurrency(result.currency)
+      setTripId(result.tripId)
+      setRevision(result.revision)
       setBudget(result.budget)
       setBudgetDraft(result.budget ?? '')
       setItems((current) => {
@@ -70,6 +89,78 @@ export default function ShoppingList({ editItem, onEditHandled, onBrowseCatalog,
     }).finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [refresh])
+
+  useEffect(() => {
+    if (!reviewing) return
+    reviewRef.current?.focus()
+    function handleReviewKey(event) {
+      if (event.key === 'Escape' && !finishBusy) {
+        setReviewing(false)
+        setFinishError('')
+        requestAnimationFrame(() => finishTriggerRef.current?.focus())
+      }
+      if (event.key !== 'Tab') return
+      const controls = [...reviewSurfaceRef.current.querySelectorAll('button:not(:disabled)')]
+      if (!controls.length) { event.preventDefault(); reviewRef.current?.focus(); return }
+      const first = controls[0]
+      const last = controls.at(-1)
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === reviewRef.current)) { event.preventDefault(); last.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+    }
+    document.addEventListener('keydown', handleReviewKey)
+    return () => document.removeEventListener('keydown', handleReviewKey)
+  }, [reviewing, finishBusy])
+
+  async function confirmFinish() {
+    if (pendingMutation.current || finishBusy || !tripId) return
+    pendingMutation.current = true
+    onMutationPending(true)
+    setFinishBusy(true)
+    setFinishError('')
+    try {
+      const result = await finishTrip(tripId, revision)
+      const fresh = result.activeTrip
+      setTripId(fresh.tripId)
+      setRevision(fresh.revision)
+      setCurrency(fresh.currency)
+      setBudget(fresh.budget)
+      setBudgetDraft(fresh.budget ?? '')
+      setItems(fresh.items)
+      setEditor(null)
+      setHidePurchased(false)
+      setReviewing(false)
+      setFinished(true)
+      setNotice('Your trip was saved. A new empty shopping list is ready.')
+    } catch (caught) {
+      setFinishError(caught.status === 409
+        ? 'This trip changed since you opened the review. Return to your list and review it again.'
+        : caught.status ? (caught.message || 'We could not finish this trip. Please try again.')
+          : 'Connection lost. We could not confirm whether the trip was saved. Try confirming again when connected; it will not create a duplicate trip.')
+    } finally {
+      pendingMutation.current = false
+      onMutationPending(false)
+      setFinishBusy(false)
+    }
+  }
+
+  async function openReview() {
+    if (pendingMutation.current || reviewBusy) return
+    setReviewBusy(true)
+    setActionError('')
+    try {
+      const current = await getCart()
+      setItems(current.items)
+      setTripId(current.tripId)
+      setRevision(current.revision)
+      setCurrency(current.currency)
+      setBudget(current.budget)
+      setBudgetDraft(current.budget ?? '')
+      if (!current.items.length) return
+      setFinishError('')
+      setReviewing(true)
+    } catch (caught) { setActionError(caught.message || 'Could not load the current trip for review.') }
+    finally { setReviewBusy(false) }
+  }
 
   function openEdit(item) {
     editorVersion.current += 1
@@ -216,6 +307,13 @@ export default function ShoppingList({ editItem, onEditHandled, onBrowseCatalog,
   const estimatedComparison = budget === null ? null : moneyDifference(budget, spending.estimated.total)
   const actualComparison = budget === null ? null : moneyDifference(budget, spending.actual.total)
 
+  if (reviewing) return <main className="shopping-main trip-screen" aria-labelledby="finish-title" ref={reviewSurfaceRef}>
+    <div className="shopping-heading"><div><p className="catalog-eyebrow">REVIEW YOUR TRIP</p><h1 id="finish-title" ref={reviewRef} tabIndex="-1">Finish shopping?</h1><p className="catalog-subtitle">Check the trip summary before saving it to history.</p></div><span className="currency-label">{currency}</span></div>
+    <section className="progress-card" aria-label="Shopping progress"><div className="progress-copy"><span className="progress-icon" aria-hidden="true">✓</span><div><p className="progress-kicker">SHOPPING PROGRESS</p><p className="progress-title">{purchasedCount} of {items.length} items bought</p></div></div><div className="progress-number"><strong>{purchasedCount} <span>/ {items.length}</span></strong><small>items picked up</small></div><div className="progress-track"><span style={{ width: `${progressPercent}%` }} /></div></section>
+    <div className="trip-review-grid"><section className="catalog-panel"><h2>Bought <span className="count-badge">{purchasedCount}</span></h2><ReviewRows items={items.filter((item) => item.bought)} currency={currency} /><h2>Not bought <span className="count-badge">{remainingCount}</span></h2><ReviewRows items={items.filter((item) => !item.bought)} currency={currency} /></section>
+      <aside className="catalog-panel"><p className="catalog-eyebrow">OPTIONAL SPENDING</p><h2>{spending.actual.knownCount ? formatMoney(spending.actual.total, currency) : 'No actual prices recorded'}</h2><p className="optional-help">{spending.actual.missingCount ? `${spending.actual.missingCount} bought item${spending.actual.missingCount === 1 ? ' has' : 's have'} no actual price. Recorded spending is incomplete.` : spending.actual.knownCount ? 'Recorded spending includes all bought items.' : 'You can finish without recording prices.'}</p><p className="optional-help">{remainingCount} unchecked item{remainingCount === 1 ? '' : 's'} will be saved as not bought. Your next list starts empty, with your preferred currency and no budget.</p>{budget !== null && <p className="optional-help">Budget: {formatMoney(budget, currency)}. Going over budget does not prevent finishing.</p>}{finishError && <p className="alert" role="alert">{finishError}</p>}<div className="trip-actions"><button className="catalog-button secondary" type="button" onClick={() => { setReviewing(false); setFinishError(''); if (finishError) setRefresh((value) => value + 1); requestAnimationFrame(() => finishTriggerRef.current?.focus()) }} disabled={finishBusy}>Keep shopping</button><button className="catalog-button primary" type="button" onClick={confirmFinish} disabled={finishBusy}>{finishBusy ? 'Saving trip…' : 'Confirm and finish'}</button></div></aside></div>
+  </main>
+
   function renderItems(entries, label) {
     if (!entries.length) return <p className="list-empty-message" role="status">{label === 'Items still to buy' ? 'Everything on your list has been purchased.' : hidePurchased ? 'Purchased items are hidden.' : 'No items purchased yet.'}</p>
     return <ul className="shopping-items" aria-label={label}>{entries.map((item) => <li className={`shopping-item${item.bought ? ' is-purchased' : ''}`} key={item.id}>
@@ -229,9 +327,10 @@ export default function ShoppingList({ editItem, onEditHandled, onBrowseCatalog,
   return <main className="shopping-main">
     <div className="shopping-heading">
       <div><p className="catalog-eyebrow">{loading ? 'SHOPPING LIST' : items.length ? "TODAY'S TRIP" : 'YOUR CART'}</p><h1>My Shopping List</h1><p className="catalog-subtitle">{loading ? 'Loading your active list.' : items.length ? 'Everything you need, in one easy list.' : 'A fresh start for your next trip.'}</p></div>
-      <button className="catalog-button primary" type="button" onClick={onBrowseCatalog} disabled={busy}>＋ Add Item</button>
+      <div className="trip-actions"><button className="catalog-button primary" type="button" onClick={onBrowseCatalog} disabled={busy || reviewBusy}>＋ Add Item</button>{items.length > 0 && <button ref={finishTriggerRef} className="catalog-button secondary" type="button" onClick={openReview} disabled={busy || loading || reviewBusy}>{reviewBusy ? 'Preparing review…' : 'Finish shopping'}</button>}</div>
     </div>
     {notice && <p className="catalog-notice" role="status">{notice}</p>}
+    {finished && <p className="catalog-notice" role="status">Your completed trip is available under Trips.</p>}
     {actionError && <p className="alert" role="alert">{actionError}</p>}
     {error && <div className="catalog-state" role="alert"><p>{error}</p><button className="catalog-button secondary" type="button" onClick={() => setRefresh((value) => value + 1)}>Try again</button></div>}
     {loading && <div className="catalog-state" role="status"><p>Loading your shopping list…</p></div>}

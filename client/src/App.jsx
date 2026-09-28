@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { addCartItem, getSession, login, logout, register, updateSettings } from './api/httpApi.js'
 import Catalog from './Catalog.jsx'
 import ShoppingList from './ShoppingList.jsx'
+import Trips from './Trips.jsx'
 
 const EMPTY_FORM = { email: '', password: '' }
 
@@ -17,6 +18,7 @@ export default function App() {
   const [requestedEdit, setRequestedEdit] = useState(null)
   const [cartPending, setCartPending] = useState(false)
   const [catalogAddPending, setCatalogAddPending] = useState(false)
+  const [reviewOpen, setReviewOpen] = useState(false)
   const [preferredCurrency, setPreferredCurrency] = useState('PHP')
   const [settingsError, setSettingsError] = useState('')
   const [settingsNotice, setSettingsNotice] = useState('')
@@ -58,6 +60,8 @@ export default function App() {
       const result = await getSession()
       setUser(result.user)
       setPreferredCurrency(result.user.preferred_currency)
+      setPage('cart')
+      setCatalogVisited(false)
       setStatus('ready')
     } catch (caught) {
       setStatus(caught.status === 401 ? 'ready' : 'error')
@@ -80,6 +84,8 @@ export default function App() {
       accountGeneration.current += 1
       setUser(result.user)
       setPreferredCurrency(result.user.preferred_currency)
+      setPage('cart')
+      setCatalogVisited(false)
       setSettingsError('')
       setSettingsNotice('')
       setForm(EMPTY_FORM)
@@ -147,20 +153,20 @@ export default function App() {
   }
 
   function navigation() {
-    const switchingDisabled = cartPending || catalogAddPending || settingsBusy
+    const switchingDisabled = cartPending || catalogAddPending || settingsBusy || reviewOpen
     return <>
       <button type="button" className={page === 'cart' ? 'active' : ''} aria-current={page === 'cart' ? 'page' : undefined} onClick={() => { if (!cartPendingRef.current && !catalogAddPendingRef.current) setPage('cart') }} disabled={switchingDisabled}>Shopping list</button>
       <button type="button" className={page === 'catalog' ? 'active' : ''} aria-current={page === 'catalog' ? 'page' : undefined} onClick={browseCatalog} disabled={switchingDisabled}>Catalog</button>
-      <button type="button" className="future-nav" disabled title="Available in a future milestone">Trips</button>
+      <button type="button" className={page === 'trips' ? 'active' : ''} aria-current={page === 'trips' ? 'page' : undefined} onClick={() => { if (!switchingDisabled) setPage('trips') }} disabled={switchingDisabled}>Trips</button>
       <button type="button" className={page === 'settings' ? 'active' : ''} aria-current={page === 'settings' ? 'page' : undefined} onClick={() => { if (!switchingDisabled) setPage('settings') }} disabled={switchingDisabled}>Settings</button>
-      <button type="button" onClick={signOut} disabled={busy || settingsBusy || cartPending || catalogAddPending}>Sign out</button>
+      <button type="button" onClick={signOut} disabled={busy || settingsBusy || cartPending || catalogAddPending || reviewOpen}>Sign out</button>
     </>
   }
 
   return (
     <div className="app">
       <header className="site-header"><div className="header-inner"><img src="/cartcheck-logo-on-dark.svg" alt="CartCheck" className="brand" />{user && <nav className="catalog-nav" aria-label="Main navigation">{navigation()}</nav>}</div></header>
-      {status === 'ready' && user ? <>{error && <p className="alert" role="alert">{error}</p>}<div hidden={page !== 'cart'}><ShoppingList editItem={requestedEdit} onEditHandled={() => setRequestedEdit(null)} onBrowseCatalog={browseCatalog} onMutationPending={reportCartPending} /></div>{catalogVisited && <div hidden={page !== 'catalog'}><Catalog onAdd={addItem} onAddPending={reportCatalogAddPending} /></div>}{page === 'settings' && <main className="settings-main"><section className="catalog-panel" aria-labelledby="settings-heading"><p className="catalog-eyebrow">ACCOUNT</p><h1 id="settings-heading">Settings</h1><p className="optional-help">Your current shopping trip keeps its currency. This preference applies when a new trip begins.</p><form onSubmit={saveSettings}><label htmlFor="preferred-currency">Preferred currency for future trips</label><select id="preferred-currency" value={preferredCurrency} onChange={(event) => { setPreferredCurrency(event.target.value); setSettingsNotice(''); setSettingsError('') }} disabled={settingsBusy}><option value="PHP">PHP — Philippine peso</option><option value="USD">USD — US dollar</option><option value="EUR">EUR — euro</option></select>{settingsError && <p className="alert" role="alert">{settingsError}</p>}{settingsNotice && <p className="catalog-notice" role="status">{settingsNotice}</p>}<button className="catalog-button primary" type="submit" disabled={settingsBusy || preferredCurrency === user.preferred_currency}>{settingsBusy ? 'Saving…' : 'Save preference'}</button></form><button className="catalog-button secondary mobile-sign-out" type="button" onClick={signOut} disabled={busy || settingsBusy}>Sign out</button></section></main>}</> : <main className="auth-main">
+      {status === 'ready' && user ? <>{error && <p className="alert" role="alert">{error}</p>}<div hidden={page !== 'cart'}><ShoppingList key={user.id} editItem={requestedEdit} onEditHandled={() => setRequestedEdit(null)} onBrowseCatalog={browseCatalog} onMutationPending={reportCartPending} onReviewChange={setReviewOpen} /></div>{catalogVisited && <div hidden={page !== 'catalog'}><Catalog onAdd={addItem} onAddPending={reportCatalogAddPending} /></div>}{page === 'trips' && <Trips key={user.id} onReviewChange={setReviewOpen} />}{page === 'settings' && <main className="settings-main"><section className="catalog-panel" aria-labelledby="settings-heading"><p className="catalog-eyebrow">ACCOUNT</p><h1 id="settings-heading">Settings</h1><p className="optional-help">Your current shopping trip keeps its currency. This preference applies when a new trip begins.</p><form onSubmit={saveSettings}><label htmlFor="preferred-currency">Preferred currency for future trips</label><select id="preferred-currency" value={preferredCurrency} onChange={(event) => { setPreferredCurrency(event.target.value); setSettingsNotice(''); setSettingsError('') }} disabled={settingsBusy}><option value="PHP">PHP — Philippine peso</option><option value="USD">USD — US dollar</option><option value="EUR">EUR — euro</option></select>{settingsError && <p className="alert" role="alert">{settingsError}</p>}{settingsNotice && <p className="catalog-notice" role="status">{settingsNotice}</p>}<button className="catalog-button primary" type="submit" disabled={settingsBusy || preferredCurrency === user.preferred_currency}>{settingsBusy ? 'Saving…' : 'Save preference'}</button></form><button className="catalog-button secondary mobile-sign-out" type="button" onClick={signOut} disabled={busy || settingsBusy}>Sign out</button></section></main>}</> : <main className="auth-main">
         {status === 'loading' && <section className="auth-card" role="status"><p className="eyebrow">CARTCHECK</p><h1>Restoring your session</h1><p>Checking your account…</p></section>}
         {status === 'error' && <section className="auth-card"><h1>Could not connect</h1><p className="alert" role="alert">{error}</p><button className="primary-button" onClick={retryRestore}>Try again</button></section>}
         {status === 'ready' && !user && <section className="auth-card">

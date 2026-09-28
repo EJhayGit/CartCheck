@@ -5,8 +5,11 @@ import { once } from 'node:events'
 import { createServer } from 'node:net'
 import { randomUUID } from 'node:crypto'
 import pg from 'pg'
+import { poolConfig } from './db/config.js'
+import { assertUnusedTestEmails, cleanupTestEmails, testEmails } from './testDatabaseSafety.js'
 
-const databaseUrl = process.env.CARTCHECK_TEST_DATABASE_URL
+const runId = process.env.CARTCHECK_TEST_RUN_ID
+const databaseUrl = runId && process.env.CARTCHECK_TEST_DATABASE_URL
 
 async function unusedPort() {
   const server = createServer()
@@ -41,12 +44,13 @@ async function request(baseUrl, path, { method = 'GET', body, cookie } = {}) {
 }
 
 test('cart lifecycle, snapshots, validation, and account isolation', {
-  skip: !databaseUrl && 'Set CARTCHECK_TEST_DATABASE_URL to a disposable PostgreSQL database to run API integration tests',
+  skip: !databaseUrl && 'Use the guarded testIntegrationDev.js runner for database API tests',
 }, async (t) => {
-  const client = new pg.Client({ connectionString: databaseUrl })
+  const client = new pg.Client(poolConfig({ ...process.env, DATABASE_URL: databaseUrl }))
   await client.connect()
-  const suffix = randomUUID()
-  const emails = [`m4-a-${suffix}@example.test`, `m4-b-${suffix}@example.test`]
+  const emails = testEmails(runId).slice(4, 6)
+  await assertUnusedTestEmails(client, emails)
+  const suffix = runId
   const passwords = [randomUUID() + 'A1!', randomUUID() + 'B1!']
   const port = await unusedPort()
   const baseUrl = `http://127.0.0.1:${port}`
@@ -62,8 +66,7 @@ test('cart lifecycle, snapshots, validation, and account isolation', {
     child.kill()
     if (child.exitCode === null) await once(child, 'exit')
     try {
-      await client.query('DELETE FROM cartcheck.trip_items WHERE user_id IN (SELECT id FROM cartcheck.users WHERE email = ANY($1::text[]))', [emails])
-      await client.query('DELETE FROM cartcheck.users WHERE email = ANY($1::text[])', [emails])
+      await cleanupTestEmails(client, emails)
     } finally { await client.end() }
   })
 
@@ -75,6 +78,10 @@ test('cart lifecycle, snapshots, validation, and account isolation', {
     assert.equal((await request(baseUrl, '/api/cart/items/1', { method: 'DELETE' })).status, 401)
     assert.equal((await request(baseUrl, '/api/cart', { method: 'PATCH', body: { budget: 20 } })).status, 401)
     assert.equal((await request(baseUrl, '/api/me/settings', { method: 'PATCH', body: { preferredCurrency: 'USD' } })).status, 401)
+    assert.equal((await request(baseUrl, '/api/trips')).status, 401)
+    assert.equal((await request(baseUrl, '/api/trips/1')).status, 401)
+    assert.equal((await request(baseUrl, '/api/trips/1/finish', { method: 'POST', body: { revision: 1 } })).status, 401)
+    assert.equal((await request(baseUrl, '/api/trips/1', { method: 'PUT', body: { revision: 1, items: [] } })).status, 401)
 
     const registrations = await Promise.all(emails.map((email, index) => request(baseUrl, '/api/auth/register', {
       method: 'POST', body: { email, password: passwords[index] },
@@ -275,6 +282,111 @@ test('cart lifecycle, snapshots, validation, and account isolation', {
     assert.equal(removed.status, 204)
     const afterRemove = await (await request(baseUrl, '/api/cart', { cookie: cookieA })).json()
     assert.deepEqual(afterRemove.items.map((item) => item.id), [starterResult.item.id])
+
+    const addedUnbought = await request(baseUrl, '/api/cart/items', {
+      method: 'POST', cookie: cookieA, body: { productId: customProduct.id },
+    })
+    assert.equal(addedUnbought.status, 201)
+    const unboughtId = (await addedUnbought.json()).item.id
+    assert.equal((await request(baseUrl, `/api/cart/items/${unboughtId}`, {
+      method: 'PATCH', cookie: cookieA,
+      body: { name: 'Custom snapshot', quantity: '1.500', actualTotal: '0.00' },
+    })).status, 200)
+
+    const finishReview = await (await request(baseUrl, '/api/cart', { cookie: cookieA })).json()
+    assert.equal(typeof finishReview.tripId, 'string')
+    assert.equal(Number.isInteger(finishReview.revision), true)
+    assert.equal((await request(baseUrl, `/api/trips/${finishReview.tripId}/finish`, {
+      method: 'POST', cookie: cookieB, body: { revision: finishReview.revision },
+    })).status, 404, 'another account cannot finish this trip')
+    const concurrentFinishes = await Promise.all(Array.from({ length: 2 }, () => request(baseUrl, `/api/trips/${finishReview.tripId}/finish`, {
+      method: 'POST', cookie: cookieA, body: { revision: finishReview.revision },
+    })))
+    assert.deepEqual(concurrentFinishes.map((response) => response.status), [200, 200])
+    const finishBody = await concurrentFinishes[0].json()
+    const duplicateFinishBody = await concurrentFinishes[1].json()
+    assert.equal(duplicateFinishBody.completedTrip.id, finishBody.completedTrip.id, 'concurrent requests finish one trip')
+    assert.equal(finishBody.completedTrip.id, finishReview.tripId)
+    assert.equal(finishBody.completedTrip.items[0].bought, true)
+    assert.equal(finishBody.completedTrip.items[1].bought, false, 'unchecked item stays unbought')
+    assert.equal(finishBody.completedTrip.items[1].actualTotal, '0.00', 'explicit zero remains a known snapshot')
+    assert.equal(finishBody.completedTrip.items[1].productId, null, 'finished snapshots detach from catalog')
+    assert.equal(finishBody.activeTrip.items.length, 0)
+    assert.equal(finishBody.activeTrip.budget, null)
+    assert.equal(finishBody.activeTrip.currency, 'USD', 'new trip uses the current preference')
+    assert.equal(finishBody.completedTrip.currency, 'PHP', 'finished trip keeps its original currency')
+    assert.equal((await request(baseUrl, `/api/cart/items/${starterResult.item.id}`, {
+      method: 'PATCH', cookie: cookieA, body: { bought: false },
+    })).status, 404, 'active-list endpoints cannot change completed snapshots')
+
+    const newTripItem = await request(baseUrl, '/api/cart/items', {
+      method: 'POST', cookie: cookieA, body: { productId: starter.id },
+    })
+    assert.equal(newTripItem.status, 201)
+
+    const retry = await request(baseUrl, `/api/trips/${finishReview.tripId}/finish`, {
+      method: 'POST', cookie: cookieA, body: { revision: finishReview.revision },
+    })
+    assert.equal(retry.status, 200, 'retry of a completed trip is idempotent')
+    const retryBody = await retry.json()
+    assert.equal(retryBody.completedTrip.id, finishReview.tripId)
+    assert.equal(retryBody.activeTrip.items.length, 1, 'finish retry returns the current active trip without losing later items')
+    const historyResponse = await request(baseUrl, '/api/trips', { cookie: cookieA })
+    assert.equal(historyResponse.status, 200)
+    const history = await historyResponse.json()
+    assert.equal(history.items.length, 1)
+    assert.equal(history.items[0].id, finishReview.tripId)
+    assert.equal(history.items[0].boughtCount, 1)
+    assert.equal(history.items[0].notBoughtCount, 1)
+    assert.equal(history.items[0].itemCount, 2)
+    assert.equal((await request(baseUrl, `/api/trips/${finishReview.tripId}`, { cookie: cookieB })).status, 404,
+      'history detail is owner-scoped')
+    assert.equal((await request(baseUrl, `/api/trips/${finishReview.tripId}`, { cookie: cookieA })).status, 200)
+
+    const beforeCorrection = await (await request(baseUrl, `/api/trips/${finishReview.tripId}`, { cookie: cookieA })).json()
+    const originalDate = beforeCorrection.trip.completedAt
+    const historicalItem = beforeCorrection.trip.items[0]
+    assert.equal((await request(baseUrl, `/api/trips/${finishReview.tripId}`, {
+      method: 'PUT', cookie: cookieB,
+      body: { revision: beforeCorrection.trip.revision, items: [] },
+    })).status, 404, 'another account cannot correct this trip')
+    const corrected = await request(baseUrl, `/api/trips/${finishReview.tripId}`, {
+      method: 'PUT', cookie: cookieA,
+      body: { revision: beforeCorrection.trip.revision, items: [
+        { ...historicalItem, name: 'Corrected apples', actualTotal: '0.00' },
+        beforeCorrection.trip.items[1],
+        { name: 'Added from memory', category: 'Pantry', quantity: '0.500', unitLabel: 'kg',
+          estimatedTotal: null, actualTotal: null, bought: false },
+      ] },
+    })
+    assert.equal(corrected.status, 200)
+    const correctedTrip = (await corrected.json()).trip
+    assert.equal(correctedTrip.completedAt, originalDate)
+    assert.equal(correctedTrip.currency, 'PHP')
+    assert.equal(correctedTrip.items.length, 3)
+    assert.equal(correctedTrip.items[0].name, 'Corrected apples')
+    assert.equal(correctedTrip.items[2].productId, null)
+    assert.equal(correctedTrip.summary.actualTotal, '0.00')
+    assert.equal((await request(baseUrl, `/api/trips/${finishReview.tripId}`, {
+      method: 'PUT', cookie: cookieA,
+      body: { revision: beforeCorrection.trip.revision, items: beforeCorrection.trip.items },
+    })).status, 409, 'stale correction revisions are rejected')
+    const removeCorrection = await request(baseUrl, `/api/trips/${finishReview.tripId}`, {
+      method: 'PUT', cookie: cookieA,
+      body: { revision: correctedTrip.revision, items: correctedTrip.items.slice(1) },
+    })
+    assert.equal(removeCorrection.status, 200, 'omitting a historical item removes it')
+    const afterRemoval = (await removeCorrection.json()).trip
+    assert.equal(afterRemoval.items.length, 2)
+    assert.equal((await request(baseUrl, `/api/cart/items/${retryBody.activeTrip.items[0].id}`, {
+      method: 'DELETE', cookie: cookieA,
+    })).status, 204)
+    assert.equal((await request(baseUrl, `/api/catalog/${customProduct.id}`, {
+      method: 'DELETE', cookie: cookieA,
+    })).status, 204, 'completed snapshots do not prevent catalog deletion')
+    const afterCatalogDelete = await (await request(baseUrl, `/api/trips/${finishReview.tripId}`, { cookie: cookieA })).json()
+    assert.equal(afterCatalogDelete.trip.items[0].name, 'Custom snapshot')
+    assert.equal(afterCatalogDelete.trip.items[0].productId, null)
   } catch (error) {
     throw new Error(`${error.message}\nAPI output:\n${logs}`)
   }

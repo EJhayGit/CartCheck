@@ -13,23 +13,44 @@ function item(row) {
 }
 
 async function activeTrip(pool, userId) {
-  await pool.query(
+  return ensureActiveTrip(pool, userId)
+}
+
+async function ensureActiveTrip(queryable, userId) {
+  await queryable.query(
     `INSERT INTO cartcheck.shopping_trips (user_id, status, currency)
      SELECT id, 'active', preferred_currency FROM cartcheck.users WHERE id = $1
      ON CONFLICT (user_id) WHERE status = 'active' DO NOTHING`,
     [userId]
   )
-  const result = await pool.query(
-    `SELECT id, currency, budget FROM cartcheck.shopping_trips
+  const result = await queryable.query(
+    `SELECT id, currency, budget, revision FROM cartcheck.shopping_trips
      WHERE user_id = $1 AND status = 'active'`,
     [userId]
   )
   return result.rows[0]
 }
 
+async function withTransaction(pool, callback) {
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+    const value = await callback(client)
+    await client.query('COMMIT')
+    return value
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {})
+    throw error
+  } finally { client.release() }
+}
+
 export async function getCart(pool, userId) {
-  const trip = await activeTrip(pool, userId)
-  const result = await pool.query(
+  return withTransaction(pool, async (client) => {
+  await ensureActiveTrip(client, userId)
+  const locked = await client.query(`SELECT id, currency, budget, revision FROM cartcheck.shopping_trips
+    WHERE user_id = $1 AND status = 'active' FOR UPDATE`, [userId])
+  const trip = locked.rows[0]
+  const result = await client.query(
     `SELECT i.id, i.product_id, i.name, i.category, i.quantity, i.unit_label,
             i.estimated_total, i.actual_total, i.bought
      FROM cartcheck.trip_items i
@@ -38,7 +59,7 @@ export async function getCart(pool, userId) {
      ORDER BY i.created_at, i.id`,
     [userId, trip.id]
   )
-  const totals = await pool.query(
+  const totals = await client.query(
     `SELECT sum(estimated_total) AS estimated_total,
             count(*) FILTER (WHERE estimated_total IS NULL)::int AS estimated_missing_count,
             sum(actual_total) FILTER (WHERE bought) AS actual_total,
@@ -49,6 +70,8 @@ export async function getCart(pool, userId) {
   )
   const total = totals.rows[0]
   return {
+    tripId: String(trip.id),
+    revision: trip.revision,
     budget: trip.budget,
     currency: trip.currency,
     items: result.rows.map(item),
@@ -59,18 +82,25 @@ export async function getCart(pool, userId) {
       actualMissingCount: total.actual_missing_count,
     },
   }
+  })
 }
 
 export async function updateActiveBudget(pool, userId, budget) {
-  const trip = await activeTrip(pool, userId)
-  const result = await pool.query(
+  return withTransaction(pool, async (client) => {
+  await ensureActiveTrip(client, userId)
+  const locked = await client.query(`SELECT id FROM cartcheck.shopping_trips
+    WHERE user_id = $1 AND status = 'active' FOR UPDATE`, [userId])
+  const tripId = locked.rows[0]?.id
+  if (!tripId) return null
+  const result = await client.query(
     `UPDATE cartcheck.shopping_trips
      SET budget = $3, revision = revision + 1
      WHERE id = $1 AND user_id = $2 AND status = 'active'
      RETURNING budget, currency`,
-    [trip.id, userId, budget]
+    [tripId, userId, budget]
   )
   return result.rows[0] ?? null
+  })
 }
 
 export async function updatePreferredCurrency(pool, userId, preferredCurrency) {
@@ -83,8 +113,13 @@ export async function updatePreferredCurrency(pool, userId, preferredCurrency) {
 }
 
 export async function addCatalogItem(pool, userId, productId) {
-  const trip = await activeTrip(pool, userId)
-  const inserted = await pool.query(
+  return withTransaction(pool, async (client) => {
+  await ensureActiveTrip(client, userId)
+  const locked = await client.query(`SELECT id FROM cartcheck.shopping_trips
+    WHERE user_id = $1 AND status = 'active' FOR UPDATE`, [userId])
+  const tripId = locked.rows[0]?.id
+  if (!tripId) return null
+  const inserted = await client.query(
     `INSERT INTO cartcheck.trip_items (user_id, trip_id, product_id, name, category, quantity)
      SELECT $1, $2, p.id, p.name, p.category, 1
      FROM cartcheck.products p
@@ -93,18 +128,22 @@ export async function addCatalogItem(pool, userId, productId) {
                    WHERE t.id = $2 AND t.user_id = $1 AND t.status = 'active')
      ON CONFLICT (trip_id, product_id) DO NOTHING
      RETURNING id, product_id, name, category, quantity, unit_label, estimated_total, actual_total, bought`,
-    [userId, trip.id, productId]
+    [userId, tripId, productId]
   )
-  if (inserted.rows[0]) return { item: item(inserted.rows[0]), created: true }
-  const existing = await pool.query(
+  if (inserted.rows[0]) {
+    await client.query('UPDATE cartcheck.shopping_trips SET revision = revision + 1 WHERE id = $1 AND user_id = $2 AND status = \'active\'', [tripId, userId])
+    return { item: item(inserted.rows[0]), created: true }
+  }
+  const existing = await client.query(
     `SELECT i.id, i.product_id, i.name, i.category, i.quantity, i.unit_label,
             i.estimated_total, i.actual_total, i.bought
      FROM cartcheck.trip_items i
      JOIN cartcheck.shopping_trips t ON t.id = i.trip_id AND t.user_id = i.user_id
      WHERE t.user_id = $1 AND t.id = $2 AND t.status = 'active' AND i.product_id = $3`,
-    [userId, trip.id, productId]
+    [userId, tripId, productId]
   )
   return existing.rows[0] ? { item: item(existing.rows[0]), created: false } : null
+  })
 }
 
 export async function updateItem(pool, userId, itemId, changes) {
@@ -119,7 +158,13 @@ export async function updateItem(pool, userId, itemId, changes) {
       fields.push(`${column} = $${values.length}`)
     }
   }
-  const result = await pool.query(
+  return withTransaction(pool, async (client) => {
+  const locked = await client.query(
+    `SELECT t.id FROM cartcheck.shopping_trips t JOIN cartcheck.trip_items i
+       ON i.trip_id = t.id AND i.user_id = t.user_id
+     WHERE i.user_id = $1 AND i.id = $2 AND t.status = 'active' FOR UPDATE OF t`, [userId, itemId])
+  if (!locked.rows[0]) return null
+  const result = await client.query(
     `UPDATE cartcheck.trip_items i SET ${fields.join(', ')}, updated_at = now()
      WHERE i.user_id = $1 AND i.id = $2
        AND EXISTS (SELECT 1 FROM cartcheck.shopping_trips t
@@ -128,17 +173,34 @@ export async function updateItem(pool, userId, itemId, changes) {
                i.estimated_total, i.actual_total, i.bought`,
     values
   )
+  if (result.rows[0]) {
+    await client.query(`UPDATE cartcheck.shopping_trips t SET revision = revision + 1
+      WHERE t.id = (SELECT i.trip_id FROM cartcheck.trip_items i WHERE i.id = $1 AND i.user_id = $2)
+        AND t.user_id = $2 AND t.status = 'active'`, [itemId, userId])
+  }
   return result.rows[0] ? item(result.rows[0]) : null
+  })
 }
 
 export async function deleteItem(pool, userId, itemId) {
-  const result = await pool.query(
+  return withTransaction(pool, async (client) => {
+  const locked = await client.query(
+    `SELECT t.id FROM cartcheck.shopping_trips t JOIN cartcheck.trip_items i
+       ON i.trip_id = t.id AND i.user_id = t.user_id
+     WHERE i.user_id = $1 AND i.id = $2 AND t.status = 'active' FOR UPDATE OF t`, [userId, itemId])
+  if (!locked.rows[0]) return false
+  const result = await client.query(
     `DELETE FROM cartcheck.trip_items i
      WHERE i.user_id = $1 AND i.id = $2
        AND EXISTS (SELECT 1 FROM cartcheck.shopping_trips t
                    WHERE t.id = i.trip_id AND t.user_id = $1 AND t.status = 'active')
-     RETURNING i.id`,
+     RETURNING i.id, i.trip_id`,
     [userId, itemId]
   )
+  if (result.rowCount) {
+    await client.query(`UPDATE cartcheck.shopping_trips SET revision = revision + 1
+      WHERE id = $1 AND user_id = $2 AND status = 'active'`, [result.rows[0].trip_id, userId])
+  }
   return result.rowCount > 0
+  })
 }

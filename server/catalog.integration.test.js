@@ -5,8 +5,11 @@ import { once } from 'node:events'
 import { createServer } from 'node:net'
 import { randomUUID } from 'node:crypto'
 import pg from 'pg'
+import { poolConfig } from './db/config.js'
+import { assertUnusedTestEmails, cleanupTestEmails, testEmails } from './testDatabaseSafety.js'
 
-const databaseUrl = process.env.CARTCHECK_TEST_DATABASE_URL
+const runId = process.env.CARTCHECK_TEST_RUN_ID
+const databaseUrl = runId && process.env.CARTCHECK_TEST_DATABASE_URL
 
 async function unusedPort() {
   const server = createServer()
@@ -46,12 +49,13 @@ async function request(baseUrl, path, { method = 'GET', body, cookie } = {}) {
 }
 
 test('authenticated catalog search, starter protection, and custom product isolation', {
-  skip: !databaseUrl && 'Set CARTCHECK_TEST_DATABASE_URL to a disposable PostgreSQL database to run API integration tests',
+  skip: !databaseUrl && 'Use the guarded testIntegrationDev.js runner for database API tests',
 }, async (t) => {
-  const client = new pg.Client({ connectionString: databaseUrl })
+  const client = new pg.Client(poolConfig({ ...process.env, DATABASE_URL: databaseUrl }))
   await client.connect()
-  const suffix = randomUUID()
-  const emails = [`m3-a-${suffix}@example.test`, `m3-b-${suffix}@example.test`]
+  const emails = testEmails(runId).slice(2, 4)
+  await assertUnusedTestEmails(client, emails)
+  const suffix = runId
   const passwords = [randomUUID() + 'A1!', randomUUID() + 'B1!']
   const port = await unusedPort()
   const baseUrl = `http://127.0.0.1:${port}`
@@ -66,8 +70,8 @@ test('authenticated catalog search, starter protection, and custom product isola
   t.after(async () => {
     child.kill()
     if (child.exitCode === null) await once(child, 'exit')
-    await client.query('DELETE FROM cartcheck.users WHERE email = ANY($1::text[])', [emails])
-    await client.end()
+    try { await cleanupTestEmails(client, emails) }
+    finally { await client.end() }
   })
 
   try {

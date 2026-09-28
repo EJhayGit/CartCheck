@@ -9,6 +9,7 @@ import { pool } from './db/pool.js'
 import * as authRepo from './authRepo.js'
 import * as catalogRepo from './catalogRepo.js'
 import * as cartRepo from './cartRepo.js'
+import * as tripRepo from './tripRepo.js'
 import { CATALOG_CATEGORIES, parseCatalogId, validateCatalogInput, validateCatalogQuery } from './catalogValidation.js'
 import {
   parseItemId,
@@ -17,6 +18,7 @@ import {
   validateItemChanges,
 } from './cartValidation.js'
 import { normalizeEmail, publicUser, validatePassword } from './authValidation.js'
+import { parseTripId, validateCorrection, validateHistoryQuery, validateRevision } from './tripValidation.js'
 import {
   createAuthRateLimiter,
   createSessionToken,
@@ -273,6 +275,59 @@ app.delete('/api/cart/items/:id', checkRequestOrigin, authenticate, async (reque
     }
     response.status(204).end()
   } catch (error) { next(error) }
+})
+
+app.post('/api/trips/:id/finish', checkRequestOrigin, authenticate, async (request, response, next) => {
+  const id = parseTripId(request.params.id)
+  if (id === null) return response.status(400).json({ error: 'Invalid trip ID' })
+  if (!request.body || typeof request.body !== 'object' || Array.isArray(request.body) ||
+      Object.keys(request.body).length !== 1 || !Object.hasOwn(request.body, 'revision')) {
+    return response.status(400).json({ error: 'Provide the reviewed trip revision' })
+  }
+  const revision = validateRevision(request.body.revision)
+  if (revision.error) return response.status(400).json({ error: revision.error })
+  try {
+    const result = await tripRepo.finishTrip(pool, request.user.id, id, revision.revision)
+    if (result.error === 'not_found') return response.status(404).json({ error: 'Trip not found' })
+    if (result.error === 'stale') return response.status(409).json({ error: 'Trip changed; reload it before finishing' })
+    if (result.error === 'empty') return response.status(400).json({ error: 'An empty trip cannot be finished' })
+    response.json(result)
+  } catch (error) { next(error) }
+})
+
+app.get('/api/trips', authenticate, async (request, response, next) => {
+  const query = validateHistoryQuery(request.query)
+  if (query.error) return response.status(400).json({ error: query.error })
+  try { response.json(await tripRepo.listTrips(pool, request.user.id, query)) }
+  catch (error) { next(error) }
+})
+
+app.get('/api/trips/:id', authenticate, async (request, response, next) => {
+  const id = parseTripId(request.params.id)
+  if (id === null) return response.status(400).json({ error: 'Invalid trip ID' })
+  try {
+    const trip = await tripRepo.getTrip(pool, request.user.id, id)
+    if (!trip) return response.status(404).json({ error: 'Trip not found' })
+    response.json({ trip })
+  } catch (error) { next(error) }
+})
+
+app.put('/api/trips/:id', checkRequestOrigin, authenticate, async (request, response, next) => {
+  const id = parseTripId(request.params.id)
+  if (id === null) return response.status(400).json({ error: 'Invalid trip ID' })
+  const correction = validateCorrection(request.body)
+  if (correction.error) return response.status(400).json({ error: correction.error })
+  try {
+    const result = await tripRepo.correctTrip(pool, request.user.id, id, correction.revision, correction.items)
+    if (result.error === 'not_found') return response.status(404).json({ error: 'Completed trip not found' })
+    if (result.error === 'stale') return response.status(409).json({ error: 'Trip changed; reload it before saving corrections' })
+    if (result.error === 'invalid_item') return response.status(400).json({ error: 'Correction includes an item outside this trip' })
+    response.json(result)
+  } catch (error) {
+    if (error.code === '23505') return response.status(400).json({ error: 'A trip cannot contain the same catalog item twice' })
+    if (error.code === '23503') return response.status(400).json({ error: 'Catalog product is not available to this account' })
+    next(error)
+  }
 })
 
 // Is the process alive?

@@ -8,6 +8,18 @@ needs.
 
 ---
 
+## Week of 2026-09-28
+
+**Done.** Locally completed the authenticated CartCheck flow through Finish Shopping, fresh empty list, trip history, and historical correction. Three guarded Supabase development integration suites passed. A dedicated browser account completed the workflow on desktop and phone layouts; exact cleanup restored the protected database baseline. This is development verification, not a public deployment.
+
+**Stuck.** Public full-stack deployment and a running-app screenshot in the repository remain unverified. The Milestone 7 review is approved; its final commit is being prepared.
+
+**Hours.** Not recorded; no estimate is invented for this report.
+
+**Next.** Record the approved Milestone 7 commit. Begin release and course deliverables only as a separate milestone.
+
+---
+
 ## Week of YYYY-MM-DD
 
 **Done.** What actually works now, in the deployed app rather than on your laptop.

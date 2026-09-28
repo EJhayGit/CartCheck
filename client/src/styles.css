@@ -204,3 +204,37 @@ input::placeholder { color: #42584e; opacity: 1; }
 .mobile-sign-out { display: none; }
 @media (max-width: 959px) { .shopping-content { grid-template-columns: 1fr; gap: 20px; } }
 @media (max-width: 700px) { .shopping-content { grid-template-columns: 1fr; gap: 20px; } .budget-panel { padding: 18px 16px; } .settings-main { padding: 28px 16px 100px; } .catalog-mobile-nav button:last-child { display: none; } .mobile-sign-out { display: block; margin-top: 24px; } }
+
+.trip-screen { max-width: 1150px; }
+.trip-screen h1:focus { outline: none; }
+.trip-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.trip-review-grid { display: grid; grid-template-columns: minmax(0, 1fr) 294px; align-items: start; gap: 24px; }
+.trip-review-grid .catalog-panel, .trip-screen .catalog-panel { border: 1px solid #d7e2d9; border-radius: 12px; background: #fff; padding: 22px; }
+.trip-review-grid h2, .trip-screen .catalog-panel h2 { margin: 0 0 14px; font-size: 20px; }
+.trip-review-list { list-style: none; margin: 0 0 24px; padding: 0; }
+.trip-review-list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; padding: 12px; border: 1px solid #d7e2d9; border-radius: 8px; }
+.trip-review-list li > span:first-child { display: grid; gap: 3px; min-width: 0; }
+.trip-review-list strong { overflow-wrap: anywhere; font-size: 14px; }
+.trip-review-list small { color: #42584e; font-size: 12px; }
+.trip-status { flex: none; padding: 5px 8px; border: 1px solid #d7e2d9; border-radius: 99px; color: #176b45; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.trip-cards { display: grid; gap: 0; margin-bottom: 20px; }
+.trip-card { display: grid; grid-template-columns: minmax(0, 1fr) 220px auto; align-items: center; gap: 24px; padding: 24px; border: 1px solid #d7e2d9; border-radius: 12px; background: #fff; }
+.trip-card + .trip-card { margin-top: 8px; }
+.trip-card h2 { margin: 6px 0; font-size: 20px; }
+.trip-card p { margin: 0; }
+.trip-card-spend, .trip-summary > div { display: grid; gap: 3px; }
+.trip-card-spend span, .trip-summary span, .trip-card-spend small, .trip-summary small { color: #42584e; font-size: 12px; }
+.trip-card-spend strong, .trip-summary strong { font-size: 17px; font-variant-numeric: tabular-nums; }
+.trip-panel-heading { display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: 12px; }
+.trip-panel-heading p { margin: 0 0 20px; color: #42584e; }
+.trip-totals { margin-top: 18px; }
+.trip-summary { display: flex; flex-wrap: wrap; gap: 32px; }
+.trip-edit-item { display: grid; gap: 14px; margin: 16px 0; padding: 18px; border: 1px solid #d7e2d9; border-radius: 8px; }
+.trip-edit-item legend { padding: 0 6px; font-weight: 700; }
+.trip-edit-item label { display: grid; gap: 6px; font-weight: 650; font-size: 13px; }
+.trip-edit-item input:not([type="checkbox"]) { width: 100%; min-height: 44px; padding: 9px 12px; border: 1px solid #d7e2d9; border-radius: 8px; color: #172b26; background: #fff; }
+.trip-edit-item .trip-check { display: flex; align-items: center; gap: 9px; min-height: 44px; }
+.trip-edit-item .trip-check input { width: 18px; height: 18px; }
+.trip-edit-item > button { justify-self: start; }
+.trip-screen .catalog-panel > .trip-actions { margin-top: 22px; }
+@media (max-width: 700px) { .trip-review-grid, .trip-card { grid-template-columns: 1fr; gap: 14px; } .trip-review-grid .catalog-panel, .trip-screen .catalog-panel { padding: 16px; } .trip-review-list li { align-items: start; } .trip-card { padding: 18px 16px; } .trip-actions button { flex: 1; } }

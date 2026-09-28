@@ -9,6 +9,14 @@ looks exactly like what it is.
 
 ## Entries recorded so far
 
+### 2026-09-28 - Milestone 7 implementation and verification
+
+- **Tool:** Codex, with a read-only specialist review during final audit.
+- **What I asked for:** Complete Finish Shopping, trip history/corrections, safe integration tests on the existing Supabase development database, an authenticated browser walkthrough, and a pre-commit review.
+- **What it gave back:** Owner-scoped transactional trip APIs, React trip screens, migration 002, guarded temporary-data tooling, tests, and local browser verification. The review identified a too-broad test database target check and malformed cursor handling; both were tightened and focused tests passed.
+- **What I kept, what I changed, and why:** The temporary test data was removed after baseline verification. A project identity pin was added to prevent the guarded runner from accepting another Supabase project, and malformed cursors now fail validation before reaching PostgreSQL. The owner approved the final review.
+- **Commit:** The Milestone 7 commit hash must be linked in a later course-evidence update; a commit cannot include its own hash. No student-authored code is claimed here.
+
 ### 2026-09-23 - Week 1 documentation and journal correction
 
 - **Tool:** Codex.

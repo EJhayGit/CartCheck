@@ -46,3 +46,7 @@ export const updateSettings = (input) => request('/api/me/settings', { method: '
 export const addCartItem = (productId) => request('/api/cart/items', { method: 'POST', body: JSON.stringify({ productId }) })
 export const updateCartItem = (id, input) => request(`/api/cart/items/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(input) })
 export const deleteCartItem = (id) => request(`/api/cart/items/${encodeURIComponent(id)}`, { method: 'DELETE' })
+export const finishTrip = (id, revision) => request(`/api/trips/${encodeURIComponent(id)}/finish`, { method: 'POST', body: JSON.stringify({ revision }) })
+export const getTrips = (cursor = null) => request(`/api/trips${cursor ? `?${new URLSearchParams({ cursor })}` : ''}`)
+export const getTrip = (id) => request(`/api/trips/${encodeURIComponent(id)}`)
+export const correctTrip = (id, input) => request(`/api/trips/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(input) })

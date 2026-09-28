@@ -6,8 +6,11 @@ import { createServer } from 'node:net'
 import { randomUUID } from 'node:crypto'
 import pg from 'pg'
 import { hashSessionToken, SESSION_COOKIE } from './authSecurity.js'
+import { poolConfig } from './db/config.js'
+import { assertUnusedTestEmails, cleanupTestEmails, testEmails } from './testDatabaseSafety.js'
 
-const databaseUrl = process.env.CARTCHECK_TEST_DATABASE_URL
+const runId = process.env.CARTCHECK_TEST_RUN_ID
+const databaseUrl = runId && process.env.CARTCHECK_TEST_DATABASE_URL
 
 async function unusedPort() {
   const server = createServer()
@@ -55,13 +58,13 @@ async function jsonRequest(baseUrl, path, {
 }
 
 test('account lifecycle, session security, and initial private data isolation', {
-  skip: !databaseUrl && 'Set CARTCHECK_TEST_DATABASE_URL to a disposable PostgreSQL database to run API integration tests',
+  skip: !databaseUrl && 'Use the guarded testIntegrationDev.js runner for database API tests',
 }, async (t) => {
-  const client = new pg.Client({ connectionString: databaseUrl })
+  const client = new pg.Client(poolConfig({ ...process.env, DATABASE_URL: databaseUrl }))
   await client.connect()
-  const suffix = randomUUID()
-  const emailA = `m2-a-${suffix}@example.test`
-  const emailB = `m2-b-${suffix}@example.test`
+  const [emailA, emailB] = testEmails(runId)
+  await assertUnusedTestEmails(client, [emailA, emailB])
+  const suffix = runId
   const passwordA = `Milestone2-${randomUUID()}!`
   const passwordB = `Milestone2-${randomUUID()}!`
   const port = await unusedPort()
@@ -77,8 +80,8 @@ test('account lifecycle, session security, and initial private data isolation', 
   t.after(async () => {
     child.kill()
     if (child.exitCode === null) await once(child, 'exit')
-    await client.query('DELETE FROM cartcheck.users WHERE email = ANY($1::text[])', [[emailA, emailB]])
-    await client.end()
+    try { await cleanupTestEmails(client, [emailA, emailB]) }
+    finally { await client.end() }
   })
 
   try {

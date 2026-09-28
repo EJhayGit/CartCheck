@@ -1,5 +1,20 @@
 # Weekly Increment Report
 
+## Week of: September 28, 2026 (Milestone 7 local verification)
+
+### What changed this week
+
+- Finish Shopping now saves bought and not-bought snapshots transactionally, creates a fresh empty active trip, and supports owner-scoped history, details, and reviewed corrections. Migration 002 permits a historical snapshot without a linked catalog product.
+- Three guarded Supabase development integration suites passed, including retry/concurrency and ownership checks. A dedicated temporary browser account completed sign-in, item entry, purchase changes, optional prices/budget, finish, history, correction, and refresh persistence. Desktop and phone layouts were inspected.
+- Exact temporary-account cleanup and a protected-row fingerprint check preserved the existing database baseline. Final review added an independent development-project identity pin to the test guard and stricter history cursor validation; focused tests passed.
+
+### What remains open
+
+- This is a local/development result. There is no verified public full-stack deployment or committed running-app screenshot. The owner approved the Milestone 7 review; Milestone 8 has not started.
+- Time spent was not recorded, so this report does not invent hours. The course security and AI-evidence items still need owner review and eventual commit links.
+
+---
+
 ## Week of: September 24–27, 2026 (Finals Week 2)
 
 ### What changed this week
