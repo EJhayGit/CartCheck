@@ -2,7 +2,7 @@
 
 CartCheck is a private grocery checklist for planning a shop and keeping a record of completed trips. Add groceries from a starter catalog or create your own, check items off while shopping, and finish a trip without entering prices. Estimated item totals, actual item totals, and a budget are optional.
 
-**Status:** The core grocery milestones and account recovery enhancements are implemented and tested locally. Real email delivery, the public Render deployment, a personal domain, and Google Sign-In are still pending; there is no live app link yet.
+**Status:** The core grocery milestones and account recovery enhancements are implemented and tested locally. The owner has purchased `merzbuilds.dev`; CartCheck DNS, real email delivery, and the public Render deployment remain unverified, so there is no live app link yet. Google Sign-In has been cancelled.
 
 ## What it does
 
@@ -17,7 +17,7 @@ The approved behavior and release criteria are in the [product requirements](doc
 
 ## Stack and release plan
 
-React and Vite provide the client. The recommended first public deployment is **one Render web service** serving the built client and Express `/api` from one HTTPS origin; this matches the current code and approved requirements. PostgreSQL is hosted by Supabase and accessed only by Express. Database credentials stay on the server; browser builds must never contain them. A possible personal-domain subdomain for CartCheck and a separate Resend sending subdomain are planning examples, not live addresses. Vercel frontend hosting was considered but is not the current deployment choice. [System design and deployment review](docs/architecture/SYSTEM_DESIGN.md) explain the alternatives and prerequisites. Public deployment and a running-app screenshot will be added only after verification.
+React and Vite provide the client. The approved public deployment is **one Render web service** serving the built client and Express `/api` from one HTTPS origin, with Supabase PostgreSQL behind Express and Resend for transactional email. The intended CartCheck origin is `https://cartcheck.merzbuilds.dev`; `https://merzbuilds.dev` is the portfolio domain, and `mail.merzbuilds.dev` is the selected Resend sending subdomain. These addresses are confirmed choices, but CartCheck DNS, hosting, and email delivery have not been configured or verified. Database credentials stay on the server; browser builds must never contain them. Vercel frontend hosting was evaluated and is not in the CartCheck deployment plan. [System design and deployment review](docs/architecture/SYSTEM_DESIGN.md) explains the prerequisites. A live link and running-app screenshot will be added only after verification.
 
 ## Run locally
 
@@ -46,7 +46,7 @@ npm run dev
 
 Open `http://localhost:5173`. Vite proxies `/api` to Express on port 3000. `GET /healthz` checks the API process and `GET /readyz` checks database readiness. The React app uses the authenticated API; it does not use the old browser-only demo.
 
-The [server environment example](server/.env.example) documents database, TLS, pool, CORS, and email settings. Follow the [account email setup guide](docs/ACCOUNT_EMAIL_SETUP.md) before enabling real delivery or required verification. Leave `VITE_API_BASE_URL` unset for the local proxy and planned single-origin Render service; it would also stay unset if a later Vercel deployment rewrote `/api` to Render. The [client environment example](client/.env.example) documents a direct API origin only for a separately hosted development API. Never put secrets in a `VITE_` variable. Database integration tests against the approved development project require the [guarded procedure](docs/MILESTONE_7_TEST_SAFETY.md).
+The [server environment example](server/.env.example) documents database, TLS, pool, CORS, and email settings. Follow the [account email setup guide](docs/ACCOUNT_EMAIL_SETUP.md) before enabling real delivery or required verification. Leave `VITE_API_BASE_URL` unset for the local proxy and approved single-origin Render service. The [client environment example](client/.env.example) documents a direct API origin only for a separately hosted development API. Never put secrets in a `VITE_` variable. Database integration tests against the approved development project require the [guarded procedure](docs/MILESTONE_7_TEST_SAFETY.md).
 
 ## Verify
 

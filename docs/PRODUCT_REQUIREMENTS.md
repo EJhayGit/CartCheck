@@ -1,6 +1,6 @@
 # CartCheck product requirements
 
-**Status (2026-09-29):** Approved first-release requirements. Core grocery Milestones 1–7 and account enhancements are implemented. Public deployment remains pending. The single-Render hosting requirement remains the recommended release path; a Vercel frontend split is only an evaluated proposal.
+**Status (2026-09-29):** Approved first-release requirements. Core grocery Milestones 1–7 and account enhancements are implemented. Public deployment remains pending. One Render web service with Supabase PostgreSQL and Resend is the approved release architecture; the previously evaluated Vercel frontend split was not selected. Google Sign-In was cancelled.
 
 ## Objective
 

@@ -19,16 +19,16 @@ Authentication precedes private catalog and list work; the database schema prece
 ## Remaining work and deployment decision
 
 - **Implemented account enhancements:** Milestone 8 has its own Git checkpoint. The reported client/server tests and production frontend build passed; real inbox delivery remains unverified. Keep existing accounts exempt and `REQUIRE_VERIFIED_EMAIL=false` until actual delivery succeeds.
-- **Recommended first release:** One Render web service serves the Vite build and Express `/api` on one HTTPS origin, with Supabase PostgreSQL. This is the approved requirements baseline and matches current code. A Vercel frontend plus Render API and `/api` rewrite was evaluated but remains a **proposed alternative**, with extra cookie, Origin, proxy, and caching checks. See [system design](SYSTEM_DESIGN.md).
-- **Unverified external services:** No public Render site, production Supabase connection, purchased personal domain, DNS configuration, verified Resend sender, or real inbox delivery is established by this repository. Use provider dashboard values for future DNS; example domain names are placeholders.
-- **Future feature:** Google Sign-In is **not implemented**. If separately approved, add it to existing Express accounts/sessions with explicit account linking; do not merge by matching email or migrate to Supabase Auth as part of deployment.
+- **Approved release architecture:** One Render web service serves the Vite build and Express `/api` on one HTTPS origin, with Supabase PostgreSQL and Resend transactional email. The Vercel frontend split was evaluated but is not in the CartCheck deployment plan. See [system design](SYSTEM_DESIGN.md).
+- **Confirmed domain, unverified services:** The owner purchased `merzbuilds.dev` and selected `https://merzbuilds.dev` for the portfolio, `https://cartcheck.merzbuilds.dev` for CartCheck, and `mail.merzbuilds.dev` for Resend. CartCheck DNS, the public Render site, production Supabase connection, verified Resend sender, and real inbox delivery are not established by this repository. Use provider dashboard values for future DNS.
+- **Cancelled feature:** Google Sign-In was cancelled by the owner. Express email/password authentication remains the only planned authentication method.
 - **Release and course evidence:** Finish production security, performance, accessibility, responsive and cross-account checks; collect the public running-app evidence, revised course documents, and demo only after deployment works.
 
 ## Planned sequence (not started)
 
 1. Confirm the Milestone 8 checkpoint, its verification results, and migration state before release work begins.
-2. Confirm the final personal domain, first canonical CartCheck hostname, and separate production database/backup plan. A domain purchase is optional for the first web deployment but required for the proposed Resend sending identity.
+2. Use the confirmed `https://cartcheck.merzbuilds.dev` canonical CartCheck hostname and `mail.merzbuilds.dev` sending subdomain; decide the separate production database and backup plan. The domain is purchased, but DNS and service setup remain pending.
 3. Prepare the Render build and server configuration; provision the intended Supabase production connection with TLS verification, a bounded pool, and reviewed numbered migrations/seed. Never run a reset or guarded development cleanup against production.
 4. Deploy the one-origin site; verify assets, nested-route refresh, `/api`, health/readiness, login/logout, session restoration, ownership, CSRF/Origin rejection, and Free-plan cold starts.
-5. Add site DNS if the domain has been purchased; configure the Resend sending subdomain separately, test genuine verification/reset email delivery, then deliberately decide when to enable verification for new password accounts.
-6. Scope and implement Google Sign-In as its own approved task, followed by security, performance, accessibility, and course-deliverable gates.
+5. Add site DNS for the confirmed CartCheck hostname; configure the Resend sending subdomain separately, test genuine verification/reset email delivery, then deliberately decide when to enable verification for new password accounts.
+6. Complete security, performance, accessibility, and course-deliverable gates after the deployed application is verified.
