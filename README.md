@@ -2,7 +2,7 @@
 
 CartCheck is a private grocery checklist for planning a shop and keeping a record of completed trips. Add groceries from a starter catalog or create your own, check items off while shopping, and finish a trip without entering prices. Estimated item totals, actual item totals, and a budget are optional.
 
-**Status:** The core grocery milestones and account recovery enhancements are implemented and tested locally. The owner has purchased `merzbuilds.dev`; CartCheck DNS, real email delivery, and the public Render deployment remain unverified, so there is no live app link yet. Google Sign-In has been cancelled.
+**Live app:** [cartcheck.merzbuilds.dev](https://cartcheck.merzbuilds.dev). The React client and Express API run together on Render with the existing Supabase PostgreSQL project. The public shopping flow, HTTPS, and database readiness were verified on 2026-09-30. Real email delivery remains untested, so required email verification is off. Google Sign-In was cancelled.
 
 ## What it does
 
@@ -15,9 +15,9 @@ CartCheck is a private grocery checklist for planning a shop and keeping a recor
 
 The approved behavior and release criteria are in the [product requirements](docs/PRODUCT_REQUIREMENTS.md). The [design references](docs/design/README.md) and [roadmap](docs/architecture/ROADMAP.md) provide more detail.
 
-## Stack and release plan
+## Hosting and release status
 
-React and Vite provide the client. The approved public deployment is **one Render web service** serving the built client and Express `/api` from one HTTPS origin, with Supabase PostgreSQL behind Express and Resend for transactional email. The intended CartCheck origin is `https://cartcheck.merzbuilds.dev`; `https://merzbuilds.dev` is the portfolio domain, and `mail.merzbuilds.dev` is the selected Resend sending subdomain. These addresses are confirmed choices, but CartCheck DNS, hosting, and email delivery have not been configured or verified. Database credentials stay on the server; browser builds must never contain them. Vercel frontend hosting was evaluated and is not in the CartCheck deployment plan. [System design and deployment review](docs/architecture/SYSTEM_DESIGN.md) explains the prerequisites. A live link and running-app screenshot will be added only after verification.
+React and Vite provide the client. One [Render web service](https://dashboard.render.com/web/srv-dau0bv093c1s73c8k60g) serves the built client and Express `/api` from the canonical HTTPS origin, [cartcheck.merzbuilds.dev](https://cartcheck.merzbuilds.dev), with Supabase PostgreSQL behind Express. The default `cartcheck.onrender.com` hostname is disabled. `mail.merzbuilds.dev` is the selected Resend sending subdomain; DNS verification and real inbox delivery are still pending. Keep `REQUIRE_VERIFIED_EMAIL=false` until delivery and recovery links are tested. Database credentials stay on the server; browser builds must never contain them. Vercel frontend hosting was evaluated and is not in the CartCheck deployment plan. [System design and deployment review](docs/architecture/SYSTEM_DESIGN.md) records the configuration and remaining release checks. A running-app screenshot and final course evidence remain to be added.
 
 ## Run locally
 

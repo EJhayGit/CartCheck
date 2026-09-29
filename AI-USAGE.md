@@ -52,6 +52,12 @@ CartCheck was developed with Codex assistance across planning, UI design, implem
 - **Decisions and checks:** Server tests passed 22 with three guarded database suites skipped in the ordinary command; client tests passed 10; the production build passed. The owner explicitly approved publishing both the trip-lifecycle and cleanup commits. The GitHub About section was left for the owner to edit.
 - **Evidence:** [Repository cleanup](https://github.com/EJhayGit/CartCheck/commit/9253881).
 
+### 2026-09-30 — Public deployment and repository links
+
+- **Request and contribution:** Codex helped configure the single Render web service, connect the existing Supabase database with verified TLS, check the public shopping flow, and document the canonical website in this repository and GitHub deployment metadata.
+- **Decisions and checks:** HTTPS, `/healthz`, `/readyz`, session and shopping actions, history, logout, and foreign-Origin rejection passed public smoke checks. The owner chose to keep the temporary smoke account. Resend DNS was corrected, but sender verification remained partial at the last check and the owner deferred real inbox delivery testing. Required email verification remains off.
+- **Evidence:** [Live CartCheck site](https://cartcheck.merzbuilds.dev), [deployment architecture](docs/architecture/SYSTEM_DESIGN.md).
+
 ## Corrections worth recording
 
 1. **Incomplete progress UI.** The first shopping-progress pass lacked the approved progress card and separate remaining/purchased sections. Review identified the gap, and the UI was corrected before the [progress commit](https://github.com/EJhayGit/CartCheck/commit/faa40f5).
@@ -60,4 +66,4 @@ CartCheck was developed with Codex assistance across planning, UI design, implem
 
 ## Attribution and remaining evidence
 
-The commits above identify AI-assisted work and verification. They do not establish which individual lines a student wrote unaided. This record does not claim a student-written percentage or invent a personal code explanation. The project owner should add independently verifiable student-authored code examples and their own explanation if the course requires them. A public Render deployment, running-app screenshot, and final course evidence are still pending.
+The commits above identify AI-assisted work and verification. They do not establish which individual lines a student wrote unaided. This record does not claim a student-written percentage or invent a personal code explanation. The project owner should add independently verifiable student-authored code examples and their own explanation if the course requires them. The public Render site is live; a running-app screenshot, verified real email delivery, and final course evidence remain pending.

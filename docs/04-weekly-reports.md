@@ -8,6 +8,18 @@ needs.
 
 ---
 
+## Week of 2026-09-30
+
+**Done.** Deployed the React client and Express API together on Render at [cartcheck.merzbuilds.dev](https://cartcheck.merzbuilds.dev), using the existing Supabase database with verified TLS. HTTPS, health/readiness, login/session, catalog, cart, optional budget, trip finishing, history, logout, and foreign-Origin rejection passed public smoke checks. Updated the repository's live links and deployment record.
+
+**Stuck.** Resend sender verification was partial at the last check. The owner deferred a real inbox delivery test, so required email verification remains off. A running-app screenshot and final course evidence are still needed.
+
+**Hours.** Not recorded; no estimate is invented for this report.
+
+**Next.** Complete sender verification and controlled delivery/recovery tests, then finish release evidence and accessibility/security checks.
+
+---
+
 ## Week of 2026-09-28
 
 **Done.** Locally completed the authenticated CartCheck flow through Finish Shopping, fresh empty list, trip history, and historical correction. Three guarded Supabase development integration suites passed. A dedicated browser account completed the workflow on desktop and phone layouts; exact cleanup restored the protected database baseline. This is development verification, not a public deployment.

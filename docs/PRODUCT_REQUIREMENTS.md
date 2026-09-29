@@ -1,6 +1,6 @@
 # CartCheck product requirements
 
-**Status (2026-09-29):** Approved first-release requirements. Core grocery Milestones 1–7 and account enhancements are implemented. Public deployment remains pending. One Render web service with Supabase PostgreSQL and Resend is the approved release architecture; the previously evaluated Vercel frontend split was not selected. Google Sign-In was cancelled.
+**Status (2026-09-30):** Approved first-release requirements. Core grocery Milestones 1–7 and account enhancements are implemented. The [public CartCheck site](https://cartcheck.merzbuilds.dev) is deployed on one Render web service using Supabase PostgreSQL. The public shopping flow was smoke-tested; real Resend email delivery and final release evidence remain pending. The previously evaluated Vercel frontend split was not selected. Google Sign-In was cancelled.
 
 ## Objective
 

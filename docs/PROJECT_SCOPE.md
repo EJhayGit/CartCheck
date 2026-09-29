@@ -1,12 +1,12 @@
 # CartCheck project scope
 
-**Status (2026-09-29):** Approved first-release scope. Core grocery Milestones 1–7 are complete; account enhancements are implemented and tested locally. Public deployment has not started.
+**Status (2026-09-30):** Approved first-release scope. Core grocery Milestones 1–7 and account enhancements are implemented. The [public CartCheck site](https://cartcheck.merzbuilds.dev) is deployed and its shopping flow was smoke-tested. Email delivery and final course evidence remain pending.
 
 ## Minimum complete application
 
 An individual shopper can sign in, find or quickly register a reusable grocery item, add it to one active list, change its name or quantity, mark it bought or unbought, finish the trip with confirmation, and review or correct dated trip history. The checklist works with no prices and no budget. Approximate spending and a trip budget are optional aids, not prerequisites.
 
-The delivered application uses the professor's React/Vite client, Express API, and PostgreSQL architecture. One Render web service is the approved web/API host, Supabase supplies PostgreSQL, and Resend is the transactional email provider. A Supabase development project has been used for guarded tests; the public site and production configuration are not yet verified. The owner has purchased `merzbuilds.dev` and chosen `https://cartcheck.merzbuilds.dev` for CartCheck; DNS and deployment remain pending. Account data must remain private behind Express when the public site launches. The Vercel frontend split was evaluated but is outside the approved CartCheck deployment plan, and Google Sign-In was cancelled.
+The delivered application uses the professor's React/Vite client, Express API, and PostgreSQL architecture. One Render web service hosts the web/API origin; the existing Supabase project supplies PostgreSQL through a TLS-verified session-pooler connection. The owner chose `https://cartcheck.merzbuilds.dev` for CartCheck; its DNS and HTTPS are live. Resend is the selected transactional email provider, but real inbox delivery has not been tested and required verification remains off. Shopper data stays private behind Express. The Vercel frontend split was evaluated but is outside the CartCheck deployment, and Google Sign-In was cancelled.
 
 Approximately 100 shared starter items supply names and categories without store prices. Custom items and edits are private to an account. An optional image URL may be used, with a neutral fallback; uploads and automatic image lookup are deferred.
 
