@@ -1,6 +1,6 @@
 -- CartCheck database shape. Safe to run repeatedly against a database that
 -- does not contain the retired sightings application tables.
--- Keep this file in sync with migrations/001_initial.sql.
+-- Keep this file in sync with the numbered migrations.
 
 CREATE SCHEMA IF NOT EXISTS cartcheck;
 
@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS cartcheck.users (
   password_hash      TEXT NOT NULL,
   preferred_currency TEXT NOT NULL DEFAULT 'PHP'
                        CHECK (preferred_currency IN ('PHP', 'USD', 'EUR')),
+  email_verified     BOOLEAN NOT NULL DEFAULT false,
+  legacy_verification_exempt BOOLEAN NOT NULL DEFAULT false,
   created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT users_email_normalized CHECK (
@@ -23,6 +25,20 @@ CREATE TABLE IF NOT EXISTS cartcheck.sessions (
   token_hash TEXT NOT NULL UNIQUE,
   expires_at TIMESTAMPTZ NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS cartcheck.auth_action_tokens (
+  token_hash TEXT PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES cartcheck.users(id) ON DELETE CASCADE,
+  purpose TEXT NOT NULL CHECK (purpose IN ('verify_email', 'reset_password')),
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS cartcheck.auth_email_limits (
+  user_id BIGINT NOT NULL REFERENCES cartcheck.users(id) ON DELETE CASCADE,
+  purpose TEXT NOT NULL CHECK (purpose IN ('verify_email', 'reset_password')),
+  last_sent_at TIMESTAMPTZ NOT NULL,
+  PRIMARY KEY (user_id, purpose)
 );
 
 CREATE TABLE IF NOT EXISTS cartcheck.starter_products (
@@ -88,6 +104,10 @@ CREATE INDEX IF NOT EXISTS sessions_user_id_idx
   ON cartcheck.sessions (user_id);
 CREATE INDEX IF NOT EXISTS sessions_expires_at_idx
   ON cartcheck.sessions (expires_at);
+CREATE INDEX IF NOT EXISTS auth_action_tokens_user_purpose_idx
+  ON cartcheck.auth_action_tokens (user_id, purpose);
+CREATE INDEX IF NOT EXISTS auth_action_tokens_expires_at_idx
+  ON cartcheck.auth_action_tokens (expires_at);
 CREATE INDEX IF NOT EXISTS products_user_name_idx
   ON cartcheck.products (user_id, lower(name));
 CREATE INDEX IF NOT EXISTS products_user_category_idx

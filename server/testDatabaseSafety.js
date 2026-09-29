@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 
 const RUN_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const PREFIXES = ['m2-a', 'm2-b', 'm3-a', 'm3-b', 'm4-a', 'm4-b']
+const PREFIXES = ['m2-a', 'm2-b', 'm3-a', 'm3-b', 'm4-a', 'm4-b', 'm8-a', 'm8-b']
 
 export function approvedTestTarget(databaseUrl, projectRef, nodeEnv) {
   assert.ok(databaseUrl, 'Configured development DATABASE_URL is required')
@@ -27,7 +27,7 @@ export async function assertUnusedTestEmails(client, emails) {
 }
 
 export async function cleanupTestEmails(client, emails, protectedIds = []) {
-  assert.ok(emails.length > 0 && emails.every((email) => /^(?:m[234]-[ab]|m7-browser)-[0-9a-f-]+@example\.test$/i.test(email)))
+  assert.ok(emails.length > 0 && emails.every((email) => /^(?:m[2348]-[ab]|m7-browser)-[0-9a-f-]+@example\.test$/i.test(email)))
   await client.query('BEGIN')
   try {
     const candidates = await client.query(

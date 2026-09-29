@@ -198,6 +198,11 @@ input::placeholder { color: #42584e; opacity: 1; }
 .budget-form { margin-top: 10px; }
 .budget-form input { margin-bottom: 10px; }
 .settings-main { max-width: 720px; margin: 0 auto; padding: 50px 24px 100px; }
+.settings-main > .catalog-panel + .catalog-panel { margin-top: 20px; }
+.settings-main h2 { margin: 0 0 10px; font-size: 20px; }
+.password-panel .optional-help { margin-bottom: 18px; }
+.verification-settings { margin-top: 24px; padding-top: 20px; border-top: 1px solid #d7e2d9; }
+.verification-settings p { color: #42584e; }
 .settings-main h1 { margin-bottom: 10px; }
 .settings-main select { width: 100%; min-height: 46px; margin: 0 0 20px; padding: 10px 13px; border: 1px solid #d7e2d9; border-radius: 8px; background: #fff; color: #172b26; }
 .settings-main .catalog-button { align-self: flex-start; }

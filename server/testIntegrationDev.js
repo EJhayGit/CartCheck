@@ -37,6 +37,16 @@ try {
      WHERE table_schema = 'cartcheck' AND table_name = 'trip_items' AND column_name = 'product_id'`
   )
   assert.equal(schema.rows[0]?.is_nullable, 'YES', 'Milestone 7 migration must be applied first')
+  const accountSchema = await client.query(
+    `SELECT EXISTS (
+       SELECT 1 FROM information_schema.columns
+       WHERE table_schema = 'cartcheck' AND table_name = 'users' AND column_name = 'email_verified'
+     ) AND EXISTS (
+       SELECT 1 FROM information_schema.tables
+       WHERE table_schema = 'cartcheck' AND table_name = 'auth_action_tokens'
+     ) AS ready`
+  )
+  assert.equal(accountSchema.rows[0]?.ready, true, 'Account enhancement migration must be applied first')
   await assertUnusedTestEmails(client, emails)
   const existing = await client.query('SELECT id FROM cartcheck.users ORDER BY id')
   protectedIds = existing.rows.map((row) => row.id)
@@ -45,11 +55,12 @@ try {
   writeFileSync(manifestPath, JSON.stringify({ runId, emails, protectedIds: protectedIds.map(String),
     baseline, host: target.hostname, database: identity.rows[0].database, role: identity.rows[0].role }, null, 2),
   { flag: 'wx', mode: 0o600 })
-  console.log(`Guarded integration run ${runId}: ${protectedIds.length} pre-existing account(s) protected; six unique temporary emails verified absent.`)
+  console.log(`Guarded integration run ${runId}: ${protectedIds.length} pre-existing account(s) protected; eight unique temporary emails verified absent.`)
 
   const child = spawn(process.execPath, [
     '--test', '--test-concurrency=1',
     'auth.integration.test.js', 'catalog.integration.test.js', 'cart.integration.test.js',
+    'accountEnhancements.integration.test.js',
   ], {
     cwd: new URL('.', import.meta.url),
     env: { ...process.env, CARTCHECK_TEST_DATABASE_URL: databaseUrl, CARTCHECK_TEST_RUN_ID: runId },

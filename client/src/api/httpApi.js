@@ -16,12 +16,15 @@ async function request(path, options = {}) {
     let message = response.status >= 500
       ? 'The server is unavailable. Please try again.'
       : `${response.status} ${response.statusText}`
+    let code
     try {
       const body = await response.json()
       if (body?.error) message = body.error
+      code = body?.code
     } catch { /* Keep the HTTP status if the body is not JSON. */ }
     const error = new Error(message)
     error.status = response.status
+    error.code = code
     throw error
   }
   return response.status === 204 ? null : response.json()
@@ -31,6 +34,11 @@ export const getSession = () => request('/api/auth/me')
 export const login = (input) => request('/api/auth/login', { method: 'POST', body: JSON.stringify(input) })
 export const register = (input) => request('/api/auth/register', { method: 'POST', body: JSON.stringify(input) })
 export const logout = () => request('/api/auth/logout', { method: 'POST' })
+export const resendVerification = (email) => request('/api/auth/resend-verification', { method: 'POST', body: JSON.stringify({ email }) })
+export const verifyEmail = (token) => request('/api/auth/verify-email', { method: 'POST', body: JSON.stringify({ token }) })
+export const forgotPassword = (email) => request('/api/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) })
+export const resetPassword = (token, password) => request('/api/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) })
+export const changePassword = (currentPassword, newPassword) => request('/api/auth/change-password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) })
 export const getCatalog = ({ search = '', category = '', signal } = {}) => {
   const query = new URLSearchParams()
   if (search) query.set('search', search)

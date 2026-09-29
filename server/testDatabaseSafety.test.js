@@ -16,9 +16,9 @@ test('guarded tests require the approved Supabase project identity', () => {
   assert.throws(() => approvedTestTarget(otherDatabase.href, ref, 'development'), /database name/)
 })
 
-test('run marker produces six distinct temporary identities', () => {
+test('run marker produces eight distinct temporary identities', () => {
   const emails = testEmails(runId)
-  assert.equal(new Set(emails).size, 6)
+  assert.equal(new Set(emails).size, 8)
   assert.ok(emails.every((email) => email.endsWith(`${runId}@example.test`)))
   assert.throws(() => testEmails('not-a-uuid'))
 })

@@ -8,6 +8,13 @@ export function createSessionToken() {
   return { token, tokenHash: hashSessionToken(token) }
 }
 
+// Email action tokens are independent of login sessions. Keep only their
+// SHA-256 digest in PostgreSQL; the 256-bit random value is returned once.
+export function createActionToken() {
+  const token = randomBytes(32).toString('base64url')
+  return { token, tokenHash: hashSessionToken(token) }
+}
+
 export function hashSessionToken(token) {
   return createHash('sha256').update(token).digest('hex')
 }

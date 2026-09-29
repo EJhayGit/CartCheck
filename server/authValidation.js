@@ -14,9 +14,14 @@ export function validatePassword(value, { registering = false } = {}) {
 }
 
 export function publicUser(row) {
+  const emailVerified = row.email_verified === true
+  const legacyExempt = row.legacy_verification_exempt === true
+  const enforcementEnabled = process.env.REQUIRE_VERIFIED_EMAIL === 'true'
   return {
     id: String(row.id),
     email: row.email,
     preferred_currency: row.preferred_currency,
+    email_verified: emailVerified,
+    verification_required: enforcementEnabled && !emailVerified && !legacyExempt,
   }
 }

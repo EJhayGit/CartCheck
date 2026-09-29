@@ -21,6 +21,7 @@ import { normalizeEmail, publicUser, validatePassword } from './authValidation.j
 import { parseTripId, validateCorrection, validateHistoryQuery, validateRevision } from './tripValidation.js'
 import {
   createAuthRateLimiter,
+  createActionToken,
   createSessionToken,
   expiredSessionCookie,
   hashSessionToken,
@@ -28,6 +29,7 @@ import {
   SESSION_TTL_MS,
   sessionCookie,
 } from './authSecurity.js'
+import { sendAccountEmail } from './emailService.js'
 
 const app = express()
 app.set('trust proxy', 1)
@@ -71,7 +73,10 @@ function checkRequestOrigin(request, response, next) {
   next()
 }
 
-const authRateLimit = createAuthRateLimiter()
+// Guarded integration exercises many account actions from one loopback IP.
+// Keep the production limiter unchanged while testing the persistent
+// per-account email cooldown independently.
+const authRateLimit = createAuthRateLimiter({ limit: process.env.NODE_ENV === 'test' ? 100 : 10 })
 const authMutation = [checkRequestOrigin, authRateLimit]
 
 function validateCredentials(body, { registering = false } = {}) {
@@ -96,11 +101,40 @@ async function authenticate(request, response, next) {
   try {
     const user = await authRepo.findUserBySessionHash(pool, hashSessionToken(token))
     if (!user) return response.status(401).json({ error: 'Authentication required' })
+    const isSessionStatus = request.path === '/api/auth/me' || request.path === '/api/auth/session'
+    if (process.env.REQUIRE_VERIFIED_EMAIL === 'true' && !user.email_verified && !user.legacy_verification_exempt && !isSessionStatus) {
+      return response.status(403).json({ error: 'Verify your email address to continue', code: 'EMAIL_VERIFICATION_REQUIRED' })
+    }
     request.user = user
     next()
   } catch (error) {
     next(error)
   }
+}
+
+const genericAccountMessage = 'If the account is eligible, instructions will be sent.'
+const actionTokenPattern = /^[A-Za-z0-9_-]{43}$/
+
+function accountActionUrl(kind, token) {
+  const origin = (process.env.CLIENT_ORIGIN || allowedOrigins[0]).replace(/\/$/, '')
+  const action = kind === 'verify_email' ? 'verify' : 'reset'
+  return `${origin}/#action=${action}&token=${encodeURIComponent(token)}`
+}
+
+async function issueAndSendAccountToken(user, purpose) {
+  const { token, tokenHash } = createActionToken()
+  const issued = await authRepo.issueAccountToken(pool, { userId: user.id, purpose, tokenHash })
+  if (!issued) return
+  try {
+    await sendAccountEmail({ to: user.email, kind: purpose, actionUrl: accountActionUrl(purpose, token) })
+  } catch {
+    try { await authRepo.discardAccountToken(pool, tokenHash) } catch { /* keep logs free of token data */ }
+    // Provider details, recipient, and token are intentionally omitted.
+    console.error('Account email delivery failed')
+    return
+  }
+  try { await authRepo.finalizeAccountToken(pool, { userId: user.id, purpose, tokenHash }) }
+  catch { console.error('Account email token finalization failed') }
 }
 
 app.post('/api/auth/register', ...authMutation, async (request, response, next) => {
@@ -113,12 +147,85 @@ app.post('/api/auth/register', ...authMutation, async (request, response, next) 
     const user = await authRepo.createAccount(pool, {
       email: credentials.email, passwordHash, sessionHash: tokenHash, expiresAt,
     })
+    await issueAndSendAccountToken(user, 'verify_email')
     setSessionCookie(response, token)
     response.status(201).json({ user: publicUser(user) })
   } catch (error) {
     if (error.code === '23505') return response.status(409).json({ error: 'An account with this email already exists' })
     next(error)
   }
+})
+
+app.post('/api/auth/resend-verification', ...authMutation, async (request, response, next) => {
+  const email = normalizeEmail(request.body?.email)
+  try {
+    const user = email ? await authRepo.findUserByEmail(pool, email) : null
+    response.status(202).json({ message: genericAccountMessage })
+    // Provider latency must not distinguish an eligible address from another.
+    if (user && !user.email_verified) {
+      void issueAndSendAccountToken(user, 'verify_email')
+        .catch(() => console.error('Account email request failed'))
+    }
+  } catch (error) { next(error) }
+})
+
+app.post('/api/auth/verify-email', ...authMutation, async (request, response, next) => {
+  const token = request.body?.token
+  if (typeof token !== 'string' || !actionTokenPattern.test(token)) {
+    return response.status(400).json({ error: 'Verification link is invalid or expired' })
+  }
+  try {
+    const user = await authRepo.verifyAccountEmail(pool, hashSessionToken(token))
+    if (!user) return response.status(400).json({ error: 'Verification link is invalid or expired' })
+    response.json({ verified: true, user: publicUser(user) })
+  } catch (error) { next(error) }
+})
+
+app.post('/api/auth/forgot-password', ...authMutation, async (request, response, next) => {
+  const email = normalizeEmail(request.body?.email)
+  try {
+    const user = email ? await authRepo.findUserByEmail(pool, email) : null
+    response.status(202).json({ message: genericAccountMessage })
+    if (user) {
+      void issueAndSendAccountToken(user, 'reset_password')
+        .catch(() => console.error('Account email request failed'))
+    }
+  } catch (error) { next(error) }
+})
+
+app.post('/api/auth/reset-password', ...authMutation, async (request, response, next) => {
+  const { token, password } = request.body ?? {}
+  if (typeof token !== 'string' || !actionTokenPattern.test(token)) {
+    return response.status(400).json({ error: 'Reset link is invalid or expired' })
+  }
+  if (!validatePassword(password, { registering: true })) {
+    return response.status(400).json({ error: 'Password must be 8 to 72 UTF-8 bytes' })
+  }
+  try {
+    const passwordHash = await bcrypt.hash(password, 12)
+    const changed = await authRepo.resetPasswordWithToken(pool, { tokenHash: hashSessionToken(token), passwordHash })
+    if (!changed) return response.status(400).json({ error: 'Reset link is invalid or expired' })
+    response.json({ message: 'Password updated successfully.' })
+  } catch (error) { next(error) }
+})
+
+app.post('/api/auth/change-password', checkRequestOrigin, authRateLimit, authenticate, async (request, response, next) => {
+  const { currentPassword, newPassword } = request.body ?? {}
+  if (!validatePassword(currentPassword) || !validatePassword(newPassword, { registering: true })) {
+    return response.status(400).json({ error: 'Enter a valid current password and a new password of 8 to 72 UTF-8 bytes' })
+  }
+  try {
+    const account = await authRepo.findUserByEmail(pool, request.user.email)
+    if (!account || !await bcrypt.compare(currentPassword, account.password_hash)) {
+      return response.status(400).json({ error: 'Current password is incorrect' })
+    }
+    const passwordHash = await bcrypt.hash(newPassword, 12)
+    const changed = await authRepo.changePasswordAndRevokeSessions(pool, {
+      userId: request.user.id, currentPasswordHash: account.password_hash, passwordHash,
+    })
+    if (!changed) return response.status(400).json({ error: 'Current password is incorrect' })
+    response.set('Set-Cookie', expiredSessionCookie()).json({ message: 'Password updated successfully.' })
+  } catch (error) { next(error) }
 })
 
 app.post('/api/auth/login', ...authMutation, async (request, response, next) => {
@@ -131,11 +238,13 @@ app.post('/api/auth/login', ...authMutation, async (request, response, next) => 
       : await bcrypt.compare(credentials.password, DUMMY_PASSWORD_HASH)
     if (!existing || !valid) return response.status(401).json({ error: 'Invalid email or password' })
     const { token, tokenHash } = createSessionToken()
-    await authRepo.createSession(pool, {
+    const sessionCreated = await authRepo.createSessionForPasswordHash(pool, {
       userId: existing.id,
+      passwordHash: existing.password_hash,
       sessionHash: tokenHash,
       expiresAt: new Date(Date.now() + SESSION_TTL_MS),
     })
+    if (!sessionCreated) return response.status(401).json({ error: 'Invalid email or password' })
     setSessionCookie(response, token)
     response.json({ user: publicUser(existing) })
   } catch (error) {
