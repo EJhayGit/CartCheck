@@ -1,11 +1,11 @@
 {
-  "name": "final-project-client",
+  "name": "cartcheck-client",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node -e \"require('fs').copyFileSync('dist/index.html','dist/404.html')\"",
+    "build": "vite build",
     "preview": "vite preview",
     "test": "node --test"
   },

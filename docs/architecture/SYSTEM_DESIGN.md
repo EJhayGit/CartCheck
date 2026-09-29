@@ -1,12 +1,12 @@
 # CartCheck technical system design
 
-**Status:** Approved planning baseline (2026-09-24). This document proposes implementation contracts; no application code or hosted database has been changed.
+**Status:** Approved architecture baseline (2026-09-24), updated for implemented Milestones 1–7. Public deployment remains pending.
 
 ## Basis and change from the earlier design
 
 Follow the [product requirements](../PRODUCT_REQUIREMENTS.md), [scope](../PROJECT_SCOPE.md), [user flows](../USER_FLOWS.md), and [design specification](../design/README.md). CartCheck is primarily a checklist. The previous unit-price model and per-product price-history queries are removed; estimated and actual **item totals** are independent, optional amounts. This trades automatic last-paid suggestions and unit-price comparisons for faster entry. Dated trip history and corrections remain.
 
-The current repository is still the professor's HAUnted Sightings starter: React/Vite client, Express API, `pg` PostgreSQL access, a localStorage mock, health checks, and a client-only Pages workflow. Reuse the package boundaries and useful API/validation patterns. Replace sightings data only in implementation milestones. The Pages preview and localStorage mock cannot be the private final application.
+The repository now implements CartCheck accounts, catalog, active list, and trip history on the React/Vite and Express/PostgreSQL package boundaries. The GitHub Pages starter workflow and browser-only sightings demo have been removed.
 
 ## 1. Runtime architecture and hosting
 
