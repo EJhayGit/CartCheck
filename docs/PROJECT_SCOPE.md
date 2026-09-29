@@ -1,12 +1,12 @@
 # CartCheck project scope
 
-**Status:** Approved planning baseline (2026-09-24). This defines the first release; implementation has not started.
+**Status (2026-09-29):** Approved first-release scope. Core grocery Milestones 1–7 are complete; account enhancements are implemented and tested locally. Public deployment has not started.
 
 ## Minimum complete application
 
 An individual shopper can sign in, find or quickly register a reusable grocery item, add it to one active list, change its name or quantity, mark it bought or unbought, finish the trip with confirmation, and review or correct dated trip history. The checklist works with no prices and no budget. Approximate spending and a trip budget are optional aids, not prerequisites.
 
-The delivered application uses the professor's React/Vite client, Express API, and PostgreSQL architecture. Render is the intended web/API host and Supabase supplies hosted PostgreSQL. The public site is reachable by visitors, while account data is private. Provider accounts and deployment are still to be created; no hosted resources have been changed.
+The delivered application uses the professor's React/Vite client, Express API, and PostgreSQL architecture. One Render service remains the recommended web/API host and Supabase supplies hosted PostgreSQL. A Supabase development project has been used for guarded tests; a public site and production configuration are not yet verified. Account data must remain private behind Express when the public site launches. A possible Vercel frontend split remains a planning alternative, not a change to this approved scope.
 
 Approximately 100 shared starter items supply names and categories without store prices. Custom items and edits are private to an account. An optional image URL may be used, with a neutral fallback; uploads and automatic image lookup are deferred.
 

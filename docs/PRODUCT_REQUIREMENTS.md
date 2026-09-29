@@ -1,6 +1,6 @@
 # CartCheck product requirements
 
-**Status:** Approved planning baseline (2026-09-24). CartCheck functionality has not yet been implemented in the course starter.
+**Status (2026-09-29):** Approved first-release requirements. Core grocery Milestones 1–7 and account enhancements are implemented. Public deployment remains pending. The single-Render hosting requirement remains the recommended release path; a Vercel frontend split is only an evaluated proposal.
 
 ## Objective
 

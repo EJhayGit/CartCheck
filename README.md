@@ -2,7 +2,7 @@
 
 CartCheck is a private grocery checklist for planning a shop and keeping a record of completed trips. Add groceries from a starter catalog or create your own, check items off while shopping, and finish a trip without entering prices. Estimated item totals, actual item totals, and a budget are optional.
 
-**Status:** The account, catalog, shopping list, and trip history flows have been implemented and tested locally. The public Render deployment is still pending; there is no live app link yet.
+**Status:** The core grocery milestones and account recovery enhancements are implemented and tested locally. Real email delivery, the public Render deployment, a personal domain, and Google Sign-In are still pending; there is no live app link yet.
 
 ## What it does
 
@@ -11,12 +11,13 @@ CartCheck is a private grocery checklist for planning a shop and keeping a recor
 - Lets you review and correct past trips without changing their original finish date.
 - Tracks optional spending and budget in PHP, USD, or EUR. Missing prices stay visibly incomplete; a known free item can be entered as `0.00`.
 - Keeps shopper data behind authenticated Express routes with account ownership checks.
+- Supports email verification, password reset links, and password changes. Email confirmation remains optional until real delivery is configured and tested.
 
 The approved behavior and release criteria are in the [product requirements](docs/PRODUCT_REQUIREMENTS.md). The [design references](docs/design/README.md) and [roadmap](docs/architecture/ROADMAP.md) provide more detail.
 
 ## Stack and release plan
 
-React and Vite provide the client. Express serves the API and, for production, the built client from one HTTPS origin on Render. PostgreSQL is hosted by Supabase and accessed only by Express. Database credentials stay on the server; browser builds must never contain them. Public deployment and a running-app screenshot will be added after verification on Render.
+React and Vite provide the client. The recommended first public deployment is **one Render web service** serving the built client and Express `/api` from one HTTPS origin; this matches the current code and approved requirements. PostgreSQL is hosted by Supabase and accessed only by Express. Database credentials stay on the server; browser builds must never contain them. A possible personal-domain subdomain for CartCheck and a separate Resend sending subdomain are planning examples, not live addresses. Vercel frontend hosting was considered but is not the current deployment choice. [System design and deployment review](docs/architecture/SYSTEM_DESIGN.md) explain the alternatives and prerequisites. Public deployment and a running-app screenshot will be added only after verification.
 
 ## Run locally
 
@@ -45,7 +46,7 @@ npm run dev
 
 Open `http://localhost:5173`. Vite proxies `/api` to Express on port 3000. `GET /healthz` checks the API process and `GET /readyz` checks database readiness. The React app uses the authenticated API; it does not use the old browser-only demo.
 
-The [server environment example](server/.env.example) documents database, TLS, pool, and CORS settings. `VITE_API_BASE_URL` in the [client environment example](client/.env.example) is optional for a separately hosted API; leave it unset for the local proxy and the planned single-origin Render service. Never put secrets in a `VITE_` variable. Database integration tests against the approved development project require the [guarded procedure](docs/MILESTONE_7_TEST_SAFETY.md).
+The [server environment example](server/.env.example) documents database, TLS, pool, CORS, and email settings. Follow the [account email setup guide](docs/ACCOUNT_EMAIL_SETUP.md) before enabling real delivery or required verification. Leave `VITE_API_BASE_URL` unset for the local proxy and planned single-origin Render service; it would also stay unset if a later Vercel deployment rewrote `/api` to Render. The [client environment example](client/.env.example) documents a direct API origin only for a separately hosted development API. Never put secrets in a `VITE_` variable. Database integration tests against the approved development project require the [guarded procedure](docs/MILESTONE_7_TEST_SAFETY.md).
 
 ## Verify
 
