@@ -1,82 +1,63 @@
-# AI usage
+# AI usage in CartCheck
 
-This project was built with AI assistance. This file is the record of it. It is
-graded as the finals badge, and it is worth 100 points.
+CartCheck was developed with Codex assistance across planning, UI design, implementation, testing, review, and documentation. This record summarizes work evidenced by the local development log and the linked public commits. It describes requests and outcomes rather than claiming to reproduce exact prompts. The log is local and is not published because it also records development environment and test details.
 
-Start it in week 1 and keep it up as you go. The commit history of this file is
-part of the evidence: a file written all at once the night before the deadline
-looks exactly like what it is.
+## Dated work
 
-## Entries recorded so far
+### 2026-09-23 — Product and interface design
 
-### 2026-09-28 - Milestone 7 implementation and verification
+- **Request and contribution:** Codex helped turn the grocery-list idea into requirements, user flows, scope boundaries, a design system, sitemap, wireframes, and mockup exports.
+- **Decisions and checks:** The design kept the checklist primary and prices optional. The wireframe SVGs were checked for valid XML and rendered to PNG for visual inspection. These were design artifacts, not screenshots of a running app.
+- **Evidence:** [Design specification](https://github.com/EJhayGit/CartCheck/commit/21531b8), [product requirements and architecture](https://github.com/EJhayGit/CartCheck/commit/bfc9914), [final mockups](https://github.com/EJhayGit/CartCheck/commit/06d0b11).
 
-- **Tool:** Codex, with a read-only specialist review during final audit.
-- **What I asked for:** Complete Finish Shopping, trip history/corrections, safe integration tests on the existing Supabase development database, an authenticated browser walkthrough, and a pre-commit review.
-- **What it gave back:** Owner-scoped transactional trip APIs, React trip screens, migration 002, guarded temporary-data tooling, tests, and local browser verification. The review identified a too-broad test database target check and malformed cursor handling; both were tightened and focused tests passed.
-- **What I kept, what I changed, and why:** The temporary test data was removed after baseline verification. A project identity pin was added to prevent the guarded runner from accepting another Supabase project, and malformed cursors now fail validation before reaching PostgreSQL. The owner approved the final review.
-- **Commit:** The Milestone 7 commit hash must be linked in a later course-evidence update; a commit cannot include its own hash. No student-authored code is claimed here.
+### 2026-09-24 — System design and roadmap
 
-### 2026-09-23 - Week 1 documentation and journal correction
+- **Request and contribution:** Codex drafted the React/Vite, Express, PostgreSQL, Render, and Supabase architecture and an implementation roadmap. A planning review examined account privacy, trip snapshots, optional amounts, and transaction-safe finishing.
+- **Decisions and checks:** The approved first-release scope uses separate nullable estimated and actual item totals. Per-unit price comparison and a separate product price-history screen were removed from the first release. This was a design milestone; it did not verify a deployed application.
+- **Evidence:** [Requirements and system design](https://github.com/EJhayGit/CartCheck/commit/bfc9914).
 
-- **Tool:** Codex.
-- **What I asked for:** Draft the Week 1 documentation update, increment report, and reflection, then correct the reflection after I identified it as a midterm entry.
-- **What it gave back:** A CartCheck README and report, a separate finals Week 1 journal, and a preserved midterm reflection in the private course workspace.
-- **What I kept, what I changed, and why:** The documentation and report were kept. The original reflection was reclassified as a midterm record, and a new Week 1 entry was drafted from CartCheck work so the finals journal described the correct period.
-- **Commits:** [CartCheck documentation](https://github.com/EJhayGit/CartCheck/commit/e25d3e4); private workspace commit `4dd9447`.
+### 2026-09-27 — Database and private accounts
 
-### 2026-09-27 - Week 2 documentation and security checklist
+- **Request and contribution:** Codex assisted with numbered PostgreSQL migrations, a starter grocery catalog, private account registration and sessions, and the first CartCheck React screens.
+- **Decisions and checks:** Development database checks verified the starter catalog. Account tests checked session behavior and initial isolation between two temporary accounts; temporary data was removed. The client build passed. This work did not include public deployment.
+- **Evidence:** [Database foundation](https://github.com/EJhayGit/CartCheck/commit/e634849), [account implementation](https://github.com/EJhayGit/CartCheck/commit/b45c890).
 
-- **Tool:** Codex.
-- **What I asked for:** Create the Week 2 documentation update, increment report, and reflection from the current CartCheck repository.
-- **What it gave back:** An updated README and report plus a Week 2 journal and 31-row security checklist in the private course workspace.
-- **What I kept, what I changed, and why:** The drafts were committed with explicit limits: the UI has accounts, catalog, and list editing, while purchase tracking, deployment, and a running-app screenshot remain unfinished. Personal review and any further edits are pending.
-- **Commits:** [CartCheck documentation](https://github.com/EJhayGit/CartCheck/commit/97accd9); private workspace commit `37d5e2f`.
+### 2026-09-27 — Catalog and active list
 
-### Real AI mistake recorded so far
+- **Request and contribution:** Codex assisted with authenticated catalog search and custom-item actions, then the active shopping-list API and UI.
+- **Decisions and checks:** Queries and mutations were scoped to the signed-in account. Tests covered catalog search, duplicate list adds, edits, removal, invalid input, and cross-account access. The log records browser checks of the local list flow and cleanup of temporary accounts.
+- **Evidence:** [Catalog](https://github.com/EJhayGit/CartCheck/commit/815f565), [active list](https://github.com/EJhayGit/CartCheck/commit/881b4a1).
 
-Codex initially treated a course-wide midterm reflection as the finals Week 1 journal. After the owner corrected this, the original text was preserved as `journal/midterm-reflection.md` and a new weekly entry was written. See private workspace commit `4dd9447`. Further error cases and student-authored code evidence have not yet been documented; they should not be invented.
+### 2026-09-28 — Shopping progress and responsive actions
 
-## 1. How I used AI
+- **Request and contribution:** Codex added bought/unbought controls, progress and purchased-item views, and immediate UI updates for safe list actions with rollback on failure.
+- **Decisions and checks:** Review found a missing progress card and separate item sections in the first pass; they were added. Further review found races involving sign-out and pending requests, so session-generation and pending-mutation guards were added. Server tests, client tests, a production build, and local UI checks passed as recorded in the log.
+- **Evidence:** [Shopping progress and responsiveness](https://github.com/EJhayGit/CartCheck/commit/faa40f5).
 
-At least six entries. One per real use. Every entry needs a commit link.
+### 2026-09-28 — Optional money and currency
 
-### YYYY-MM-DD - short title
+- **Request and contribution:** Codex added nullable estimated and actual item totals, optional budget, currency preference, and corresponding API, UI, and tests.
+- **Decisions and checks:** Missing amounts remained distinct from `0.00`; actual spending counted bought items only. A mistaken integration-test expectation for an unbought priced item was corrected before the full development suite passed. Browser checks covered editing, rollback, and phone/desktop layouts.
+- **Evidence:** [Optional prices and budget](https://github.com/EJhayGit/CartCheck/commit/418bbbd).
 
-- **Tool:**
-- **What I asked for:**
-- **What it gave back:**
-- **What I kept, what I changed, and why:**
-- **Commit:** https://github.com/YOUR-USERNAME/YOUR-REPO/commit/SHA
+### 2026-09-28 — Finish Trip, history, and guarded verification
 
-## 2. Where the AI got it wrong
+- **Request and contribution:** Codex assisted with transactional trip finishing, a fresh active list, dated history, reviewed corrections, migration 002, and owner-scoped API tests. It also helped create a guarded runner for tests against the existing development database.
+- **Decisions and checks:** An initial guarded run exposed TLS configuration and cleanup ordering errors. After fixing those, all three guarded integration suites passed, exact temporary-account cleanup completed, and the protected database baseline was unchanged. An authenticated local browser walkthrough covered finish, history, correction, and refresh persistence. A later audit tightened project identity and history-cursor validation. These checks did not establish a public deployment.
+- **Evidence:** [Trip lifecycle and verification](https://github.com/EJhayGit/CartCheck/commit/7d438a8), [test safety procedure](docs/MILESTONE_7_TEST_SAFETY.md).
 
-Three cases. Be specific. If you write that the AI was never wrong, this section
-scores zero.
+### 2026-09-29 — Public repository cleanup
 
-### Case 1 - short title
+- **Request and contribution:** Codex removed the unused GitHub Pages workflow and starter demo files, updated the README for the Render plan, removed Pages-specific build settings, and added the requested Made with Codex badge.
+- **Decisions and checks:** Server tests passed 22 with three guarded database suites skipped in the ordinary command; client tests passed 10; the production build passed. The owner explicitly approved publishing both the trip-lifecycle and cleanup commits. The GitHub About section was left for the owner to edit.
+- **Evidence:** [Repository cleanup](https://github.com/EJhayGit/CartCheck/commit/9253881).
 
-- **What it gave me:**
-- **What was wrong with it:**
-- **What I did instead:**
-- **Commit:** https://github.com/YOUR-USERNAME/YOUR-REPO/commit/SHA
+## Corrections worth recording
 
-## 3. Who wrote what
+1. **Incomplete progress UI.** The first shopping-progress pass lacked the approved progress card and separate remaining/purchased sections. Review identified the gap, and the UI was corrected before the [progress commit](https://github.com/EJhayGit/CartCheck/commit/faa40f5).
+2. **Wrong test expectation.** The optional-money integration test initially expected an unbought item's actual price in spending. The assertion was corrected so actual spending follows bought status before the [budget commit](https://github.com/EJhayGit/CartCheck/commit/418bbbd).
+3. **Unsafe test cleanup order.** A guarded development run exposed a foreign-key failure when cleaning up temporary accounts. The run stopped; only the verified temporary rows were recovered. Cleanup was changed to delete verified dependent trip items first, and the guarded suites then passed before the [trip commit](https://github.com/EJhayGit/CartCheck/commit/7d438a8).
 
-At least a fifth of this project is code you wrote yourself. Name it, and explain
-it in your own words.
+## Attribution and remaining evidence
 
-> Group projects: give each member their own heading below, and use your GitHub
-> handle as the heading. You are graded on your own section.
-
-### Written by me
-
-- **File:**
-- **Commit:**
-- **What it does and why it is built this way:**
-
-### The AI-written part I understand best
-
-- **File:**
-- **Commit:**
-- **What it does and why we kept it:**
+The commits above identify AI-assisted work and verification. They do not establish which individual lines a student wrote unaided. This record does not claim a student-written percentage or invent a personal code explanation. The project owner should add independently verifiable student-authored code examples and their own explanation if the course requires them. A public Render deployment, running-app screenshot, and final course evidence are still pending.
