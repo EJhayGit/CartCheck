@@ -7,10 +7,18 @@ export function normalizeEmail(value) {
   return email
 }
 
-export function validatePassword(value, { registering = false } = {}) {
+export function validatePassword(value, { creating = false } = {}) {
   if (typeof value !== 'string') return false
   const bytes = Buffer.byteLength(value, 'utf8')
-  return bytes > 0 && bytes <= 72 && (!registering || value.length >= 8)
+  return bytes > 0 && bytes <= 72 && (!creating || Array.from(value).length >= 8)
+}
+
+export function requiresEmailVerification(user, enabled = process.env.REQUIRE_VERIFIED_EMAIL === 'true') {
+  return enabled && user.email_verified !== true && user.legacy_verification_exempt !== true
+}
+
+export function isAuthStatusEndpoint(path) {
+  return path === '/api/auth/me' || path === '/api/auth/session'
 }
 
 export function publicUser(row) {

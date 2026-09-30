@@ -83,6 +83,15 @@ test('account verification and password recovery tokens expire, replay safely, a
     assert.equal(registered.rowCount, 1)
     assert.equal(registered.rows[0].email_verified, false)
     assert.equal(registered.rows[0].legacy_verification_exempt, false)
+    assert.equal((await request(baseUrl, '/api/auth/me', { cookie: registrationCookie })).status, 200,
+      'an unverified account must be able to restore its session and read verification state')
+    assert.equal((await request(baseUrl, '/api/auth/session', { cookie: registrationCookie })).status, 200,
+      'session restoration must remain available before email verification')
+    assert.equal((await request(baseUrl, '/api/catalog', { cookie: registrationCookie })).status, 403,
+      'unverified accounts must not access protected data')
+    assert.equal((await request(baseUrl, '/api/me/settings', {
+      method: 'PATCH', cookie: registrationCookie, body: { preferredCurrency: 'USD' },
+    })).status, 403, 'unverified accounts must not change protected settings')
 
     // A resend inside the cooldown returns the same generic response and must not replace the active token.
     const beforeResend = await client.query("SELECT token_hash FROM cartcheck.auth_action_tokens WHERE user_id = $1 AND purpose = 'verify_email'", [registered.rows[0].id])
@@ -194,6 +203,8 @@ test('account verification and password recovery tokens expire, replay safely, a
     const legacyMe = await request(baseUrl, '/api/auth/me', { cookie: sessionCookie(legacyLogin) })
     assert.equal(legacyMe.status, 200)
     assert.equal((await legacyMe.json()).user.verification_required, false)
+    assert.equal((await request(baseUrl, '/api/catalog', { cookie: sessionCookie(legacyLogin) })).status, 200,
+      'legacy verification-exempt accounts must retain protected access')
     assert.equal((await client.query('SELECT id FROM cartcheck.users WHERE id = $1', [legacy.rows[0].id])).rowCount, 1)
   } catch (error) {
     throw new Error(`${error.message}\nAPI output:\n${logs}`)

@@ -5,9 +5,11 @@ import ShoppingList from './ShoppingList.jsx'
 import Trips from './Trips.jsx'
 import AccountFlows from './AccountFlows.jsx'
 import ChangePassword from './ChangePassword.jsx'
+import { AuthBrand, PasswordField, PasswordMeter } from './AuthUI.jsx'
+import { confirmationError, passwordError } from './passwordPolicy.js'
 import { resetAndRevalidate, revalidateCurrentSession } from './resetSession.js'
 
-const EMPTY_FORM = { email: '', password: '' }
+const EMPTY_FORM = { email: '', password: '', confirmation: '' }
 const link = (() => {
   const url = new URL(window.location.href)
   const params = new URLSearchParams(url.hash.slice(1))
@@ -25,8 +27,10 @@ export default function App() {
   const [accountView, setAccountView] = useState(link?.action || '')
   const [linkToken] = useState(link?.token || '')
   const [accountEmail, setAccountEmail] = useState('')
+  const [emailCooldownUntil, setEmailCooldownUntil] = useState(0)
   const [authNotice, setAuthNotice] = useState('')
   const [form, setForm] = useState(EMPTY_FORM)
+  const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [page, setPage] = useState('cart')
@@ -104,7 +108,8 @@ export default function App() {
 
   function switchMode(nextMode) {
     setMode(nextMode)
-    setForm(EMPTY_FORM)
+    setForm((current) => ({ ...EMPTY_FORM, email: current.email }))
+    setSubmitted(false)
     setError('')
     setAuthNotice('')
   }
@@ -153,7 +158,8 @@ export default function App() {
       }
       setUser(outcome.user)
       setPreferredCurrency(outcome.user.preferred_currency)
-      setAccountView('')
+      setAccountEmail(outcome.user.email)
+      setAccountView(outcome.user.verification_required ? 'pending' : '')
       setStatus('ready')
       setError('')
       resetCheckPending.current = false
@@ -179,10 +185,19 @@ export default function App() {
 
   async function submit(event) {
     event.preventDefault()
+    if (busy) return
+    setSubmitted(true)
+    if (mode === 'register') {
+      if (!event.currentTarget.elements.email.reportValidity()) return
+      if (passwordError(form.password) || confirmationError(form.password, form.confirmation)) {
+        event.currentTarget.elements[passwordError(form.password) ? 'password' : 'registration-confirm'].focus()
+        return
+      }
+    }
     setBusy(true)
     setError('')
     try {
-      const result = await (mode === 'login' ? login(form) : register(form))
+      const result = await (mode === 'login' ? login({ email: form.email, password: form.password }) : register({ email: form.email, password: form.password }))
       accountGeneration.current += 1
       setUser(result.user)
       setPreferredCurrency(result.user.preferred_currency)
@@ -193,6 +208,7 @@ export default function App() {
       setForm(EMPTY_FORM)
       if (result.user.verification_required || (mode === 'register' && !result.user.email_verified)) {
         setAccountEmail(result.user.email)
+        if (mode === 'register') setEmailCooldownUntil(Date.now() + 60_000)
         setAccountView('pending')
       }
     } catch (caught) {
@@ -274,9 +290,9 @@ export default function App() {
   }
 
   return (
-    <div className="app">
-      <header className="site-header"><div className="header-inner"><img src="/cartcheck-logo-on-dark.svg" alt="CartCheck" className="brand" />{status === 'ready' && user && !accountView && <nav className="catalog-nav" aria-label="Main navigation">{navigation()}</nav>}</div></header>
-      {status === 'ready' && user && !accountView ? <>
+    <div className={`app ${!user || accountView || status !== 'ready' || user.verification_required ? 'auth-app' : ''}`}>
+      <header className="site-header"><div className="header-inner"><img src="/cartcheck-logo-on-dark.svg" alt="CartCheck" className="brand" />{status === 'ready' && user && !user.verification_required && !accountView && <nav className="catalog-nav" aria-label="Main navigation">{navigation()}</nav>}</div></header>
+      {status === 'ready' && user && !user.verification_required && !accountView ? <>
         {error && <p className="alert" role="alert">{error}</p>}
         <div hidden={page !== 'cart'}><ShoppingList key={user.id} editItem={requestedEdit} onEditHandled={() => setRequestedEdit(null)} onBrowseCatalog={browseCatalog} onMutationPending={reportCartPending} onReviewChange={setReviewOpen} /></div>
         {catalogVisited && <div hidden={page !== 'catalog'}><Catalog onAdd={addItem} onAddPending={reportCatalogAddPending} /></div>}
@@ -296,28 +312,28 @@ export default function App() {
           </section>
           <ChangePassword onChanged={clearRevokedSession} />
         </main>}
-      </> : <main className="auth-main">
+      </> : <main className="auth-main"><AuthBrand /><div className="auth-form-area">
         {status === 'loading' && <section className="auth-card" role="status"><p className="eyebrow">CARTCHECK</p><h1>Restoring your session</h1><p>Checking your account…</p></section>}
         {status === 'error' && <section className="auth-card"><h1>Could not connect</h1><p className="alert" role="alert">{error}</p><button className="primary-button" onClick={retryRestore}>Try again</button></section>}
-        {status === 'ready' && accountView && <AccountFlows view={accountView} token={linkToken} email={accountEmail} onBack={user?.verification_required ? signOut : returnToSignIn} onContinue={user && !user.verification_required ? () => setAccountView('') : null} onVerified={(verifiedUser) => { if (verifiedUser && user?.id === verifiedUser.id) setUser(verifiedUser) }} onReset={finishPasswordReset} />}
+        {status === 'ready' && accountView && <AccountFlows key={`${accountView}:${accountEmail}`} view={accountView} token={linkToken} email={accountEmail} initialCooldownUntil={emailCooldownUntil} onBack={user?.verification_required ? signOut : returnToSignIn} onContinue={user && !user.verification_required ? () => setAccountView('') : null} onVerified={(verifiedUser) => { if (verifiedUser && user?.id === verifiedUser.id) setUser(verifiedUser) }} onReset={finishPasswordReset} />}
         {status === 'ready' && !user && !accountView && <section className="auth-card">
           <p className="eyebrow">{mode === 'login' ? 'WELCOME BACK' : 'GET STARTED'}</p>
           <h1>{mode === 'login' ? 'Sign in' : 'Create your account'}</h1>
           <p className="intro">{mode === 'login' ? 'Your shopping list, catalog, and trip history are ready.' : 'Keep your catalog, active list, and shopping history together.'}</p>
-          <form onSubmit={submit}>
+          <form onSubmit={submit} noValidate={mode === 'register'}>
             <label htmlFor="email">Email address</label>
-            <input id="email" type="email" autoComplete="email" placeholder="you@example.com" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} maxLength={320} required />
-            <label htmlFor="password">Password</label>
-            <input id="password" type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} placeholder={mode === 'login' ? 'Enter your password' : 'Create a password'} value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} minLength={8} required />
+            <input id="email" type="email" autoComplete="email" placeholder="you@example.com" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} maxLength={320} required disabled={busy} />
+            <PasswordField key={mode} id="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} placeholder={mode === 'login' ? 'Enter your password' : 'Create a password'} value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} error={mode === 'register' && submitted ? passwordError(form.password) : ''} hint={mode === 'register' ? 'password-guidance' : undefined} required disabled={busy} />
+            {mode === 'register' && <><PasswordMeter password={form.password} email={form.email} /><PasswordField id="registration-confirm" label="Confirm password" autoComplete="new-password" value={form.confirmation} onChange={(event) => setForm({ ...form, confirmation: event.target.value })} error={submitted || form.confirmation ? confirmationError(form.password, form.confirmation) : ''} required disabled={busy} /><p className="auth-security-note">We’ll email you a verification link before you start shopping.</p></>}
             {error && <p className="alert" role="alert">{error}</p>}
             {authNotice && <p className="catalog-notice" role="status">{authNotice}</p>}
             <button className="primary-button" type="submit" disabled={busy}>{busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : 'Create account'}</button>
           </form>
-          {mode === 'login' && <p className="switch-prompt"><button className="text-button" type="button" onClick={() => { setAccountEmail(form.email); setAccountView('forgot') }}>Forgot password?</button></p>}
-          <p className="switch-prompt">{mode === 'login' ? 'New to CartCheck?' : 'Already have an account?'}{' '}<button className="text-button" type="button" onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}>{mode === 'login' ? 'Create an account' : 'Sign in'}</button></p>
+          {mode === 'login' && <p className="switch-prompt"><button className="text-button" type="button" disabled={busy} onClick={() => { setAccountEmail(form.email); setAccountView('forgot') }}>Forgot password?</button></p>}
+          <p className="switch-prompt">{mode === 'login' ? 'New to CartCheck?' : 'Already have an account?'}{' '}<button className="text-button" type="button" disabled={busy} onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}>{mode === 'login' ? 'Create an account' : 'Sign in'}</button></p>
         </section>}
-      </main>}
-      {status === 'ready' && user && !accountView && <nav className="catalog-mobile-nav" aria-label="Mobile navigation">{navigation()}</nav>}
+      </div></main>}
+      {status === 'ready' && user && !user.verification_required && !accountView && <nav className="catalog-mobile-nav" aria-label="Mobile navigation">{navigation()}</nav>}
     </div>
   )
 }

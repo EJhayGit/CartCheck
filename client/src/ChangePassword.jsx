@@ -1,3 +1,5 @@
+import { PasswordField } from './AuthUI.jsx'
+import { PASSWORD_HINT, passwordError, confirmationError } from './passwordPolicy.js'
 import { useState } from 'react'
 import { changePassword } from './api/httpApi.js'
 
@@ -5,13 +7,15 @@ export default function ChangePassword({ onChanged }) {
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmation, setConfirmation] = useState('')
+  const [submitted, setSubmitted] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
   async function submit(event) {
     event.preventDefault()
     if (busy) return
-    if (newPassword !== confirmation) { setError('Passwords do not match.'); return }
+    setSubmitted(true)
+    if (passwordError(newPassword) || confirmationError(newPassword, confirmation)) { setError(passwordError(newPassword) || confirmationError(newPassword, confirmation)); return }
     setBusy(true)
     setError('')
     try {
@@ -29,12 +33,9 @@ export default function ChangePassword({ onChanged }) {
     <h2 id="change-password-heading">Change password</h2>
     <p className="optional-help">After changing your password, sign in again on this device and any other devices.</p>
     <form onSubmit={submit}>
-      <label htmlFor="current-password">Current password</label>
-      <input id="current-password" type="password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} required />
-      <label htmlFor="new-password">New password</label>
-      <input id="new-password" type="password" autoComplete="new-password" minLength={8} maxLength={72} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} required />
-      <label htmlFor="confirm-password">Confirm new password</label>
-      <input id="confirm-password" type="password" autoComplete="new-password" minLength={8} maxLength={72} value={confirmation} onChange={(event) => setConfirmation(event.target.value)} required />
+      <PasswordField id="current-password" label="Current password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} required disabled={busy} />
+      <PasswordField id="new-password" label="New password" error={submitted ? passwordError(newPassword) : ''} autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} required disabled={busy} />
+      <p className="password-hint">{PASSWORD_HINT}</p><PasswordField id="confirm-password" label="Confirm new password" error={submitted || confirmation ? confirmationError(newPassword, confirmation) : ''} autoComplete="new-password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} required disabled={busy} />
       {error && <p className="alert" role="alert">{error}</p>}
       <button className="catalog-button primary" disabled={busy}>{busy ? 'Updating…' : 'Change password'}</button>
     </form>

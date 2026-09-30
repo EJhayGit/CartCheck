@@ -17,7 +17,13 @@ import {
   validateCurrencyChanges,
   validateItemChanges,
 } from './cartValidation.js'
-import { normalizeEmail, publicUser, validatePassword } from './authValidation.js'
+import {
+  isAuthStatusEndpoint,
+  normalizeEmail,
+  publicUser,
+  requiresEmailVerification,
+  validatePassword,
+} from './authValidation.js'
 import { parseTripId, validateCorrection, validateHistoryQuery, validateRevision } from './tripValidation.js'
 import {
   createAuthRateLimiter,
@@ -52,7 +58,7 @@ const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
   .filter(Boolean)
 
 app.use(helmet())
-app.use(cors({ origin: allowedOrigins, credentials: true }))
+app.use(cors({ origin: allowedOrigins, credentials: true, exposedHeaders: ['Retry-After'] }))
 app.use(express.json({ limit: '100kb' }))
 
 function checkRequestOrigin(request, response, next) {
@@ -80,13 +86,13 @@ function checkRequestOrigin(request, response, next) {
 const authRateLimit = createAuthRateLimiter({ limit: process.env.NODE_ENV === 'test' ? 100 : 10 })
 const authMutation = [checkRequestOrigin, authRateLimit]
 
-function validateCredentials(body, { registering = false } = {}) {
+function validateCredentials(body, { creatingAccount = false } = {}) {
   const email = normalizeEmail(body?.email)
   const password = body?.password
   if (!email) return { error: 'Enter a valid email address' }
-  if (!validatePassword(password, { registering })) {
-    return { error: registering
-      ? 'Password must be 8 to 72 UTF-8 bytes'
+  if (!validatePassword(password, { creating: creatingAccount })) {
+    return { error: creatingAccount
+      ? 'Password must contain at least 8 characters and no more than 72 UTF-8 bytes'
       : 'Enter a valid password' }
   }
   return { email, password }
@@ -102,8 +108,7 @@ async function authenticate(request, response, next) {
   try {
     const user = await authRepo.findUserBySessionHash(pool, hashSessionToken(token))
     if (!user) return response.status(401).json({ error: 'Authentication required' })
-    const isSessionStatus = request.path === '/api/auth/me' || request.path === '/api/auth/session'
-    if (process.env.REQUIRE_VERIFIED_EMAIL === 'true' && !user.email_verified && !user.legacy_verification_exempt && !isSessionStatus) {
+    if (requiresEmailVerification(user) && !isAuthStatusEndpoint(request.path)) {
       return response.status(403).json({ error: 'Verify your email address to continue', code: 'EMAIL_VERIFICATION_REQUIRED' })
     }
     request.user = user
@@ -134,7 +139,7 @@ async function issueAndSendAccountToken(user, purpose) {
 }
 
 app.post('/api/auth/register', ...authMutation, async (request, response, next) => {
-  const credentials = validateCredentials(request.body ?? {}, { registering: true })
+  const credentials = validateCredentials(request.body ?? {}, { creatingAccount: true })
   if (credentials.error) return response.status(400).json({ error: credentials.error })
   try {
     const passwordHash = await bcrypt.hash(credentials.password, 12)
@@ -194,8 +199,8 @@ app.post('/api/auth/reset-password', ...authMutation, async (request, response, 
   if (typeof token !== 'string' || !actionTokenPattern.test(token)) {
     return response.status(400).json({ error: 'Reset link is invalid or expired' })
   }
-  if (!validatePassword(password, { registering: true })) {
-    return response.status(400).json({ error: 'Password must be 8 to 72 UTF-8 bytes' })
+  if (!validatePassword(password, { creating: true })) {
+    return response.status(400).json({ error: 'Password must contain at least 8 characters and no more than 72 UTF-8 bytes' })
   }
   try {
     const passwordHash = await bcrypt.hash(password, 12)
@@ -207,8 +212,8 @@ app.post('/api/auth/reset-password', ...authMutation, async (request, response, 
 
 app.post('/api/auth/change-password', checkRequestOrigin, authRateLimit, authenticate, async (request, response, next) => {
   const { currentPassword, newPassword } = request.body ?? {}
-  if (!validatePassword(currentPassword) || !validatePassword(newPassword, { registering: true })) {
-    return response.status(400).json({ error: 'Enter a valid current password and a new password of 8 to 72 UTF-8 bytes' })
+  if (!validatePassword(currentPassword) || !validatePassword(newPassword, { creating: true })) {
+    return response.status(400).json({ error: 'Enter a valid current password and a new password of at least 8 characters and no more than 72 UTF-8 bytes' })
   }
   try {
     const account = await authRepo.findUserByEmail(pool, request.user.email)

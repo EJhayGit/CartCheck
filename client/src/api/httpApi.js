@@ -25,6 +25,8 @@ async function request(path, options = {}) {
     const error = new Error(message)
     error.status = response.status
     error.code = code
+    const retryAfter = Number(response.headers.get('Retry-After'))
+    if (Number.isFinite(retryAfter) && retryAfter > 0) error.retryAfter = retryAfter
     throw error
   }
   return response.status === 204 ? null : response.json()
