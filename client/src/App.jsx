@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { addCartItem, getSession, login, logout, register, resetPassword, updateSettings } from './api/httpApi.js'
 import Catalog from './Catalog.jsx'
+import { Brand, Footer, NavIcon } from './Brand.jsx'
+import { useAppearance } from './appearance.js'
 import ShoppingList from './ShoppingList.jsx'
 import Trips from './Trips.jsx'
 import AccountFlows from './AccountFlows.jsx'
@@ -21,6 +23,7 @@ const link = (() => {
 })()
 
 export default function App() {
+  const [appearance, setAppearance] = useAppearance()
   const [status, setStatus] = useState('loading')
   const [user, setUser] = useState(null)
   const [mode, setMode] = useState('login')
@@ -33,6 +36,7 @@ export default function App() {
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [accountBusy, setAccountBusy] = useState(false)
   const [page, setPage] = useState('cart')
   const [catalogVisited, setCatalogVisited] = useState(false)
   const [requestedEdit, setRequestedEdit] = useState(null)
@@ -278,20 +282,27 @@ export default function App() {
     } finally { if (generation === accountGeneration.current) setSettingsBusy(false) }
   }
 
+  function goHome() {
+    if (busy || accountBusy || settingsBusy || cartPendingRef.current || catalogAddPendingRef.current || reviewOpen || status !== 'ready') return
+    if (user?.verification_required) return
+    if (user) { setAccountView(''); setPage('cart') }
+    else returnToSignIn()
+  }
+
   function navigation() {
     const switchingDisabled = cartPending || catalogAddPending || settingsBusy || reviewOpen
     return <>
-      <button type="button" className={page === 'cart' ? 'active' : ''} aria-current={page === 'cart' ? 'page' : undefined} onClick={() => { if (!cartPendingRef.current && !catalogAddPendingRef.current) setPage('cart') }} disabled={switchingDisabled}>Shopping list</button>
-      <button type="button" className={page === 'catalog' ? 'active' : ''} aria-current={page === 'catalog' ? 'page' : undefined} onClick={browseCatalog} disabled={switchingDisabled}>Catalog</button>
-      <button type="button" className={page === 'trips' ? 'active' : ''} aria-current={page === 'trips' ? 'page' : undefined} onClick={() => { if (!switchingDisabled) setPage('trips') }} disabled={switchingDisabled}>Trips</button>
-      <button type="button" className={page === 'settings' ? 'active' : ''} aria-current={page === 'settings' ? 'page' : undefined} onClick={() => { if (!switchingDisabled) setPage('settings') }} disabled={switchingDisabled}>Settings</button>
+      <button type="button" className={page === 'cart' ? 'active' : ''} aria-current={page === 'cart' ? 'page' : undefined} onClick={() => { if (!cartPendingRef.current && !catalogAddPendingRef.current) setPage('cart') }} disabled={switchingDisabled}><NavIcon destination="cart" /><span>Shopping list</span></button>
+      <button type="button" className={page === 'catalog' ? 'active' : ''} aria-current={page === 'catalog' ? 'page' : undefined} onClick={browseCatalog} disabled={switchingDisabled}><NavIcon destination="catalog" /><span>Catalog</span></button>
+      <button type="button" className={page === 'trips' ? 'active' : ''} aria-current={page === 'trips' ? 'page' : undefined} onClick={() => { if (!switchingDisabled) setPage('trips') }} disabled={switchingDisabled}><NavIcon destination="trips" /><span>Trips</span></button>
+      <button type="button" className={page === 'settings' ? 'active' : ''} aria-current={page === 'settings' ? 'page' : undefined} onClick={() => { if (!switchingDisabled) setPage('settings') }} disabled={switchingDisabled}><NavIcon destination="settings" /><span>Settings</span></button>
       <button type="button" onClick={signOut} disabled={busy || settingsBusy || cartPending || catalogAddPending || reviewOpen}>Sign out</button>
     </>
   }
 
   return (
     <div className={`app ${!user || accountView || status !== 'ready' || user.verification_required ? 'auth-app' : ''}`}>
-      <header className="site-header"><div className="header-inner"><img src="/cartcheck-logo-on-dark.svg" alt="CartCheck" className="brand" />{status === 'ready' && user && !user.verification_required && !accountView && <nav className="catalog-nav" aria-label="Main navigation">{navigation()}</nav>}</div></header>
+      <header className="site-header"><div className="header-inner"><Brand onHome={goHome} disabled={busy || settingsBusy || cartPending || catalogAddPending || reviewOpen || status !== 'ready'} />{status === 'ready' && user && !user.verification_required && !accountView && <nav className="catalog-nav" aria-label="Main navigation">{navigation()}</nav>}</div></header>
       {status === 'ready' && user && !user.verification_required && !accountView ? <>
         {error && <p className="alert" role="alert">{error}</p>}
         <div hidden={page !== 'cart'}><ShoppingList key={user.id} editItem={requestedEdit} onEditHandled={() => setRequestedEdit(null)} onBrowseCatalog={browseCatalog} onMutationPending={reportCartPending} onReviewChange={setReviewOpen} /></div>
@@ -310,12 +321,13 @@ export default function App() {
             {!user.email_verified && <div className="verification-settings"><h2>Email verification</h2><p>Your email has not been verified.</p><button className="catalog-button secondary" type="button" onClick={() => { setAccountEmail(user.email); setAccountView('pending') }}>Verify your email</button></div>}
             <button className="catalog-button secondary mobile-sign-out" type="button" onClick={signOut} disabled={busy || settingsBusy}>Sign out</button>
           </section>
+          <section className="catalog-panel appearance-panel" aria-labelledby="appearance-heading"><h2 id="appearance-heading">Appearance</h2><p className="appearance-help">Choose your look. Saved in this browser across visits.</p><div className="appearance-options" role="group" aria-label="Appearance">{['light', 'dark', 'system'].map((option) => <button type="button" key={option} aria-pressed={appearance === option} onClick={() => setAppearance(option)}>{option[0].toUpperCase() + option.slice(1)}</button>)}</div><p className="appearance-help">System follows your device’s color preference.</p></section>
           <ChangePassword onChanged={clearRevokedSession} />
         </main>}
-      </> : <main className="auth-main"><AuthBrand /><div className="auth-form-area">
+      </> : <main className="auth-main"><AuthBrand onHome={goHome} disabled={busy || accountBusy || status !== 'ready' || user?.verification_required} /><div className="auth-form-area">
         {status === 'loading' && <section className="auth-card" role="status"><p className="eyebrow">CARTCHECK</p><h1>Restoring your session</h1><p>Checking your account…</p></section>}
         {status === 'error' && <section className="auth-card"><h1>Could not connect</h1><p className="alert" role="alert">{error}</p><button className="primary-button" onClick={retryRestore}>Try again</button></section>}
-        {status === 'ready' && accountView && <AccountFlows key={`${accountView}:${accountEmail}`} view={accountView} token={linkToken} email={accountEmail} initialCooldownUntil={emailCooldownUntil} onBack={user?.verification_required ? signOut : returnToSignIn} onContinue={user && !user.verification_required ? () => setAccountView('') : null} onVerified={(verifiedUser) => { if (verifiedUser && user?.id === verifiedUser.id) setUser(verifiedUser) }} onReset={finishPasswordReset} />}
+        {status === 'ready' && accountView && <AccountFlows onBusyChange={setAccountBusy} key={`${accountView}:${accountEmail}`} view={accountView} token={linkToken} email={accountEmail} initialCooldownUntil={emailCooldownUntil} onBack={user?.verification_required ? signOut : returnToSignIn} onContinue={user && !user.verification_required ? () => setAccountView('') : null} onVerified={(verifiedUser) => { if (verifiedUser && user?.id === verifiedUser.id) setUser(verifiedUser) }} onReset={finishPasswordReset} />}
         {status === 'ready' && !user && !accountView && <section className="auth-card">
           <p className="eyebrow">{mode === 'login' ? 'WELCOME BACK' : 'GET STARTED'}</p>
           <h1>{mode === 'login' ? 'Sign in' : 'Create your account'}</h1>
@@ -333,6 +345,7 @@ export default function App() {
           <p className="switch-prompt">{mode === 'login' ? 'New to CartCheck?' : 'Already have an account?'}{' '}<button className="text-button" type="button" disabled={busy} onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}>{mode === 'login' ? 'Create an account' : 'Sign in'}</button></p>
         </section>}
       </div></main>}
+      <Footer />
       {status === 'ready' && user && !user.verification_required && !accountView && <nav className="catalog-mobile-nav" aria-label="Mobile navigation">{navigation()}</nav>}
     </div>
   )

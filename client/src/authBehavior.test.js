@@ -17,10 +17,58 @@ const { default: App } = await vite.ssrLoadModule('/src/App.jsx')
 const { default: AccountFlows } = await vite.ssrLoadModule('/src/AccountFlows.jsx')
 const { default: ChangePassword } = await vite.ssrLoadModule('/src/ChangePassword.jsx')
 const { PasswordMeter } = await vite.ssrLoadModule('/src/AuthUI.jsx')
+const { useAppearance, APPEARANCE_KEY } = await vite.ssrLoadModule('/src/appearance.js')
 
 test.afterEach(() => {
   cleanup()
+  window.localStorage.clear()
+  delete window.matchMedia
   globalThis.fetch = undefined
+})
+
+test('appearance persists, follows system changes, and unsubscribes cleanly', () => {
+  let listener
+  const media = { matches: false, addEventListener: (_, callback) => { listener = callback }, removeEventListener: (_, callback) => { if (listener === callback) listener = null } }
+  window.matchMedia = () => media
+  function Harness() {
+    const [value, setValue] = useAppearance()
+    return React.createElement('button', { onClick: () => setValue('system') }, value)
+  }
+  const view = render(React.createElement(Harness))
+  fireEvent.click(screen.getByRole('button', { name: 'light' }))
+  assert.equal(window.localStorage.getItem(APPEARANCE_KEY), 'system')
+  assert.equal(document.documentElement.dataset.theme, 'light')
+  media.matches = true
+  listener()
+  assert.equal(document.documentElement.dataset.theme, 'dark')
+  view.unmount()
+  assert.equal(listener, null)
+  render(React.createElement(Harness))
+  assert.equal(screen.getByRole('button').textContent, 'system')
+  assert.equal(document.documentElement.style.colorScheme, 'dark')
+})
+
+test('official logo returns registration to sign in without reloading or sending a request', async () => {
+  const calls = mockFetch(() => json({ error: 'Sign in required' }, 401))
+  render(React.createElement(App))
+  fireEvent.click(await screen.findByRole('button', { name: 'Create an account' }))
+  assert.ok(screen.getByRole('heading', { name: 'Create your account' }))
+  fireEvent.click(screen.getAllByRole('button', { name: 'CartCheck — Go to home' }).at(-1))
+  assert.ok(screen.getByRole('heading', { name: 'Sign in' }))
+  assert.equal(calls.length, 1)
+})
+
+test('logo cannot leave an account email request while it is pending', async () => {
+  let resolveRequest
+  mockFetch((url) => url.endsWith('/me') ? json({ error: 'Sign in required' }, 401) : new Promise((resolve) => { resolveRequest = resolve }))
+  render(React.createElement(App))
+  fireEvent.click(await screen.findByRole('button', { name: 'Forgot password?' }))
+  fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'shopper@example.test' } })
+  fireEvent.submit(screen.getByRole('button', { name: 'Send reset link' }).closest('form'))
+  await waitFor(() => assert.equal(screen.getAllByRole('button', { name: 'CartCheck — Go to home' }).at(-1).disabled, true))
+  resolveRequest(json({ message: 'Request accepted.' }))
+  await screen.findByRole('status')
+  await waitFor(() => assert.equal(screen.getAllByRole('button', { name: 'CartCheck — Go to home' }).at(-1).disabled, false))
 })
 
 test.after(async () => {

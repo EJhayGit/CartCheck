@@ -3,7 +3,7 @@ import { PASSWORD_HINT, passwordError, confirmationError } from './passwordPolic
 import { useEffect, useRef, useState } from 'react'
 import { forgotPassword, resendVerification, verifyEmail } from './api/httpApi.js'
 
-export default function AccountFlows({ view, token, email: initialEmail = '', initialCooldownUntil = 0, onBack, onContinue, onVerified, onReset }) {
+export default function AccountFlows({ view, token, email: initialEmail = '', initialCooldownUntil = 0, onBusyChange, onBack, onContinue, onVerified, onReset }) {
   const [email, setEmail] = useState(initialEmail)
   const [password, setPassword] = useState('')
   const [confirmation, setConfirmation] = useState('')
@@ -16,6 +16,7 @@ export default function AccountFlows({ view, token, email: initialEmail = '', in
   const [cooldownUntil, setCooldownUntil] = useState(initialCooldownUntil)
   const [seconds, setSeconds] = useState(() => Math.max(0, Math.ceil((initialCooldownUntil - Date.now()) / 1000)))
   const attemptedVerification = useRef(false)
+  useEffect(() => { onBusyChange?.(busy); return () => onBusyChange?.(false) }, [busy, onBusyChange])
 
   useEffect(() => {
     if (!cooldownUntil) return
