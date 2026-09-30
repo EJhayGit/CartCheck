@@ -30,6 +30,7 @@ import {
   sessionCookie,
 } from './authSecurity.js'
 import { sendAccountEmail } from './emailService.js'
+import { accountActionUrl } from './accountLinks.js'
 
 const app = express()
 app.set('trust proxy', 1)
@@ -115,18 +116,13 @@ async function authenticate(request, response, next) {
 const genericAccountMessage = 'If the account is eligible, instructions will be sent.'
 const actionTokenPattern = /^[A-Za-z0-9_-]{43}$/
 
-function accountActionUrl(kind, token) {
-  const origin = (process.env.CLIENT_ORIGIN || allowedOrigins[0]).replace(/\/$/, '')
-  const action = kind === 'verify_email' ? 'verify' : 'reset'
-  return `${origin}/#action=${action}&token=${encodeURIComponent(token)}`
-}
-
 async function issueAndSendAccountToken(user, purpose) {
   const { token, tokenHash } = createActionToken()
   const issued = await authRepo.issueAccountToken(pool, { userId: user.id, purpose, tokenHash })
   if (!issued) return
   try {
-    await sendAccountEmail({ to: user.email, kind: purpose, actionUrl: accountActionUrl(purpose, token) })
+    await sendAccountEmail({ to: user.email, kind: purpose,
+      actionUrl: accountActionUrl(purpose, token, { fallbackOrigin: allowedOrigins[0] }) })
   } catch {
     try { await authRepo.discardAccountToken(pool, tokenHash) } catch { /* keep logs free of token data */ }
     // Provider details, recipient, and token are intentionally omitted.

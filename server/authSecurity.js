@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto'
 
 export const SESSION_COOKIE = 'cartcheck_session'
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000
+export const ACCOUNT_TOKEN_TTL_MINUTES = 30
 
 export function createSessionToken() {
   const token = randomBytes(32).toString('base64url')

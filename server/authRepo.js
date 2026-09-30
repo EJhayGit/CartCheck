@@ -1,3 +1,5 @@
+import { ACCOUNT_TOKEN_TTL_MINUTES } from './authSecurity.js'
+
 export async function createAccount(pool, { email, passwordHash, sessionHash, expiresAt }) {
   const client = await pool.connect()
   try {
@@ -83,7 +85,7 @@ export async function findUserBySessionHash(pool, sessionHash) {
   return result.rows[0] ?? null
 }
 
-const TOKEN_TTL_MS = 30 * 60 * 1000
+const TOKEN_TTL_MS = ACCOUNT_TOKEN_TTL_MINUTES * 60 * 1000
 const EMAIL_COOLDOWN_SECONDS = 60
 
 export async function issueAccountToken(pool, { userId, purpose, tokenHash, cooldownSeconds = EMAIL_COOLDOWN_SECONDS }) {
