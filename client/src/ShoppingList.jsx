@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { deleteCartItem, finishTrip, updateCart, updateCartItem } from './api/httpApi.js'
-import { getShoppingProgress } from './shoppingProgress.js'
-import { formatMoney, moneyDifference, moneySummary, normalizeMoney } from './money.js'
+import { getShoppingProgress, sortShoppingItems } from './shoppingProgress.js'
+import { budgetProgress, formatMoney, moneySummary, normalizeMoney } from './money.js'
+import { createPurchaseMutations } from './purchaseMutations.js'
 import { useDataCache, useDataQuery, fetchCart } from './dataCache.jsx'
 import { cacheCompletedTrip } from './dataCache.js'
 
@@ -18,6 +19,18 @@ function displayQuantity(value) {
 function ReviewRows({ items, currency }) {
   if (!items.length) return <p className="optional-help">No items in this group.</p>
   return <ul className="trip-review-list">{items.map((item) => <li key={item.id}><span><strong>{item.name}</strong><small>{displayQuantity(item.quantity)}{item.unitLabel ? ` ${item.unitLabel}` : ''} · Estimate: {item.estimatedTotal == null ? 'not recorded' : formatMoney(item.estimatedTotal, currency)} · Actual: {item.actualTotal == null ? 'not recorded' : formatMoney(item.actualTotal, currency)}</small></span><span className="trip-status">{item.bought ? 'BOUGHT' : 'NOT BOUGHT'}</span></li>)}</ul>
+}
+
+function BudgetMeter({ budget, summary, currency, label }) {
+  const progress = budgetProgress(budget, summary)
+  if (!progress) return null
+  const status = progress.reached ? 'Budget reached' : `${formatMoney(progress.value, currency)} ${progress.over ? 'over budget' : 'remaining'}`
+  return <div className="budget-meter">
+    <p className="budget-meter-label">{label}</p>
+    <p className="budget-meter-amount">{formatMoney(summary.total, currency)} <span>/ {formatMoney(budget, currency)}</span></p>
+    <div className="progress-track" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress.percent} aria-valuetext={`${status}${progress.incomplete ? '; known prices only, incomplete' : ''}`}><span style={{ width: `${progress.percent}%` }} /></div>
+    <p className={progress.over ? 'budget-warning' : 'budget-comparison'}>{status}{progress.incomplete ? ' · known prices only; incomplete' : ''}</p>
+  </div>
 }
 
 export default function ShoppingList({ active = true, editItem, onEditHandled, onBrowseCatalog, onMutationPending, onReviewChange }) {
@@ -51,6 +64,11 @@ export default function ShoppingList({ active = true, editItem, onEditHandled, o
   const [busyItemId, setBusyItemId] = useState(null)
   const [busyAction, setBusyAction] = useState('')
   const [hidePurchased, setHidePurchased] = useState(false)
+  const [sortMode, setSortMode] = useState('default')
+  const [purchasePending, setPurchasePending] = useState(0)
+  const purchases = useMemo(() => createPurchaseMutations(cache, updateCartItem, {
+    onPending: setPurchasePending, onError: setActionError,
+  }), [cache])
   const pendingMutation = useRef(false)
   const editorVersion = useRef(0)
 
@@ -95,7 +113,7 @@ export default function ShoppingList({ active = true, editItem, onEditHandled, o
   }, [reviewing, finishBusy])
 
   async function confirmFinish() {
-    if (pendingMutation.current || finishBusy || !tripId) return
+    if (pendingMutation.current || purchases.size || finishBusy || !tripId) return
     pendingMutation.current = true
     const release = cache.beginMutation('cart')
     onMutationPending(true)
@@ -126,7 +144,7 @@ export default function ShoppingList({ active = true, editItem, onEditHandled, o
   }
 
   async function openReview() {
-    if (pendingMutation.current || reviewBusy) return
+    if (pendingMutation.current || purchases.size || reviewBusy) return
     pendingMutation.current = true
     onMutationPending(true)
     setReviewBusy(true)
@@ -170,6 +188,7 @@ export default function ShoppingList({ active = true, editItem, onEditHandled, o
       actualTotal = normalizeMoney(form.actualTotal)
     } catch (caught) { setFormError(caught.message); return }
     const itemId = editor.id
+    if (purchases.has(itemId)) { setFormError('Wait for this item’s purchase change to save, then try again.'); return }
     const versionAtSave = editorVersion.current
     const previous = items.find((item) => item.id === itemId)
     if (!previous) { setFormError('This item is no longer in your list. Try again.'); return }
@@ -236,7 +255,7 @@ export default function ShoppingList({ active = true, editItem, onEditHandled, o
   }
 
   async function remove(item) {
-    if (pendingMutation.current) return
+    if (pendingMutation.current || purchases.has(item.id)) return
     if (!window.confirm(`Remove “${item.name}” from your shopping list?`)) return
     const previousIndex = items.findIndex((entry) => entry.id === item.id)
     pendingMutation.current = true
@@ -264,35 +283,19 @@ export default function ShoppingList({ active = true, editItem, onEditHandled, o
     } finally { release(); pendingMutation.current = false; onMutationPending(false); setBusy(false); setBusyItemId(null); setBusyAction('') }
   }
 
-  async function setBought(item, bought) {
-    if (pendingMutation.current) return
-    pendingMutation.current = true
-    const release = cache.beginMutation('cart')
-    onMutationPending(true)
-    setBusy(true)
-    setBusyItemId(item.id)
-    setBusyAction('bought')
+  function setBought(item, bought) {
+    if (pendingMutation.current || reviewBusy) return
     setActionError('')
     setNotice('')
-    setItems((current) => current.map((entry) => entry.id === item.id ? { ...entry, bought } : entry))
-    try {
-      const result = await updateCartItem(item.id, { bought })
-      setItems((current) => current.map((entry) => entry.id === item.id ? result.item : entry))
-      setNotice(bought ? `${item.name} marked as purchased.` : `${item.name} marked as not purchased.`)
-    } catch (caught) {
-      setItems((current) => current.map((entry) => entry.id === item.id ? item : entry))
-      cache.invalidate('cart')
-      setActionError(caught.message || 'We could not update this item. Please try again.')
-    } finally { release(); pendingMutation.current = false; onMutationPending(false); setBusy(false); setBusyItemId(null); setBusyAction('') }
+    purchases.set(item.id, bought)
   }
 
   const { purchasedCount, remainingCount, visibleItems } = getShoppingProgress(items, hidePurchased)
+  const sortedItems = sortShoppingItems(visibleItems, sortMode)
   const remainingItems = visibleItems.filter((item) => item.bought !== true)
   const purchasedItems = visibleItems.filter((item) => item.bought === true)
   const progressPercent = items.length ? (purchasedCount / items.length) * 100 : 0
   const spending = moneySummary(items)
-  const estimatedComparison = budget === null ? null : moneyDifference(budget, spending.estimated.total)
-  const actualComparison = budget === null ? null : moneyDifference(budget, spending.actual.total)
 
   if (reviewing) return <main className="shopping-main trip-screen" aria-labelledby="finish-title" ref={reviewSurfaceRef}>
     <div className="shopping-heading"><div><p className="catalog-eyebrow">REVIEW YOUR TRIP</p><h1 id="finish-title" ref={reviewRef} tabIndex="-1">Finish shopping?</h1><p className="catalog-subtitle">Check the trip summary before saving it to history.</p></div><span className="currency-label">{currency}</span></div>
@@ -304,7 +307,7 @@ export default function ShoppingList({ active = true, editItem, onEditHandled, o
   function renderItems(entries, label) {
     if (!entries.length) return <p className="list-empty-message" role="status">{label === 'Items still to buy' ? 'Everything on your list has been purchased.' : hidePurchased ? 'Purchased items are hidden.' : 'No items purchased yet.'}</p>
     return <ul className="shopping-items" aria-label={label}>{entries.map((item) => <li className={`shopping-item${item.bought ? ' is-purchased' : ''}`} key={item.id}>
-      <label className="purchased-control"><input type="checkbox" checked={item.bought === true} onChange={(event) => setBought(item, event.target.checked)} disabled={busy} aria-label={item.bought ? `Mark ${item.name} as unpurchased` : `Mark ${item.name} as purchased`} /><span className="purchased-checkmark" aria-hidden="true" /> <span className="visually-hidden">{busy && busyItemId === item.id && busyAction === 'bought' ? 'Saving purchase status' : 'Purchased'}</span></label>
+      <label className="purchased-control"><input type="checkbox" checked={item.bought === true} onChange={(event) => setBought(item, event.target.checked)} disabled={busy || reviewBusy} aria-label={item.bought ? `Mark ${item.name} as unpurchased` : `Mark ${item.name} as purchased`} /><span className="purchased-checkmark" aria-hidden="true" /> <span className="visually-hidden">Purchased</span></label>
       <span className="shopping-item-info"><strong>{item.name}</strong><small>{item.category || 'Grocery'}</small><small className="item-price">Estimate: {item.estimatedTotal === null || item.estimatedTotal === undefined ? 'Not recorded' : formatMoney(item.estimatedTotal, currency)} · Actual: {item.actualTotal === null || item.actualTotal === undefined ? 'Not recorded' : formatMoney(item.actualTotal, currency)}</small></span>
       <span className="shopping-item-quantity">{displayQuantity(item.quantity)}{item.unitLabel ? ` ${item.unitLabel}` : ''}</span>
       <span className="shopping-item-actions"><button className="catalog-small-button" type="button" onClick={() => openEdit(item)} disabled={busy}>Edit</button><button className="catalog-small-button remove-button" type="button" onClick={() => remove(item)} disabled={busy}>{busy && busyItemId === item.id && busyAction === 'remove' ? 'Removing…' : 'Remove'}</button></span>
@@ -314,7 +317,7 @@ export default function ShoppingList({ active = true, editItem, onEditHandled, o
   return <main className="shopping-main">
     <div className="shopping-heading">
       <div><p className="catalog-eyebrow">{loading ? 'SHOPPING LIST' : items.length ? "TODAY'S TRIP" : 'YOUR CART'}</p><h1>My Shopping List</h1><p className="catalog-subtitle">{loading ? 'Loading your active list.' : items.length ? 'Everything you need, in one easy list.' : 'A fresh start for your next trip.'}</p></div>
-      <div className="trip-actions"><button className="catalog-button secondary" type="button" onClick={cartQuery.refresh} disabled={busy || reviewBusy || cartQuery.fetching}>Refresh list</button><button className="catalog-button primary" type="button" onClick={onBrowseCatalog} disabled={busy || reviewBusy}>＋ Add Item</button>{items.length > 0 && <button ref={finishTriggerRef} className="catalog-button secondary" type="button" onClick={openReview} disabled={busy || loading || reviewBusy}>{reviewBusy ? 'Preparing review…' : 'Finish shopping'}</button>}</div>
+      <div className="trip-actions"><button className="catalog-button secondary" type="button" onClick={cartQuery.refresh} disabled={busy || reviewBusy || cartQuery.fetching}>Refresh list</button><button className="catalog-button primary" type="button" onClick={onBrowseCatalog} disabled={busy || reviewBusy}>＋ Add Item</button>{items.length > 0 && <button ref={finishTriggerRef} className="catalog-button secondary" type="button" onClick={openReview} disabled={busy || loading || reviewBusy || purchasePending > 0}>{reviewBusy ? 'Preparing review…' : 'Finish shopping'}</button>}</div>
     </div>
     {notice && <p className="catalog-notice" role="status">{notice}</p>}
     {finished && <p className="catalog-notice" role="status">Your completed trip is available under Trips.</p>}
@@ -339,16 +342,18 @@ export default function ShoppingList({ active = true, editItem, onEditHandled, o
         <div className="progress-number" aria-live="polite"><strong>{purchasedCount} <span>/ {items.length}</span></strong><small>items picked up</small></div>
         <div className="progress-track" role="img" aria-label={`${purchasedCount} of ${items.length} items purchased`}><span style={{ width: `${progressPercent}%` }} /></div>
       </section>
+      <div className="list-tools"><label htmlFor="list-sort">Sort</label><select id="list-sort" value={sortMode} onChange={(event) => setSortMode(event.target.value)}><option value="default">Default</option><option value="az">A–Z</option><option value="category">Category</option><option value="unpurchased">Unpurchased First</option><option value="purchased">Purchased First</option></select><button className="hide-purchased-button" type="button" onClick={() => setHidePurchased((hidden) => !hidden)} aria-pressed={hidePurchased}>{hidePurchased ? 'Show purchased' : 'Hide purchased'}</button></div>
       <section className="list-surface" aria-label="Grocery items">
+        {sortMode !== 'default' ? <section className="list-group"><div className="section-heading"><h2>Shopping items</h2><span className="count-badge">{sortedItems.length} items</span></div>{sortedItems.length ? renderItems(sortedItems, 'Sorted shopping items') : <p className="list-empty-message" role="status">Purchased items are hidden.</p>}</section> : <>
         <section className="list-group" aria-labelledby="remaining-heading">
           <div className="section-heading"><div><h2 id="remaining-heading">Still to buy</h2><span className="count-badge">{remainingCount} {remainingCount === 1 ? 'item' : 'items'}</span></div><span className="section-hint">Tap a circle as you shop</span></div>
           {renderItems(remainingItems, 'Items still to buy')}
         </section>
         <section className="list-group purchased-group" aria-labelledby="purchased-heading">
-          <div className="section-heading purchased-heading"><div><h2 id="purchased-heading">Purchased</h2><span className="count-badge purchased-count">{purchasedCount} {purchasedCount === 1 ? 'item' : 'items'}</span></div><button className="hide-purchased-button" type="button" onClick={() => setHidePurchased((hidden) => !hidden)} aria-pressed={hidePurchased}>{hidePurchased ? 'Show purchased' : 'Hide purchased'}</button></div>
+          <div className="section-heading purchased-heading"><div><h2 id="purchased-heading">Purchased</h2><span className="count-badge purchased-count">{purchasedCount} {purchasedCount === 1 ? 'item' : 'items'}</span></div></div>
           {!hidePurchased ? renderItems(purchasedItems, 'Purchased items') : visibleItems.length === 0 ? <div className="hidden-empty-state" role="status"><p>There are no visible items because all purchased items are hidden.</p><button className="hide-purchased-button" type="button" onClick={() => setHidePurchased(false)}>Show purchased</button></div> : null}
         </section>
-      </section>
+      </>}</section>
     </>}</div>
     <section className="budget-panel" aria-labelledby="budget-heading">
       <div className="budget-panel-heading"><div><p className="catalog-eyebrow">OPTIONAL</p><h2 id="budget-heading">Budget and spending</h2></div><span className="currency-label">{currency}</span></div>
@@ -358,8 +363,7 @@ export default function ShoppingList({ active = true, editItem, onEditHandled, o
       {spending.estimated.missingCount > 0 && <p className="incomplete-note">{spending.estimated.missingCount} {spending.estimated.missingCount === 1 ? 'item has' : 'items have'} no estimated price. Estimate is incomplete.</p>}
       <div className="budget-stat"><span>Known actual spending</span><strong>{spending.actual.knownCount ? formatMoney(spending.actual.total, currency) : 'No prices entered'}</strong></div>
       {spending.actual.missingCount > 0 && <p className="incomplete-note">{spending.actual.missingCount} purchased {spending.actual.missingCount === 1 ? 'item has' : 'items have'} no actual price. Spending is incomplete.</p>}
-      {estimatedComparison && spending.estimated.knownCount > 0 && <p className={estimatedComparison.over ? 'budget-warning' : 'budget-comparison'}>Known estimates are {estimatedComparison.over ? `${formatMoney(estimatedComparison.value, currency)} over` : `${formatMoney(estimatedComparison.value, currency)} under`} budget{spending.estimated.missingCount ? '; estimate is incomplete' : ''}.</p>}
-      {actualComparison && spending.actual.knownCount > 0 && <p className={actualComparison.over ? 'budget-warning' : 'budget-comparison'}>Known spending is {actualComparison.over ? `${formatMoney(actualComparison.value, currency)} over` : `${formatMoney(actualComparison.value, currency)} under`} budget{spending.actual.missingCount ? '; spending is incomplete' : ''}.</p>}
+      <BudgetMeter budget={budget} summary={spending.estimated} currency={currency} label="Known estimates against budget" /><BudgetMeter budget={budget} summary={spending.actual} currency={currency} label="Known spending against budget" />
       {budgetError && <p className="alert" role="alert">{budgetError}</p>}
       {budgetEditing ? <form className="budget-form" onSubmit={saveBudget}><label htmlFor="trip-budget">Trip budget (optional, {currency})</label><input id="trip-budget" inputMode="decimal" value={budgetDraft} onChange={(event) => setBudgetDraft(event.target.value)} placeholder="Leave blank to remove" autoFocus /><div className="catalog-form-actions"><button className="catalog-button secondary" type="button" onClick={() => { setBudgetDraft(budget ?? ''); setBudgetEditing(false); setBudgetError('') }} disabled={busy}>Cancel</button><button className="catalog-button secondary" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save budget'}</button></div></form> : <button className="budget-edit-button" type="button" onClick={() => { setBudgetDraft(budget ?? ''); setBudgetEditing(true); setBudgetError(''); setNotice('') }} disabled={busy}>{budget === null ? 'Add a budget' : 'Edit or remove budget'}</button>}
     </section></div>}

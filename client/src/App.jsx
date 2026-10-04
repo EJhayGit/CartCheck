@@ -12,6 +12,7 @@ import { confirmationError, passwordError } from './passwordPolicy.js'
 import { resetAndRevalidate, revalidateCurrentSession } from './resetSession.js'
 import { createDataCache } from './dataCache.js'
 import { DataCacheProvider, fetchCart } from './dataCache.jsx'
+import { hasPurchaseMutation, purchaseIntentVersion } from './purchaseMutations.js'
 
 const EMPTY_FORM = { email: '', password: '', confirmation: '' }
 const link = (() => {
@@ -261,9 +262,17 @@ export default function App() {
     await dataCache.load('cart', fetchCart)
     if (generation !== accountGeneration.current || !dataCache.alive) return
     const release = dataCache.beginMutation('cart')
+    const purchaseVersions = new Map(dataCache.get('cart').data.items.map((item) => [item.id, purchaseIntentVersion(dataCache, item.id)]))
+    const pendingPurchases = new Set(dataCache.get('cart').data.items.filter((item) => hasPurchaseMutation(dataCache, item.id)).map((item) => item.id))
     try {
       const result = await addCartItem(productId)
       if (generation !== accountGeneration.current || !dataCache.alive) return result
+      // Adding an existing entry does not change its bought state. Preserve a
+      // pending local purchase intent if its PATCH has not completed yet.
+      const existing = dataCache.get('cart').data?.items.find((item) => item.id === result.item.id)
+      if (existing && (pendingPurchases.has(existing.id) || hasPurchaseMutation(dataCache, existing.id) || purchaseVersions.get(existing.id) !== purchaseIntentVersion(dataCache, existing.id))) {
+        result.item = { ...result.item, bought: existing.bought }
+      }
       dataCache.set('cart', (current) => ({ ...current, items: current.items.some((item) => item.id === result.item.id)
         ? current.items.map((item) => item.id === result.item.id ? result.item : item)
         : [...current.items, result.item] }))

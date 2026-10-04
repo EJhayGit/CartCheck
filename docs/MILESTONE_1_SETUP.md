@@ -18,9 +18,9 @@ npm test
 npm run db:verify
 ```
 
-The second migration and seed runs should not add duplicate rows. `db:migrate` records file hashes in `cartcheck.schema_migrations` and rejects edits to an applied migration. `db:seed` upserts 108 shared names and categories without prices. `db/schema.sql` is a readable fresh-schema reference; use numbered migrations to update an existing database. Never run `db/schema.sql` as a reset.
+The second migration and seed runs should not add duplicate rows. `db:migrate` records file hashes in `cartcheck.schema_migrations` and rejects edits to an applied migration. The October 4 local proposal makes `db:seed` insert 160 shared templates without prices; code conflicts leave existing rows unchanged. Production seeding and the separate existing-user backfill require owner approval; neither has been applied. `db/schema.sql` is a readable fresh-schema reference; use numbered migrations to update an existing database. Never run `db/schema.sql` as a reset.
 
-For a direct SQL check, confirm 108 starters after both seed runs:
+For a direct SQL check on a disposable development database, confirm 160 starters after both seed runs:
 
 ```sql
 SELECT count(*) FROM cartcheck.starter_products;

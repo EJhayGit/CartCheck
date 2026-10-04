@@ -40,9 +40,9 @@ function mockFetch(handler) {
 }
 
 const groceries = [
-  { id: '1', name: 'Milk', category: 'Dairy & eggs' },
-  { id: '2', name: 'Millet', category: 'Pantry' },
-  { id: '3', name: 'Rice', category: 'Pantry' },
+  { id: '1', name: 'Milk', category: 'Dairy & eggs', source: 'starter' },
+  { id: '2', name: 'Millet', category: 'Pantry', source: 'starter' },
+  { id: '3', name: 'Rice', category: 'Pantry', source: 'starter' },
 ]
 
 const user = { id: 'shopper-1', email: 'shopper@example.test', email_verified: true, verification_required: false, preferred_currency: 'PHP' }

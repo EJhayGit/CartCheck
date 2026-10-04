@@ -48,7 +48,7 @@ async function request(baseUrl, path, { method = 'GET', body, cookie } = {}) {
   })
 }
 
-test('authenticated catalog search, starter protection, and custom product isolation', {
+test('authenticated catalog search, starter-copy editing, and custom product isolation', {
   skip: !databaseUrl && 'Use the guarded testIntegrationDev.js runner for database API tests',
 }, async (t) => {
   const client = new pg.Client(poolConfig({ ...process.env, DATABASE_URL: databaseUrl }))
@@ -91,7 +91,7 @@ test('authenticated catalog search, starter protection, and custom product isola
     const initial = await request(baseUrl, '/api/catalog', { cookie: cookieA })
     assert.equal(initial.status, 200)
     const initialBody = await initial.json()
-    assert.equal(initialBody.items.length, 108, 'catalog should expose all 108 starter products')
+    assert.equal(initialBody.items.length, 160, 'catalog should expose all 160 starter products')
     assert.ok(initialBody.items.every((item) => item.source === 'starter' && item.id && item.name && item.category))
     assert.ok(initialBody.categories.includes('Produce'))
     assert.equal(new Set(initialBody.categories).size, initialBody.categories.length)
@@ -101,12 +101,16 @@ test('authenticated catalog search, starter protection, and custom product isola
     const searchBody = await search.json()
     assert.ok(searchBody.items.some((item) => item.name === 'Apples'))
     assert.ok(searchBody.items.every((item) => item.name.toLowerCase().includes('appl')))
+    const newStapleSearch = await request(baseUrl, '/api/catalog?search=ampo', { cookie: cookieA })
+    assert.ok((await newStapleSearch.json()).items.some((item) => item.name === 'Ampalaya' && item.category === 'Produce'))
     const literalWildcard = await request(baseUrl, '/api/catalog?search=%25', { cookie: cookieA })
     assert.equal((await literalWildcard.json()).items.length, 0, 'search wildcards are literal')
 
     const category = await request(baseUrl, '/api/catalog?category=Produce', { cookie: cookieA })
     assert.equal(category.status, 200)
-    assert.ok((await category.json()).items.every((item) => item.category === 'Produce'))
+    const produceItems = (await category.json()).items
+    assert.ok(produceItems.every((item) => item.category === 'Produce'))
+    assert.ok(produceItems.some((item) => item.name === 'Upo'))
     const combined = await request(baseUrl, '/api/catalog?search=appl&category=Produce', { cookie: cookieA })
     assert.ok((await combined.json()).items.every((item) => item.name.toLowerCase().includes('appl') && item.category === 'Produce'))
 
@@ -140,13 +144,24 @@ test('authenticated catalog search, starter protection, and custom product isola
 
     const starter = initialBody.items.find((entry) => entry.name === 'Apples')
     const starterPatch = await request(baseUrl, `/api/catalog/${encodeURIComponent(starter.id)}`, {
-      method: 'PATCH', cookie: cookieA, body: { name: 'Corrupted starter', category: 'Other' },
+      method: 'PATCH', cookie: cookieA, body: { name: 'My apples', category: 'Other' },
     })
-    assert.ok(starterPatch.status >= 400, 'starter entries must reject edits')
+    assert.equal(starterPatch.status, 200, 'an owned starter copy can be customized')
+    const customizedStarter = (await starterPatch.json()).item
+    assert.equal(customizedStarter.id, starter.id, 'editing keeps the existing product row')
+    assert.equal(customizedStarter.source, 'starter', 'editing keeps starter identity')
+    assert.equal(customizedStarter.name, 'My apples')
+    const repeatStarterPatch = await request(baseUrl, `/api/catalog/${encodeURIComponent(starter.id)}`, {
+      method: 'PATCH', cookie: cookieA, body: { category: 'Produce' },
+    })
+    assert.equal(repeatStarterPatch.status, 200, 'a starter copy can be edited repeatedly')
+    assert.equal((await repeatStarterPatch.json()).item.id, starter.id)
     const starterDelete = await request(baseUrl, `/api/catalog/${encodeURIComponent(starter.id)}`, { method: 'DELETE', cookie: cookieA })
     assert.ok(starterDelete.status >= 400, 'starter entries must reject deletion')
     const starterStillThere = await request(baseUrl, '/api/catalog?search=apples', { cookie: cookieA })
-    assert.ok((await starterStillThere.json()).items.some((entry) => entry.name === 'Apples' && entry.source === 'starter'))
+    assert.ok((await starterStillThere.json()).items.some((entry) => String(entry.id) === String(starter.id) && entry.name === 'My apples'))
+    const starterStillOriginal = await request(baseUrl, '/api/catalog?search=apples', { cookie: cookieB })
+    assert.ok((await starterStillOriginal.json()).items.some((entry) => entry.name === 'Apples' && entry.source === 'starter'))
 
     const foreignPatch = await request(baseUrl, itemPath, {
       method: 'PATCH', cookie: cookieB, body: { name: 'Stolen edit' },

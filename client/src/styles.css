@@ -19,16 +19,16 @@
 }
 [data-theme="dark"] {
   color-scheme: dark;
-  --canvas: #10271f; --surface: #19372c; --surface-muted: #153026; --surface-hover: #234537;
-  --text: #f0f2ea; --muted-text: #b5c1b3; --border: #465248; --border-strong: #667666;
-  --border-subtle: #39433a; --border-hover: #849384;
-  --primary: #a9c9a5; --primary-hover: #bedbb9; --on-primary: #17251b;
-  --brand: #0a3125; --on-brand: #ffffff; --mint: #b2e7bc; --nav-active-surface: #b2e7bc;
-  --accent-soft: #303c31; --filter-selected: #303a31; --control-border: #879587;
-  --muted-decoration: #849384; --progress-track: #3d493d; --progress-surface-border: #465248;
+  --canvas: #0d0f0e; --surface: #161917; --surface-muted: #1b1e1c; --surface-hover: #242825;
+  --text: #f4f6f5; --muted-text: #a8b0ac; --border: #3b423e; --border-strong: #626c66;
+  --border-subtle: #2b302d; --border-hover: #89958e;
+  --primary: #9cd8ad; --primary-hover: #b2e7bc; --on-primary: #102619;
+  --brand: #161917; --on-brand: #f4f6f5; --mint: #b2e7bc; --nav-active-surface: #b2e7bc;
+  --accent-soft: #202421; --filter-selected: #253129; --control-border: #87958d;
+  --muted-decoration: #84938b; --progress-track: #343c37; --progress-surface-border: #3b423e;
   --error: #f1a0a0; --error-border: #764d4d; --error-surface: #382626; --warning: #e6a98d;
-  --success: #a9c9a5; --strength-medium: #e6a98d; --strength-track: #39433a;
-  --story-eyebrow: #b6d9c1; --story-muted: #c1d4c8; --story-copy: #d0ded5;
+  --success: #9cd8ad; --strength-medium: #e6a98d; --strength-track: #343c37;
+  --story-eyebrow: #b2e7bc; --story-muted: #a8b0ac; --story-copy: #c4cbc7;
   --shadow-color: rgb(0 0 0 / 22%); --preview-shadow: rgb(0 0 0 / 24%);
 }
 * { box-sizing: border-box; }
@@ -423,3 +423,17 @@ input, select, .primary-button, .catalog-button, .catalog-small-button, .trip-ed
   .catalog-item { display: grid; grid-template-columns: 42px minmax(0, 1fr); }
   .catalog-actions { grid-column: 1 / -1; flex-wrap: wrap; justify-content: flex-end; margin-left: 0; }
 }
+
+/* Local sorting and budget comparisons use the same semantic surfaces. */
+.list-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 0 14px; }
+.list-tools label { margin: 0; }
+.list-tools select { width: auto; max-width: 100%; margin: 0; min-height: 44px; }
+.list-tools .hide-purchased-button { margin-left: auto; }
+.budget-meter { padding: 16px 0 4px; border-top: 1px solid var(--border); margin-top: 14px; }
+.budget-meter-label { margin: 0 0 6px; color: var(--muted-text); font-size: 12px; }
+.budget-meter-amount { margin: 0 0 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.budget-meter-amount span { color: var(--muted-text); font-weight: 400; }
+.shopping-item, .shopping-item-info strong, .purchased-checkmark { transition: color .15s ease, background-color .15s ease, border-color .15s ease; }
+[data-theme="dark"] input:not([type="checkbox"]), [data-theme="dark"] select { background: var(--surface-muted); }
+[data-theme="dark"] .site-header { border-bottom: 1px solid var(--border); }
+@media (prefers-reduced-motion: reduce) { .shopping-item, .shopping-item-info strong, .purchased-checkmark, .progress-track span { transition: none; } }

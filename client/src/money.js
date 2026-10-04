@@ -40,3 +40,16 @@ export function formatMoney(value, currency) {
   const symbol = { PHP: '₱', USD: '$', EUR: '€' }[currency] || currency
   return `${symbol}${value}`
 }
+
+// Each comparison retains the existing estimate/actual semantics. There is no
+// blended forecast: actual spending still includes only bought, priced items.
+export function budgetProgress(budget, summary) {
+  if (budget === null || budget === undefined || !summary.knownCount) return null
+  const normalizedBudget = normalizeMoney(budget)
+  const comparison = moneyDifference(normalizedBudget, summary.total)
+  const cents = (value) => BigInt(value.replace('.', ''))
+  const limit = cents(normalizedBudget)
+  const spent = cents(summary.total)
+  const percent = limit === 0n ? (spent > 0n ? 100 : 0) : Number(spent * 10000n / limit) / 100
+  return { ...comparison, reached: comparison.value === '0.00', percent: Math.min(100, percent), incomplete: summary.missingCount > 0 }
+}

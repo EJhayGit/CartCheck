@@ -46,7 +46,7 @@ export default function Catalog({ onAdd, onAddPending, active = true }) {
   }
 
   function openEdit(item) {
-    setEditor({ mode: 'edit', id: item.id })
+    setEditor({ mode: 'edit', id: item.id, starter: item.source === 'starter' })
     setForm({ name: item.name, category: item.category })
     setFormError('')
     setNotice('')
@@ -155,13 +155,13 @@ export default function Catalog({ onAdd, onAddPending, active = true }) {
   const queryError = catalogQuery.error && 'We could not load your catalog. Check your connection and try again.'
   return <main className="catalog-main">
     {editor ? <>
-      <div className="catalog-heading"><div><p className="catalog-eyebrow">REUSABLE ITEMS</p><h1>{editor.mode === 'create' ? 'Register custom grocery' : 'Edit catalog item'}</h1><p className="catalog-subtitle">{editor.mode === 'create' ? 'Add a grocery to your private catalog.' : 'Keep your private grocery catalog easy to search.'}</p></div><button className="catalog-button secondary" type="button" onClick={() => setEditor(null)} disabled={busy}>Cancel</button></div>
+      <div className="catalog-heading"><div><p className="catalog-eyebrow">REUSABLE ITEMS</p><h1>{editor.mode === 'create' ? 'Register custom grocery' : editor.starter ? 'Customize item' : 'Edit catalog item'}</h1><p className="catalog-subtitle">{editor.mode === 'create' ? 'Add a grocery to your private catalog.' : editor.starter ? 'Edit your own catalog copy. The shared starter and existing trip items stay unchanged.' : 'Keep your private grocery catalog easy to search.'}</p></div><button className="catalog-button secondary" type="button" onClick={() => setEditor(null)} disabled={busy}>Cancel</button></div>
       <section className="catalog-panel"><form className="catalog-form" onSubmit={save}>
         <label htmlFor="grocery-name">Grocery name</label><input id="grocery-name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} maxLength={120} required autoFocus />
         <label htmlFor="grocery-category">Category</label><select id="grocery-category" value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}>{CATEGORIES.map((value) => <option key={value} value={value}>{CATEGORY_LABELS[value] || value}</option>)}</select>
         <p className="catalog-help">No prices are saved in your reusable catalog.</p>
         {formError && <p className="alert" role="alert">{formError}</p>}
-        <div className="catalog-form-actions"><button className="catalog-button secondary" type="button" onClick={() => setEditor(null)} disabled={busy}>Cancel</button><button className="catalog-button primary" type="submit" disabled={busy}>{busy ? 'Saving…' : editor.mode === 'create' ? 'Save custom item' : 'Save catalog item'}</button></div>
+        <div className="catalog-form-actions"><button className="catalog-button secondary" type="button" onClick={() => setEditor(null)} disabled={busy}>Cancel</button><button className="catalog-button primary" type="submit" disabled={busy}>{busy ? 'Saving…' : editor.mode === 'create' ? 'Save custom item' : editor.starter ? 'Save my customization' : 'Save catalog item'}</button></div>
       </form></section>
     </> : <>
       <div className="catalog-heading"><div><p className="catalog-eyebrow">REUSABLE ITEMS</p><h1>Grocery catalog</h1><p className="catalog-subtitle">Find a familiar item or register a custom grocery.</p></div><button className="catalog-button primary" type="button" onClick={openCreate}>＋ Register custom item</button></div>
@@ -172,7 +172,7 @@ export default function Catalog({ onAdd, onAddPending, active = true }) {
       {queryError && <div className="catalog-state" role="alert"><p>{queryError}</p><button className="catalog-button secondary" type="button" onClick={catalogQuery.refresh}>Try again</button></div>}
       {catalogQuery.loading && <div className="catalog-state" role="status"><p>Loading your catalog…</p></div>}
       {catalogQuery.fetching && !catalogQuery.loading && <p className="optional-help" role="status">Refreshing catalog…</p>}
-      {!catalogQuery.loading && (visibleItems.length ? <div className="catalog-grid">{visibleItems.map((item) => <article className="catalog-item" key={item.id}><span className="catalog-icon" aria-hidden="true">{item.category.slice(0, 2).toUpperCase()}</span><span className="catalog-info"><strong>{item.name}</strong><small>{CATEGORY_LABELS[item.category] || item.category}{item.source === 'custom' ? ' · custom' : ''}</small></span><span className="catalog-actions">{item.source === 'custom' && <><button className="catalog-small-button" type="button" onClick={() => openEdit(item)} disabled={busy}>Edit</button><button className="catalog-small-button" type="button" onClick={() => remove(item)} disabled={busy}>Delete</button></>}<button className="catalog-small-button" type="button" onClick={() => add(item)} disabled={addingId !== null || busy}>{addingId === item.id ? 'Adding…' : 'Add to list'}</button></span></article>)}</div> : !catalogQuery.error && <div className="catalog-state"><h2>{search.trim() ? `No matches for “${search.trim()}”` : 'No catalog items in this category'}</h2><p>Try another search, choose a category, or register a custom grocery.</p><button className="catalog-button secondary" type="button" onClick={openCreate}>Register a custom item</button></div>)}
+      {!catalogQuery.loading && (visibleItems.length ? <div className="catalog-grid">{visibleItems.map((item) => <article className="catalog-item" key={item.id}><span className="catalog-icon" aria-hidden="true">{item.category.slice(0, 2).toUpperCase()}</span><span className="catalog-info"><strong>{item.name}</strong><small>{CATEGORY_LABELS[item.category] || item.category}{item.source === 'custom' ? ' · custom' : ''}</small></span><span className="catalog-actions"><button className="catalog-small-button" type="button" onClick={() => openEdit(item)} disabled={busy}>{item.source === 'starter' ? 'Customize' : 'Edit'}</button>{item.source === 'custom' && <><button className="catalog-small-button" type="button" onClick={() => remove(item)} disabled={busy}>Delete</button></>}<button className="catalog-small-button" type="button" onClick={() => add(item)} disabled={addingId !== null || busy}>{addingId === item.id ? 'Adding…' : 'Add to list'}</button></span></article>)}</div> : !catalogQuery.error && <div className="catalog-state"><h2>{search.trim() ? `No matches for “${search.trim()}”` : 'No catalog items in this category'}</h2><p>Try another search, choose a category, or register a custom grocery.</p><button className="catalog-button secondary" type="button" onClick={openCreate}>Register a custom item</button></div>)}
     </>}
   </main>
 }

@@ -4,6 +4,8 @@ The interface can be built with React, semantic HTML, and CSS custom properties 
 
 ## Tokens
 
+The October 4, 2026 local neutral-dark proposal supersedes the forest-green dark canvas described below: canvas `#0D0F0E`, card `#161917`, input/muted surface `#1B1E1C`, elevated/hover surface `#242825`, border `#3B423E`, text `#F4F6F5`, muted text `#A8B0AC`, and primary accent `#9CD8AD`. Header, dialogs, budget cards, and mobile navigation use neutral surfaces. Mint remains a restrained selected-control accent; the official logo asset stays unchanged. Light/Dark/System behavior and approved light tokens are preserved. See `docs/SHOPPING_UX_REVIEW.md` and `docs/design/ux-review/` for the local approval review; production deployment is pending.
+
 The September 30, 2026 brand refinement adds the supplied official wordmark, header green `#0A3125`, and mint accent `#B2E7BC`. Light remains the default. Explicit Appearance choices (Light/Dark/System) persist in browser storage; System follows device preference. Current optional dark canvas is `#10271F` and surface `#19372C`, with accessible off-white text and mint actions. The implementation uses semantic CSS tokens throughout; see `docs/BRAND_REFINEMENT_REVIEW.md` for assets and validation. These approved changes supersede the older future-only dark prototype guidance below.
 
 The original `03-design-system.pdf` is authoritative for the light appearance. The static prototype always opens in this light theme, regardless of operating-system preference. A future application may offer an explicit dark theme, but it must not replace the light default.

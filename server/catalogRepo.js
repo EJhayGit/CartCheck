@@ -59,7 +59,7 @@ export async function updateCatalogItem(pool, userId, id, changes) {
   const result = await pool.query(
     `UPDATE cartcheck.products
      SET ${fields.join(', ')}
-     WHERE user_id = $1 AND id = $2 AND source_starter_code IS NULL
+     WHERE user_id = $1 AND id = $2
      RETURNING id, name, category, source_starter_code`,
     values
   )

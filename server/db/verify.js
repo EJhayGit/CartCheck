@@ -24,9 +24,9 @@ async function rejects(name, sql, values, code) {
 try {
   await client.query('BEGIN')
   const seed = await client.query('SELECT count(*)::int AS count, count(DISTINCT code)::int AS unique_count FROM cartcheck.starter_products')
-  assert.equal(seed.rows[0].count, 108)
-  assert.equal(seed.rows[0].unique_count, 108)
-  results.push('starter rows: 108 unique codes')
+  assert.equal(seed.rows[0].count, 160)
+  assert.equal(seed.rows[0].unique_count, 160)
+  results.push('starter rows: 160 unique codes')
 
   const suffix = randomUUID()
   const users = await client.query(
