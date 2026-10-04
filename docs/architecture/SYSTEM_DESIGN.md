@@ -126,6 +126,10 @@ Keep the existing React/Vite package and API facade. A small app shell and featu
 
 Use [DESIGN_SYSTEM.md](../design/DESIGN_SYSTEM.md): semantic controls, visible focus, loading/empty/error states, phone portrait and landscape, desktop, light/dark, 200% zoom, reduced motion, and dialog focus return. Prices and budgets should not occupy the primary list controls. Optional images fall back to a neutral placeholder.
 
+### Client data ownership (October 4, 2026)
+
+Private screens share an account-session in-memory cache through `DataCacheProvider` and `useDataQuery`. Cart, complete catalog, and the first history-summary page prefetch concurrently after session restoration. Cart/history use a 30-second stale period; catalog and bounded lazy trip details remain cached until changed or explicitly refreshed. Cached content survives background refresh/error. Reads deduplicate, accept abort signals, and use version guards; optimistic mutation locks prevent stale GETs replacing writes. Session/provider disposal aborts and clears private resources. Server persistence, ownership checks, and revision-based Finish/correction confirmation remain authoritative. See [client cache review](../CLIENT_CACHE_REVIEW.md) for the dependency decision and validation.
+
 ## 6. Authentication and security
 
 Keep Express-managed email/password authentication and one CartCheck session system for the first release. This preserves the existing Express API without adding Supabase Auth or a browser Supabase client. Passwords are bcrypt hashed; an opaque random session token has its hash stored in PostgreSQL. The cookie is `HttpOnly`, `Secure` in production, and `SameSite=Lax`; logout revokes it. Password reset/change revokes local sessions. Every private repository query constrains by the authenticated owner. Migration 003 keeps preexisting accounts exempt from mandatory verification; the enforcement flag remains off until public mail delivery is proved.

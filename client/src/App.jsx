@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { addCartItem, getSession, login, logout, register, resetPassword, updateSettings } from './api/httpApi.js'
 import Catalog from './Catalog.jsx'
 import { Brand, Footer, NavIcon } from './Brand.jsx'
@@ -10,6 +10,8 @@ import ChangePassword from './ChangePassword.jsx'
 import { AuthBrand, PasswordField, PasswordMeter } from './AuthUI.jsx'
 import { confirmationError, passwordError } from './passwordPolicy.js'
 import { resetAndRevalidate, revalidateCurrentSession } from './resetSession.js'
+import { createDataCache } from './dataCache.js'
+import { DataCacheProvider, fetchCart } from './dataCache.jsx'
 
 const EMPTY_FORM = { email: '', password: '', confirmation: '' }
 const link = (() => {
@@ -48,10 +50,13 @@ export default function App() {
   const [settingsNotice, setSettingsNotice] = useState('')
   const [settingsBusy, setSettingsBusy] = useState(false)
   const accountGeneration = useRef(0)
+  const sessionRestore = useRef(null)
   const resetCheckPending = useRef(false)
   const cartPendingRef = useRef(false)
   const catalogAddPendingRef = useRef(false)
   const renderedGeneration = accountGeneration.current
+  const privateReady = status === 'ready' && user && !user.verification_required && !accountView
+  const dataCache = useMemo(() => createDataCache(), [user?.id, renderedGeneration, Boolean(privateReady)])
 
   function reportCartPending(pending) {
     if (renderedGeneration !== accountGeneration.current) return
@@ -68,7 +73,10 @@ export default function App() {
   useEffect(() => {
     let active = true
     const generation = accountGeneration.current
-    getSession().then((result) => {
+    // Share only this mount's restoration request across StrictMode effect replay.
+    // Retry and post-password-reset validation still make fresh session checks.
+    const restoring = sessionRestore.current || (sessionRestore.current = getSession())
+    restoring.then((result) => {
       if (active && generation === accountGeneration.current) {
         setUser(result.user)
         setPreferredCurrency(result.user.preferred_currency)
@@ -249,11 +257,23 @@ export default function App() {
 
   async function addItem(productId) {
     const generation = accountGeneration.current
-    const result = await addCartItem(productId)
-    if (generation !== accountGeneration.current) return result
-    setRequestedEdit(result.item)
-    setPage('cart')
-    return result
+    // Join the initial cart read if necessary so item updates retain trip metadata.
+    await dataCache.load('cart', fetchCart)
+    if (generation !== accountGeneration.current || !dataCache.alive) return
+    const release = dataCache.beginMutation('cart')
+    try {
+      const result = await addCartItem(productId)
+      if (generation !== accountGeneration.current || !dataCache.alive) return result
+      dataCache.set('cart', (current) => ({ ...current, items: current.items.some((item) => item.id === result.item.id)
+        ? current.items.map((item) => item.id === result.item.id ? result.item : item)
+        : [...current.items, result.item] }))
+      setRequestedEdit(result.item)
+      setPage('cart')
+      return result
+    } catch (caught) {
+      dataCache.invalidate('cart')
+      throw caught
+    } finally { release() }
   }
 
   function browseCatalog() {
@@ -303,10 +323,10 @@ export default function App() {
   return (
     <div className={`app ${!user || accountView || status !== 'ready' || user.verification_required ? 'auth-app' : ''}`}>
       <header className="site-header"><div className="header-inner"><Brand onHome={goHome} disabled={busy || settingsBusy || cartPending || catalogAddPending || reviewOpen || status !== 'ready'} />{status === 'ready' && user && !user.verification_required && !accountView && <nav className="catalog-nav" aria-label="Main navigation">{navigation()}</nav>}</div></header>
-      {status === 'ready' && user && !user.verification_required && !accountView ? <>
+      {privateReady ? <DataCacheProvider key={`${user.id}:${renderedGeneration}`} cache={dataCache}>
         {error && <p className="alert" role="alert">{error}</p>}
-        <div hidden={page !== 'cart'}><ShoppingList key={user.id} editItem={requestedEdit} onEditHandled={() => setRequestedEdit(null)} onBrowseCatalog={browseCatalog} onMutationPending={reportCartPending} onReviewChange={setReviewOpen} /></div>
-        {catalogVisited && <div hidden={page !== 'catalog'}><Catalog onAdd={addItem} onAddPending={reportCatalogAddPending} /></div>}
+        <div hidden={page !== 'cart'}><ShoppingList key={user.id} active={page === 'cart'} editItem={requestedEdit} onEditHandled={() => setRequestedEdit(null)} onBrowseCatalog={browseCatalog} onMutationPending={reportCartPending} onReviewChange={setReviewOpen} /></div>
+        {catalogVisited && <div hidden={page !== 'catalog'}><Catalog active={page === 'catalog'} onAdd={addItem} onAddPending={reportCatalogAddPending} /></div>}
         {page === 'trips' && <Trips key={user.id} onReviewChange={setReviewOpen} />}
         {page === 'settings' && <main className="settings-main">
           <section className="catalog-panel" aria-labelledby="settings-heading">
@@ -324,7 +344,7 @@ export default function App() {
           <section className="catalog-panel appearance-panel" aria-labelledby="appearance-heading"><h2 id="appearance-heading">Appearance</h2><p className="appearance-help">Choose your look. Saved in this browser across visits.</p><div className="appearance-options" role="group" aria-label="Appearance">{['light', 'dark', 'system'].map((option) => <button type="button" key={option} aria-pressed={appearance === option} onClick={() => setAppearance(option)}>{option[0].toUpperCase() + option.slice(1)}</button>)}</div><p className="appearance-help">System follows your device’s color preference.</p></section>
           <ChangePassword onChanged={clearRevokedSession} />
         </main>}
-      </> : <main className="auth-main"><AuthBrand onHome={goHome} disabled={busy || accountBusy || status !== 'ready' || user?.verification_required} /><div className="auth-form-area">
+      </DataCacheProvider> : <main className="auth-main"><AuthBrand onHome={goHome} disabled={busy || accountBusy || status !== 'ready' || user?.verification_required} /><div className="auth-form-area">
         {status === 'loading' && <section className="auth-card" role="status"><p className="eyebrow">CARTCHECK</p><h1>Restoring your session</h1><p>Checking your account…</p></section>}
         {status === 'error' && <section className="auth-card"><h1>Could not connect</h1><p className="alert" role="alert">{error}</p><button className="primary-button" onClick={retryRestore}>Try again</button></section>}
         {status === 'ready' && accountView && <AccountFlows onBusyChange={setAccountBusy} key={`${accountView}:${accountEmail}`} view={accountView} token={linkToken} email={accountEmail} initialCooldownUntil={emailCooldownUntil} onBack={user?.verification_required ? signOut : returnToSignIn} onContinue={user && !user.verification_required ? () => setAccountView('') : null} onVerified={(verifiedUser) => { if (verifiedUser && user?.id === verifiedUser.id) setUser(verifiedUser) }} onReset={finishPasswordReset} />}
