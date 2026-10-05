@@ -10,7 +10,8 @@ function fixture() {
   const requests = []
   const errors = []
   const mutations = createPurchaseMutations(cache, (id, changes) => new Promise((resolve, reject) => requests.push({ id, changes, resolve, reject })), { onError: (message) => errors.push(message) })
-  return { cache, requests, errors, mutations, bought: (id = '0') => cache.get('cart').data.items.find((item) => item.id === id).bought }
+  const detach = mutations.subscribe()
+  return { cache, requests, errors, mutations, detach, bought: (id = '0') => cache.get('cart').data.items.find((item) => item.id === id).bought }
 }
 
 test('ten items update synchronously and issue independent writes; reverse responses preserve all items', async () => {
@@ -85,4 +86,48 @@ test('a different item succeeding after a failure cannot erase reconciliation st
   assert.equal(f.bought('0'), false)
   assert.equal(f.bought('1'), true)
   assert.equal(f.cache.get('cart').updatedAt, 0)
+})
+
+test('a list purchase writer survives detail remounts and scopes same item IDs by list', async () => {
+  const cache = createDataCache()
+  const one = { tripId: 'one', revision: 1, items: [{ id: 'same-item', bought: false, name: 'Milk' }] }
+  const two = { tripId: 'two', revision: 1, items: [{ id: 'same-item', bought: false, name: 'Milk' }] }
+  cache.set('list:one', one)
+  cache.set('list:two', two)
+  cache.set('lists', { items: [one, two] })
+  const writes = []
+  const persist = (id, changes) => new Promise((resolve) => writes.push({ id, changes, resolve }))
+  const firstView = createPurchaseMutations(cache, persist, { listId: 'one' })
+  const detachFirst = firstView.subscribe()
+  firstView.set('same-item', true)
+  detachFirst()
+  const remountedView = createPurchaseMutations(cache, persist, { listId: 'one' })
+  const detachSecond = remountedView.subscribe()
+  remountedView.set('same-item', false)
+  assert.equal(writes.length, 1, 'the remount reuses the original in-flight writer')
+  assert.equal(cache.get('list:one').data.items[0].bought, false)
+  assert.equal(cache.get('list:two').data.items[0].bought, false)
+
+  writes[0].resolve({ item: { bought: true }, list: { ...one, revision: 2, items: [{ ...one.items[0], bought: true }] } })
+  await tick()
+  assert.equal(writes.length, 2)
+  assert.deepEqual(writes.map((write) => write.changes), [{ bought: true }, { bought: false }])
+  writes[1].resolve({ item: { bought: false }, list: { ...one, revision: 3, items: [{ ...one.items[0], bought: false }] } })
+  await tick()
+  assert.equal(cache.get('list:one').data.items[0].bought, false)
+  assert.equal(cache.get('list:two').data.items[0].bought, false)
+  detachSecond()
+})
+
+test('older list purchase responses preserve newer parent membership and revision', async () => {
+  const cache = createDataCache()
+  const current = { tripId: 'list-1', revision: 4, items: [{ id: 'one', bought: false }, { id: 'new-item', bought: false }] }
+  cache.set('list:list-1', current)
+  let resolveWrite
+  const mutations = createPurchaseMutations(cache, () => new Promise((resolve) => { resolveWrite = resolve }), { listId: 'list-1' })
+  mutations.set('one', true)
+  resolveWrite({ item: { id: 'one', bought: true }, list: { tripId: 'list-1', revision: 3, items: [{ id: 'one', bought: true }] } })
+  await tick()
+  assert.equal(cache.get('list:list-1').data.revision, 4)
+  assert.deepEqual(cache.get('list:list-1').data.items.map((item) => item.id), ['one', 'new-item'])
 })

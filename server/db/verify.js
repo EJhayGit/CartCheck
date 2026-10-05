@@ -38,7 +38,7 @@ try {
     `INSERT INTO cartcheck.users (email, password_hash) VALUES ($1, 'test-only')`,
     [`m1-${suffix}-a@example.invalid`], '23505')
   await rejects('approved currency only',
-    `INSERT INTO cartcheck.shopping_trips (user_id, currency) VALUES ($1, 'GBP')`, [user1], '23514')
+    `INSERT INTO cartcheck.shopping_trips (user_id, name, currency) VALUES ($1, 'Test list', 'GBP')`, [user1], '23514')
   const products = await client.query(
     `INSERT INTO cartcheck.products (user_id, source_starter_code, name, category)
      VALUES ($1, 'produce-apples', 'Apples', 'Produce'), ($2, 'produce-apples', 'Apples', 'Produce') RETURNING id`,
@@ -46,13 +46,15 @@ try {
   )
   const [product1, product2] = products.rows.map((row) => row.id)
   const trips = await client.query(
-    `INSERT INTO cartcheck.shopping_trips (user_id, currency) VALUES ($1, 'PHP'), ($2, 'USD') RETURNING id`,
+    `INSERT INTO cartcheck.shopping_trips (user_id, name, currency) VALUES ($1, 'First list', 'PHP'), ($2, 'Other owner', 'USD') RETURNING id`,
     [user1, user2],
   )
   const [trip1, trip2] = trips.rows.map((row) => row.id)
 
-  await rejects('one active trip per owner',
-    `INSERT INTO cartcheck.shopping_trips (user_id, currency) VALUES ($1, 'PHP')`, [user1], '23505')
+  await client.query(`INSERT INTO cartcheck.shopping_trips (user_id, name, currency) VALUES ($1, 'Second list', 'PHP')`, [user1])
+  results.push('multiple active lists per owner: accepted')
+  await rejects('list name required',
+    `INSERT INTO cartcheck.shopping_trips (user_id, currency) VALUES ($1, 'PHP')`, [user1], '23502')
   await rejects('unique starter copy per owner',
     `INSERT INTO cartcheck.products (user_id, source_starter_code, name, category)
      VALUES ($1, 'produce-apples', 'Apple copy', 'Produce')`, [user1], '23505')

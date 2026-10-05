@@ -18,7 +18,7 @@ const { default: Catalog } = await vite.ssrLoadModule('/src/Catalog.jsx')
 const { default: App } = await vite.ssrLoadModule('/src/App.jsx')
 const { DataCacheProvider } = await vite.ssrLoadModule('/src/dataCache.jsx')
 
-test.afterEach(() => { cleanup(); globalThis.fetch = undefined })
+test.afterEach(() => { cleanup(); globalThis.fetch = undefined; window.history.replaceState(null, '', '/') })
 test.after(async () => { await vite.close(); dom.window.close() })
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
@@ -28,10 +28,23 @@ function deferred() {
   const promise = new Promise((yes, no) => { resolve = yes; reject = no })
   return { promise, resolve, reject }
 }
-const seed = (items) => ({ items, currency: 'PHP', budget: null, tripId: 'trip-1', revision: 1 })
+const seed = (items) => ({ name: 'Weekly Groceries', status: 'active', items, currency: 'PHP', budget: null, tripId: 'trip-1', revision: 1 })
 function mockFetch(handler) {
   const calls = []
-  globalThis.fetch = async (url, options = {}) => { calls.push({ url: String(url), options }); return handler(String(url), options) }
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options })
+    if (url === '/api/lists') return json({ items: [{ tripId: 'trip-1', name: 'Weekly Groceries', currency: 'PHP', budget: null, summary: {} }], nextCursor: null })
+    if ((url === '/api/catalog' || url === '/api/trips') && !options.method) {
+      try { return await handler(String(url), options) } catch { return json({ items: [], nextCursor: null }) }
+    }
+    const response = await handler(String(url), options)
+    if (url.startsWith('/api/lists/trip-1/items') && response.ok) {
+      const body = await response.json()
+      if (body.item && !body.list) return json({ ...body, list: { ...seed([body.item]), revision: 2 } })
+      return json(body)
+    }
+    return response
+  }
   return calls
 }
 const noop = () => {}
@@ -40,26 +53,27 @@ const starter = { id: 'product-1', name: 'Milk', category: 'Dairy & eggs', sourc
 const cartItem = { id: 'cart-1', name: 'Milk', category: 'Dairy', quantity: '1', unitLabel: '', estimatedTotal: null, actualTotal: null, bought: false }
 const emptyTrips = { items: [], hasMorePages: false, nextCursor: null }
 async function openShoppingApp(calls) {
+  window.history.replaceState(null, '', '/lists/trip-1')
   render(React.createElement(App))
-  await screen.findByRole('heading', { name: 'My Shopping List' })
-  await waitFor(() => assert.equal(calls.filter((call) => call.url.endsWith('/api/cart')).length, 1))
+  await screen.findByRole('heading', { name: 'Weekly Groceries' })
+  await waitFor(() => assert.equal(calls.filter((call) => call.url.endsWith('/api/lists/trip-1')).length, 1))
 }
 function appNav(name) { return screen.getByRole('navigation', { name: 'Main navigation' }).querySelector(`button[aria-label="${name}"]`) || [...screen.getByRole('navigation', { name: 'Main navigation' }).querySelectorAll('button')].find((button) => button.textContent.trim() === name) }
 function shoppingFixture(items) {
   return render(React.createElement(DataCacheProvider, null,
-    React.createElement(ShoppingList, { active: true, onBrowseCatalog: noop, onMutationPending: noop, onReviewChange: noop })))
+    React.createElement(ShoppingList, { listId: 'trip-1', active: true, onBrowseCatalog: noop, onMutationPending: noop, onReviewChange: noop })))
 }
 
 test('ten different purchases render immediately while every PATCH is deferred', async () => {
   const items = Array.from({ length: 10 }, (_, index) => ({ id: `item-${index}`, name: `Item ${index}`, category: 'Pantry', quantity: '1', bought: false }))
   const requests = []
   const calls = mockFetch((url, options) => {
-    if (url.endsWith('/api/cart') && !options.method) return json(seed(items))
-    if (url.includes('/api/cart/items/')) { const request = deferred(); requests.push({ url, options, request }); return request.promise }
+    if (url.endsWith('/api/lists/trip-1') && !options.method) return json(seed(items))
+    if (url.includes('/api/lists/trip-1/items/')) { const request = deferred(); requests.push({ url, options, request }); return request.promise }
     throw new Error(`Unexpected request: ${url}`)
   })
   shoppingFixture(items)
-  await screen.findByRole('heading', { name: 'My Shopping List' })
+  await screen.findByRole('heading', { name: 'Weekly Groceries' })
   for (let index = 0; index < 10; index++) fireEvent.click(screen.getByRole('checkbox', { name: `Mark Item ${index} as purchased` }))
   for (let index = 0; index < 10; index++) assert.equal(screen.getByRole('checkbox', { name: `Mark Item ${index} as unpurchased` }).checked, true)
   assert.equal(requests.length, 10)
@@ -71,8 +85,8 @@ test('same item clicks coalesce behind one in-flight PATCH and persist the lates
   const item = { id: 'one', name: 'Milk', category: 'Dairy', quantity: '1', bought: false }
   const writes = []
   mockFetch((url, options) => {
-    if (url.endsWith('/api/cart') && !options.method) return json(seed([item]))
-    if (url.endsWith('/api/cart/items/one')) {
+    if (url.endsWith('/api/lists/trip-1') && !options.method) return json(seed([item]))
+    if (url.endsWith('/api/lists/trip-1/items/one')) {
       const request = deferred(); writes.push({ body: JSON.parse(options.body), request }); return request.promise
     }
     throw new Error(`Unexpected request: ${url}`)
@@ -98,8 +112,8 @@ test('purchase failure rolls the checkbox back and announces the error', async (
   const pending = deferred()
   const item = { id: 'one', name: 'Milk', category: 'Dairy', quantity: '1', bought: false }
   mockFetch((url, options) => {
-    if (url.endsWith('/api/cart') && !options.method) return json(seed([item]))
-    if (url.endsWith('/api/cart/items/one')) return pending.promise
+    if (url.endsWith('/api/lists/trip-1') && !options.method) return json(seed([item]))
+    if (url.endsWith('/api/lists/trip-1/items/one')) return pending.promise
     throw new Error(`Unexpected request: ${url}`)
   })
   shoppingFixture([item])
@@ -118,12 +132,12 @@ test('sort and hide controls combine locally without changing cart data', async 
     { id: 'b', name: 'Bread', category: 'Bakery', quantity: '1', bought: false },
   ]
   const calls = mockFetch((url, options) => {
-    if (url.endsWith('/api/cart')) return json(seed(items))
+    if (url.endsWith('/api/lists/trip-1')) return json(seed(items))
     if (url.endsWith('/api/trips')) return json({ items: [], hasMorePages: false, nextCursor: null })
     throw new Error(`Unexpected request: ${url} ${options.method}`)
   })
   shoppingFixture(items)
-  await screen.findByRole('heading', { name: 'My Shopping List' })
+  await screen.findByRole('heading', { name: 'Weekly Groceries' })
   const select = screen.getByLabelText('Sort')
   const names = () => [...screen.getByRole('list', { name: 'Sorted shopping items' }).querySelectorAll('.shopping-item-info strong')].map((node) => node.textContent)
   fireEvent.change(select, { target: { value: 'az' } }); assert.deepEqual(names(), ['Apple', 'Bread', 'Zucchini'])
@@ -138,7 +152,7 @@ test('customizing a starter updates its catalog identity once and keeps trip ite
   const starter = { id: 'starter-1', name: 'Rolled oats', category: 'Pantry', source: 'starter' }
   const tripItem = { id: 'cart-1', name: 'Rolled oats', category: 'Pantry', quantity: '1', bought: false }
   const calls = mockFetch((url, options) => {
-    if (url.endsWith('/api/cart') && !options.method) return json(seed([tripItem]))
+    if (url.endsWith('/api/lists/trip-1') && !options.method) return json(seed([tripItem]))
     if (url.endsWith('/api/catalog') && !options.method) return json({ items: [starter] })
     if (url.endsWith('/api/trips')) return json({ items: [], hasMorePages: false, nextCursor: null })
     if (url.endsWith('/api/catalog/starter-1') && options.method === 'PATCH') return json({ item: { ...starter, name: 'Quick oats', source: 'custom' } })
@@ -150,10 +164,10 @@ test('customizing a starter updates its catalog identity once and keeps trip ite
       React.createElement('button', { type: 'button', onClick: () => setCatalog((value) => !value) }, catalog ? 'List' : 'Catalog'),
       catalog
         ? React.createElement(Catalog, { active: true, onAdd: async () => ({}), onAddPending: noop })
-        : React.createElement(ShoppingList, { active: true, onBrowseCatalog: () => setCatalog(true), onMutationPending: noop, onReviewChange: noop }))
+        : React.createElement(ShoppingList, { listId: 'trip-1', active: true, onBrowseCatalog: () => setCatalog(true), onMutationPending: noop, onReviewChange: noop }))
   }
   render(React.createElement(DataCacheProvider, null, React.createElement(Shell)))
-  await screen.findByRole('heading', { name: 'My Shopping List' })
+  await screen.findByRole('heading', { name: 'Weekly Groceries' })
   fireEvent.click(screen.getByRole('button', { name: 'Catalog' }))
   fireEvent.click(await screen.findByRole('button', { name: 'Customize' }))
   fireEvent.change(screen.getByLabelText('Grocery name'), { target: { value: 'Quick oats' } })
@@ -169,66 +183,72 @@ test('customizing a starter updates its catalog identity once and keeps trip ite
 test('adding an existing item honors the server bought state when no local purchase intent exists', async () => {
   const calls = mockFetch((url, options) => {
     if (url.endsWith('/api/auth/me')) return json({ user: appUser })
-    if (url.endsWith('/api/cart') && !options.method) return json(seed([cartItem]))
+    if (url.endsWith('/api/lists/trip-1') && !options.method) return json(seed([cartItem]))
     if (url.endsWith('/api/catalog')) return json({ items: [starter] })
     if (url.endsWith('/api/trips')) return json(emptyTrips)
-    if (url.endsWith('/api/cart/items') && options.method === 'POST') return json({ item: { ...cartItem, bought: true } })
+    if (url.endsWith('/api/lists/trip-1/items') && options.method === 'POST') return json({ item: { ...cartItem, bought: true } })
     throw new Error(`Unexpected request: ${url} ${options.method}`)
   })
   await openShoppingApp(calls)
-  fireEvent.click(appNav('Catalog'))
+  fireEvent.click(screen.getByRole('button', { name: '＋ Add Item' }))
   fireEvent.click(await screen.findByRole('button', { name: 'Add to list' }))
-  await screen.findByRole('heading', { name: 'My Shopping List' })
+  await screen.findByRole('heading', { name: 'Weekly Groceries' })
   assert.equal(screen.getByRole('checkbox', { name: 'Mark Milk as unpurchased' }).checked, true)
-  assert.equal(calls.filter((call) => call.url.endsWith('/api/cart/items') && call.options.method === 'POST').length, 1)
+  assert.equal(calls.filter((call) => call.url.endsWith('/api/lists/trip-1/items') && call.options.method === 'POST').length, 1)
 })
 
-test('adding an existing item preserves a purchase change while its PATCH is pending', async () => {
+test('catalog add preserves an in-flight purchase across selected-list unmount and remount', async () => {
   const patch = deferred()
   const add = deferred()
   const calls = mockFetch((url, options) => {
     if (url.endsWith('/api/auth/me')) return json({ user: appUser })
-    if (url.endsWith('/api/cart') && !options.method) return json(seed([cartItem]))
+    if (url.endsWith('/api/lists/trip-1') && !options.method) return json(seed([cartItem]))
     if (url.endsWith('/api/catalog')) return json({ items: [starter] })
     if (url.endsWith('/api/trips')) return json(emptyTrips)
-    if (url.endsWith('/api/cart/items/cart-1') && options.method === 'PATCH') return patch.promise
-    if (url.endsWith('/api/cart/items') && options.method === 'POST') return add.promise
-    throw new Error(`Unexpected request: ${url} ${options.method}`)
+    if (url.endsWith('/api/lists/trip-1/items/cart-1') && options.method === 'PATCH') return patch.promise
+    if (url.endsWith('/api/lists/trip-1/items') && options.method === 'POST') return add.promise
+    throw new Error('Unexpected request: ' + url)
   })
   await openShoppingApp(calls)
-  fireEvent.click(appNav('Catalog'))
-  fireEvent.click(await screen.findByRole('button', { name: 'Add to list' }))
-  await waitFor(() => assert.equal(calls.some((call) => call.url.endsWith('/api/cart/items') && call.options.method === 'POST'), true))
-  const checkbox = screen.getByRole('checkbox', { name: 'Mark Milk as purchased', hidden: true })
-  fireEvent.click(checkbox)
-  assert.equal(screen.getByRole('checkbox', { name: 'Mark Milk as unpurchased', hidden: true }).checked, true)
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Mark Milk as purchased' }))
+  assert.equal(screen.getByRole('checkbox', { name: 'Mark Milk as unpurchased' }).checked, true)
+  // Browser navigation is possible while the captured list's request is pending.
+  window.history.pushState(null, '', '/catalog')
+  fireEvent(window, new window.PopStateEvent('popstate'))
+  fireEvent.change(await screen.findByLabelText('Add items to'), { target: { value: 'trip-1' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Add to list' }))
+  await waitFor(() => assert.equal(calls.some((call) => call.url.endsWith('/api/lists/trip-1/items') && call.options.method === 'POST'), true))
   add.resolve(json({ item: { ...cartItem, bought: false } }))
-  await waitFor(() => assert.equal(screen.getByRole('checkbox', { name: 'Mark Milk as unpurchased', hidden: true }).checked, true))
+  await screen.findByRole('heading', { name: 'Weekly Groceries' })
+  assert.equal(screen.getByRole('checkbox', { name: 'Mark Milk as unpurchased' }).checked, true)
   patch.resolve(json({ item: { ...cartItem, bought: true } }))
-  await waitFor(() => assert.equal(calls.filter((call) => call.url.endsWith('/api/cart/items/cart-1') && call.options.method === 'PATCH').length, 1))
-  assert.equal(screen.getByRole('checkbox', { name: 'Mark Milk as unpurchased', hidden: true }).checked, true)
-})
-
-test('adding an existing item preserves a purchase intent completed while POST is in flight', async () => {
-  const patch = deferred()
-  const add = deferred()
-  const calls = mockFetch((url, options) => {
-    if (url.endsWith('/api/auth/me')) return json({ user: appUser })
-    if (url.endsWith('/api/cart') && !options.method) return json(seed([cartItem]))
-    if (url.endsWith('/api/catalog')) return json({ items: [starter] })
-    if (url.endsWith('/api/trips')) return json(emptyTrips)
-    if (url.endsWith('/api/cart/items/cart-1') && options.method === 'PATCH') return patch.promise
-    if (url.endsWith('/api/cart/items') && options.method === 'POST') return add.promise
-    throw new Error(`Unexpected request: ${url} ${options.method}`)
-  })
-  await openShoppingApp(calls)
-  fireEvent.click(appNav('Catalog'))
-  fireEvent.click(await screen.findByRole('button', { name: 'Add to list' }))
-  await waitFor(() => assert.equal(calls.some((call) => call.url.endsWith('/api/cart/items') && call.options.method === 'POST'), true))
-  const checkbox = screen.getByRole('checkbox', { name: 'Mark Milk as purchased', hidden: true })
-  fireEvent.click(checkbox)
-  patch.resolve(json({ item: { ...cartItem, bought: true } }))
-  await waitFor(() => assert.equal(screen.getByRole('checkbox', { name: 'Mark Milk as unpurchased', hidden: true }).checked, true))
-  add.resolve(json({ item: { ...cartItem, bought: false } }))
   await waitFor(() => assert.equal(screen.getByRole('checkbox', { name: 'Mark Milk as unpurchased' }).checked, true))
+})
+
+test('catalog add preserves a purchase intent confirmed while its POST response is delayed', async () => {
+  const patch = deferred()
+  const add = deferred()
+  const calls = mockFetch((url, options) => {
+    if (url.endsWith('/api/auth/me')) return json({ user: appUser })
+    if (url.endsWith('/api/lists/trip-1') && !options.method) return json(seed([cartItem]))
+    if (url.endsWith('/api/catalog')) return json({ items: [starter] })
+    if (url.endsWith('/api/trips')) return json(emptyTrips)
+    if (url.endsWith('/api/lists/trip-1/items/cart-1') && options.method === 'PATCH') return patch.promise
+    if (url.endsWith('/api/lists/trip-1/items') && options.method === 'POST') return add.promise
+    throw new Error('Unexpected request: ' + url)
+  })
+  await openShoppingApp(calls)
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Mark Milk as purchased' }))
+  window.history.pushState(null, '', '/catalog')
+  fireEvent(window, new window.PopStateEvent('popstate'))
+  fireEvent.change(await screen.findByLabelText('Add items to'), { target: { value: 'trip-1' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Add to list' }))
+  await waitFor(() => assert.equal(calls.some((call) => call.url.endsWith('/api/lists/trip-1/items') && call.options.method === 'POST'), true))
+  patch.resolve(json({ item: { ...cartItem, bought: true } }))
+  // Wait until the writer is released before delivering an older add snapshot.
+  await waitFor(() => assert.equal(calls.filter((call) => call.options.method === 'PATCH').length, 1))
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  add.resolve(json({ item: { ...cartItem, bought: false } }))
+  await screen.findByRole('heading', { name: 'Weekly Groceries' })
+  assert.equal(screen.getByRole('checkbox', { name: 'Mark Milk as unpurchased' }).checked, true)
 })

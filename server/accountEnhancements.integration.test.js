@@ -178,7 +178,7 @@ test('account verification and password recovery tokens expire, replay safely, a
       method: 'POST', cookie: sessionCookie(replacementLogin), body: { currentPassword: replacement, newPassword: 'short' },
     })
     assert.equal(weakPassword.status, 400)
-    assert.match((await weakPassword.json()).error, /8 to 72 UTF-8 bytes/)
+    assert.match((await weakPassword.json()).error, /at least 8 characters and no more than 72 UTF-8 bytes/)
     const currentSession = sessionCookie(replacementLogin)
     const changedPassword = `Changed-${randomUUID()}!`
     const change = await request(baseUrl, '/api/auth/change-password', {

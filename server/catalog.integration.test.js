@@ -101,7 +101,7 @@ test('authenticated catalog search, starter-copy editing, and custom product iso
     const searchBody = await search.json()
     assert.ok(searchBody.items.some((item) => item.name === 'Apples'))
     assert.ok(searchBody.items.every((item) => item.name.toLowerCase().includes('appl')))
-    const newStapleSearch = await request(baseUrl, '/api/catalog?search=ampo', { cookie: cookieA })
+    const newStapleSearch = await request(baseUrl, '/api/catalog?search=ampa', { cookie: cookieA })
     assert.ok((await newStapleSearch.json()).items.some((item) => item.name === 'Ampalaya' && item.category === 'Produce'))
     const literalWildcard = await request(baseUrl, '/api/catalog?search=%25', { cookie: cookieA })
     assert.equal((await literalWildcard.json()).items.length, 0, 'search wildcards are literal')

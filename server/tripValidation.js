@@ -67,8 +67,8 @@ export function validateHistoryQuery(query) {
       if (typeof cursor !== 'string' || cursor.length > 512) throw new Error()
       const decoded = JSON.parse(Buffer.from(String(cursor), 'base64url').toString('utf8'))
       if (!decoded || typeof decoded.completedAt !== 'string' ||
-          !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(decoded.completedAt) ||
-          new Date(decoded.completedAt).toISOString() !== decoded.completedAt) throw new Error()
+          !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.(?:\d{3}|\d{6})Z$/.test(decoded.completedAt) ||
+          new Date(decoded.completedAt).toISOString() !== decoded.completedAt.replace(/(\.\d{3})\d{3}Z$/, '$1Z')) throw new Error()
       const id = parseTripId(String(decoded.id))
       if (id === null) throw new Error()
       return { limit: Number(rawLimit), cursor: { completedAt: decoded.completedAt, id: String(id) } }

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { addCartItem, getSession, login, logout, register, resetPassword, updateSettings } from './api/httpApi.js'
+import { addListItem, getList, getSession, login, logout, register, resetPassword, updateSettings } from './api/httpApi.js'
 import Catalog from './Catalog.jsx'
 import { Brand, Footer, NavIcon } from './Brand.jsx'
 import { useAppearance } from './appearance.js'
-import ShoppingList from './ShoppingList.jsx'
+import ListRoute from './ListRoute.jsx'
 import Trips from './Trips.jsx'
 import AccountFlows from './AccountFlows.jsx'
 import ChangePassword from './ChangePassword.jsx'
@@ -11,10 +11,23 @@ import { AuthBrand, PasswordField, PasswordMeter } from './AuthUI.jsx'
 import { confirmationError, passwordError } from './passwordPolicy.js'
 import { resetAndRevalidate, revalidateCurrentSession } from './resetSession.js'
 import { createDataCache } from './dataCache.js'
-import { DataCacheProvider, fetchCart } from './dataCache.jsx'
-import { hasPurchaseMutation, purchaseIntentVersion } from './purchaseMutations.js'
+import { DataCacheProvider, fetchLists } from './dataCache.jsx'
+import { hasPurchaseMutation, mergePendingListResponse, purchaseIntentVersion } from './purchaseMutations.js'
+import Lists from './Lists.jsx'
+import { replaceListSummary } from './dataCache.js'
 
 const EMPTY_FORM = { email: '', password: '', confirmation: '' }
+function routeFromLocation() {
+  const match = window.location.pathname.match(/^\/lists\/([^/]+)\/?$/)
+  if (match) {
+    try { return { page: 'list', listId: decodeURIComponent(match[1]) } }
+    catch { return { page: 'list', listId: match[1] } }
+  }
+  if (/^\/catalog\/?$/.test(window.location.pathname)) return { page: 'catalog', listId: null }
+  if (/^\/trips\/?$/.test(window.location.pathname)) return { page: 'trips', listId: null }
+  if (/^\/settings\/?$/.test(window.location.pathname)) return { page: 'settings', listId: null }
+  return { page: 'lists', listId: null }
+}
 const link = (() => {
   const url = new URL(window.location.href)
   const params = new URLSearchParams(url.hash.slice(1))
@@ -40,8 +53,10 @@ export default function App() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [accountBusy, setAccountBusy] = useState(false)
-  const [page, setPage] = useState('cart')
-  const [catalogVisited, setCatalogVisited] = useState(false)
+  const [route, setRoute] = useState(routeFromLocation)
+  const { page, listId: routeListId } = route
+  const [catalogDestinationId, setCatalogDestinationId] = useState(null)
+  const [catalogVisited, setCatalogVisited] = useState(route.page === 'catalog')
   const [requestedEdit, setRequestedEdit] = useState(null)
   const [cartPending, setCartPending] = useState(false)
   const [catalogAddPending, setCatalogAddPending] = useState(false)
@@ -58,6 +73,22 @@ export default function App() {
   const renderedGeneration = accountGeneration.current
   const privateReady = status === 'ready' && user && !user.verification_required && !accountView
   const dataCache = useMemo(() => createDataCache(), [user?.id, renderedGeneration, Boolean(privateReady)])
+
+  function navigate(nextPage, id = null, { replace = false } = {}) {
+    const path = nextPage === 'list' ? `/lists/${encodeURIComponent(id)}` : ({ lists: '/lists', catalog: '/catalog', trips: '/trips', settings: '/settings' }[nextPage] || '/lists')
+    window.history[replace ? 'replaceState' : 'pushState']({ page: nextPage, listId: id }, '', path)
+    setRoute({ page: nextPage, listId: id })
+  }
+
+  useEffect(() => {
+    const pop = () => {
+      const nextRoute = routeFromLocation()
+      if (nextRoute.page === 'catalog') setCatalogVisited(true)
+      setRoute(nextRoute)
+    }
+    window.addEventListener('popstate', pop)
+    return () => window.removeEventListener('popstate', pop)
+  }, [])
 
   function reportCartPending(pending) {
     if (renderedGeneration !== accountGeneration.current) return
@@ -108,7 +139,7 @@ export default function App() {
       setUser(result.user)
       setPreferredCurrency(result.user.preferred_currency)
       if (result.user.verification_required && !link) { setAccountEmail(result.user.email); setAccountView('pending') }
-      setPage('cart')
+      navigate('lists', null, { replace: true })
       setCatalogVisited(false)
       setStatus('ready')
     } catch (caught) {
@@ -137,7 +168,7 @@ export default function App() {
     resetCheckPending.current = false
     setUser(null)
     setPreferredCurrency('PHP')
-    setPage('cart')
+    navigate('lists', null, { replace: true })
     setCatalogVisited(false)
     setRequestedEdit(null)
     cartPendingRef.current = false
@@ -161,7 +192,7 @@ export default function App() {
     if (outcome.status === 'authenticated') {
       if (user?.id && user.id !== outcome.user.id) {
         accountGeneration.current += 1
-        setPage('cart')
+        navigate('lists', null, { replace: true })
         setCatalogVisited(false)
         setRequestedEdit(null)
         cartPendingRef.current = false
@@ -214,7 +245,7 @@ export default function App() {
       accountGeneration.current += 1
       setUser(result.user)
       setPreferredCurrency(result.user.preferred_currency)
-      setPage('cart')
+      navigate('lists', null, { replace: true })
       setCatalogVisited(false)
       setSettingsError('')
       setSettingsNotice('')
@@ -242,7 +273,7 @@ export default function App() {
       setPreferredCurrency('PHP')
       setSettingsError('')
       setSettingsNotice('')
-      setPage('cart')
+      navigate('lists', null, { replace: true })
       setCatalogVisited(false)
       setAccountView('')
       setRequestedEdit(null)
@@ -256,39 +287,45 @@ export default function App() {
     } finally { setBusy(false) }
   }
 
-  async function addItem(productId) {
+  async function addItem(productId, destinationId) {
+    if (!destinationId) throw new Error('Choose a list before adding this item.')
     const generation = accountGeneration.current
-    // Join the initial cart read if necessary so item updates retain trip metadata.
-    await dataCache.load('cart', fetchCart)
+    const key = `list:${destinationId}`
+    const selectedList = await dataCache.load(key, (signal) => getList(destinationId, { signal }), { force: true })
+    if (selectedList?.completedTrip || selectedList?.status === 'completed') throw new Error('This list is finished. Choose another active list.')
     if (generation !== accountGeneration.current || !dataCache.alive) return
-    const release = dataCache.beginMutation('cart')
-    const purchaseVersions = new Map(dataCache.get('cart').data.items.map((item) => [item.id, purchaseIntentVersion(dataCache, item.id)]))
-    const pendingPurchases = new Set(dataCache.get('cart').data.items.filter((item) => hasPurchaseMutation(dataCache, item.id)).map((item) => item.id))
+    const release = dataCache.beginMutation(key)
     try {
-      const result = await addCartItem(productId)
+      const currentList = dataCache.get(key).data
+      if (!currentList || currentList.completedTrip || currentList.status === 'completed') throw new Error('This list is finished. Choose another active list.')
+      const purchaseVersions = new Map(currentList.items.map((item) => [item.id, purchaseIntentVersion(dataCache, item.id, destinationId)]))
+      const pendingPurchases = new Set(currentList.items.filter((item) => hasPurchaseMutation(dataCache, item.id, destinationId)).map((item) => item.id))
+      const result = await addListItem(destinationId, productId)
       if (generation !== accountGeneration.current || !dataCache.alive) return result
       // Adding an existing entry does not change its bought state. Preserve a
       // pending local purchase intent if its PATCH has not completed yet.
-      const existing = dataCache.get('cart').data?.items.find((item) => item.id === result.item.id)
-      if (existing && (pendingPurchases.has(existing.id) || hasPurchaseMutation(dataCache, existing.id) || purchaseVersions.get(existing.id) !== purchaseIntentVersion(dataCache, existing.id))) {
+      const existing = dataCache.get(key).data?.items.find((item) => item.id === result.item.id)
+      if (existing && (pendingPurchases.has(existing.id) || hasPurchaseMutation(dataCache, existing.id, destinationId) || purchaseVersions.get(existing.id) !== purchaseIntentVersion(dataCache, existing.id, destinationId))) {
         result.item = { ...result.item, bought: existing.bought }
+        result.list = { ...result.list, items: result.list.items.map((item) => item.id === result.item.id ? result.item : item) }
       }
-      dataCache.set('cart', (current) => ({ ...current, items: current.items.some((item) => item.id === result.item.id)
-        ? current.items.map((item) => item.id === result.item.id ? result.item : item)
-        : [...current.items, result.item] }))
+      result.list = mergePendingListResponse(dataCache, destinationId, result.list)
+      dataCache.set(key, result.list)
+      replaceListSummary(dataCache, result.list)
       setRequestedEdit(result.item)
-      setPage('cart')
+      navigate('list', destinationId)
       return result
     } catch (caught) {
-      dataCache.invalidate('cart')
+      dataCache.invalidate(key)
       throw caught
     } finally { release() }
   }
 
-  function browseCatalog() {
+  function browseCatalog(destinationId = null) {
     if (cartPendingRef.current || catalogAddPendingRef.current) return
     setCatalogVisited(true)
-    setPage('catalog')
+    setCatalogDestinationId(destinationId)
+    navigate('catalog')
   }
 
   async function saveSettings(event) {
@@ -303,7 +340,7 @@ export default function App() {
       if (generation !== accountGeneration.current) return
       setUser((current) => ({ ...current, preferred_currency: result.preferredCurrency }))
       setPreferredCurrency(result.preferredCurrency)
-      setSettingsNotice('Currency preference saved for future trips.')
+      setSettingsNotice('Currency preference saved for new lists.')
     } catch (caught) {
       if (generation !== accountGeneration.current) return
       setPreferredCurrency(user.preferred_currency)
@@ -314,17 +351,17 @@ export default function App() {
   function goHome() {
     if (busy || accountBusy || settingsBusy || cartPendingRef.current || catalogAddPendingRef.current || reviewOpen || status !== 'ready') return
     if (user?.verification_required) return
-    if (user) { setAccountView(''); setPage('cart') }
+    if (user) { setAccountView(''); navigate('lists') }
     else returnToSignIn()
   }
 
   function navigation() {
     const switchingDisabled = cartPending || catalogAddPending || settingsBusy || reviewOpen
     return <>
-      <button type="button" className={page === 'cart' ? 'active' : ''} aria-current={page === 'cart' ? 'page' : undefined} onClick={() => { if (!cartPendingRef.current && !catalogAddPendingRef.current) setPage('cart') }} disabled={switchingDisabled}><NavIcon destination="cart" /><span>Shopping list</span></button>
-      <button type="button" className={page === 'catalog' ? 'active' : ''} aria-current={page === 'catalog' ? 'page' : undefined} onClick={browseCatalog} disabled={switchingDisabled}><NavIcon destination="catalog" /><span>Catalog</span></button>
-      <button type="button" className={page === 'trips' ? 'active' : ''} aria-current={page === 'trips' ? 'page' : undefined} onClick={() => { if (!switchingDisabled) setPage('trips') }} disabled={switchingDisabled}><NavIcon destination="trips" /><span>Trips</span></button>
-      <button type="button" className={page === 'settings' ? 'active' : ''} aria-current={page === 'settings' ? 'page' : undefined} onClick={() => { if (!switchingDisabled) setPage('settings') }} disabled={switchingDisabled}><NavIcon destination="settings" /><span>Settings</span></button>
+      <button type="button" className={page === 'lists' || page === 'list' ? 'active' : ''} aria-current={page === 'lists' || page === 'list' ? 'page' : undefined} onClick={() => { if (!cartPendingRef.current && !catalogAddPendingRef.current) navigate('lists') }} disabled={switchingDisabled}><NavIcon destination="cart" /><span>My Lists</span></button>
+      <button type="button" className={page === 'catalog' ? 'active' : ''} aria-current={page === 'catalog' ? 'page' : undefined} onClick={() => browseCatalog()} disabled={switchingDisabled}><NavIcon destination="catalog" /><span>Catalog</span></button>
+      <button type="button" className={page === 'trips' ? 'active' : ''} aria-current={page === 'trips' ? 'page' : undefined} onClick={() => { if (!switchingDisabled) navigate('trips') }} disabled={switchingDisabled}><NavIcon destination="trips" /><span>Trips</span></button>
+      <button type="button" className={page === 'settings' ? 'active' : ''} aria-current={page === 'settings' ? 'page' : undefined} onClick={() => { if (!switchingDisabled) navigate('settings') }} disabled={switchingDisabled}><NavIcon destination="settings" /><span>Settings</span></button>
       <button type="button" onClick={signOut} disabled={busy || settingsBusy || cartPending || catalogAddPending || reviewOpen}>Sign out</button>
     </>
   }
@@ -334,15 +371,16 @@ export default function App() {
       <header className="site-header"><div className="header-inner"><Brand onHome={goHome} disabled={busy || settingsBusy || cartPending || catalogAddPending || reviewOpen || status !== 'ready'} />{status === 'ready' && user && !user.verification_required && !accountView && <nav className="catalog-nav" aria-label="Main navigation">{navigation()}</nav>}</div></header>
       {privateReady ? <DataCacheProvider key={`${user.id}:${renderedGeneration}`} cache={dataCache}>
         {error && <p className="alert" role="alert">{error}</p>}
-        <div hidden={page !== 'cart'}><ShoppingList key={user.id} active={page === 'cart'} editItem={requestedEdit} onEditHandled={() => setRequestedEdit(null)} onBrowseCatalog={browseCatalog} onMutationPending={reportCartPending} onReviewChange={setReviewOpen} /></div>
-        {catalogVisited && <div hidden={page !== 'catalog'}><Catalog active={page === 'catalog'} onAdd={addItem} onAddPending={reportCatalogAddPending} /></div>}
+        {page === 'lists' && <Lists onOpenList={(id) => navigate('list', id)} preferredCurrency={preferredCurrency} />}
+        {page === 'list' && <ListRoute key={`${user.id}:${routeListId}`} listId={routeListId} editItem={requestedEdit} onEditHandled={() => setRequestedEdit(null)} onBrowseCatalog={() => browseCatalog(routeListId)} onBackToLists={() => navigate('lists', null, { replace: true })} onMutationPending={reportCartPending} onReviewChange={setReviewOpen} />}
+        {catalogVisited && page === 'catalog' && <Catalog active destinationId={catalogDestinationId} onAdd={addItem} onAddPending={reportCatalogAddPending} onManageLists={() => navigate('lists')} />}
         {page === 'trips' && <Trips key={user.id} onReviewChange={setReviewOpen} />}
         {page === 'settings' && <main className="settings-main">
           <section className="catalog-panel" aria-labelledby="settings-heading">
             <p className="catalog-eyebrow">ACCOUNT</p><h1 id="settings-heading">Settings</h1>
-            <p className="optional-help">Your current shopping trip keeps its currency. This preference applies when a new trip begins.</p>
+            <p className="optional-help">Each list keeps its currency. This preference is used when you create a new list.</p>
             <form onSubmit={saveSettings}>
-              <label htmlFor="preferred-currency">Preferred currency for future trips</label>
+              <label htmlFor="preferred-currency">Preferred currency for new lists</label>
               <select id="preferred-currency" value={preferredCurrency} onChange={(event) => { setPreferredCurrency(event.target.value); setSettingsNotice(''); setSettingsError('') }} disabled={settingsBusy}><option value="PHP">PHP — Philippine peso</option><option value="USD">USD — US dollar</option><option value="EUR">EUR — euro</option></select>
               {settingsError && <p className="alert" role="alert">{settingsError}</p>}{settingsNotice && <p className="catalog-notice" role="status">{settingsNotice}</p>}
               <button className="catalog-button primary" type="submit" disabled={settingsBusy || preferredCurrency === user.preferred_currency}>{settingsBusy ? 'Saving…' : 'Save preference'}</button>

@@ -19,6 +19,7 @@ const { default: App } = await vite.ssrLoadModule('/src/App.jsx')
 
 test.afterEach(() => {
   cleanup()
+  window.history.replaceState({}, '', '/')
   globalThis.fetch = undefined
   window.confirm = () => true
 })
@@ -33,8 +34,19 @@ const json = (body, status = 200) => new Response(JSON.stringify(body), { status
 function mockFetch(handler) {
   const calls = []
   globalThis.fetch = async (url, options = {}) => {
-    calls.push({ url: String(url), options })
-    return handler(String(url), options)
+    const actualUrl = String(url)
+    calls.push({ url: actualUrl, options })
+    let legacyUrl = actualUrl
+    if (actualUrl === '/api/lists' || /^\/api\/lists\/[^/]+$/.test(actualUrl)) legacyUrl = '/api/cart'
+    else if (/^\/api\/lists\/[^/]+\/items(?:\/[^/]+)?$/.test(actualUrl)) legacyUrl = actualUrl.replace(/^\/api\/lists\/[^/]+\/items/, '/api/cart/items')
+    let response = await handler(legacyUrl, options)
+    if (!response?.ok || !response?.json || response.status === 204) return response
+    const payload = await response.clone().json()
+    if (actualUrl === '/api/lists' && !options.method) {
+      return json(payload.tripId ? { items: [{ ...payload, id: payload.tripId, name: payload.name || 'Groceries', itemCount: payload.items?.length || 0, boughtCount: payload.items?.filter((item) => item.bought).length || 0 }], nextCursor: null } : { items: [], nextCursor: null })
+    }
+    if (/^\/api\/lists\/[^/]+$/.test(actualUrl) && !options.method && payload.tripId) return json({ ...payload, name: payload.name || 'Groceries' })
+    return response
   }
   return calls
 }
@@ -66,8 +78,10 @@ const appResponse = (url) => {
 
 async function openApp(calls) {
   render(React.createElement(App))
-  await screen.findByRole('heading', { name: 'My Shopping List' })
-  await waitFor(() => assert.equal(calls.filter((call) => call.url.endsWith('/api/cart')).length, 1))
+  await screen.findByRole('heading', { name: 'My Lists' })
+  await waitFor(() => assert.equal(calls.filter((call) => call.url === '/api/lists' && !call.options.method).length, 1))
+  fireEvent.click(await screen.findByRole('button', { name: /Groceries/ }))
+  await screen.findByRole('heading', { name: 'Groceries' })
 }
 
 function appNav(name) {
@@ -85,7 +99,7 @@ test('StrictMode prefetches each private collection once and catalog search/filt
     React.createElement(DataCacheProvider, null, React.createElement(Catalog, { active: true, onAdd: async () => ({}), onAddPending: () => {} }))))
   await screen.findByText('Milk')
   await waitFor(() => assert.equal(calls.filter((call) => call.url.endsWith('/api/catalog')).length, 1))
-  assert.equal(calls.filter((call) => call.url.endsWith('/api/cart')).length, 1)
+  assert.equal(calls.filter((call) => call.url === '/api/lists' && !call.options.method).length, 1)
   assert.equal(calls.filter((call) => call.url.endsWith('/api/trips')).length, 1)
 
   const search = screen.getByLabelText('Search catalog')
@@ -126,7 +140,7 @@ test('catalog content remains visible when a repeated view uses the warm cache d
   assert.equal(calls.filter((call) => call.url.endsWith('/api/catalog')).length, 1)
 })
 
-test('authenticated startup launches cart, catalog, and trip reads in parallel', async () => {
+test('authenticated startup launches lists, catalog, and trip reads in parallel', async () => {
   const pending = { cart: deferred(), catalog: deferred(), trips: deferred() }
   const calls = mockFetch((url) => {
     if (url.endsWith('/api/auth/me')) return json({ user })
@@ -137,17 +151,19 @@ test('authenticated startup launches cart, catalog, and trip reads in parallel',
   })
   render(React.createElement(App))
   await waitFor(() => {
-    for (const route of ['/api/cart', '/api/catalog', '/api/trips']) assert.equal(calls.filter((call) => call.url.endsWith(route)).length, 1)
+    for (const route of ['/api/lists', '/api/catalog', '/api/trips']) assert.equal(calls.filter((call) => call.url.endsWith(route)).length, 1)
   })
   // All three transports are outstanding before any fixture is released.
   assert.deepEqual(Object.values(pending).map((request) => request.promise instanceof Promise), [true, true, true])
   pending.cart.resolve(json(cart))
   pending.catalog.resolve(json({ items: groceries }))
   pending.trips.resolve(json(emptyTrips))
+  await screen.findByRole('heading', { name: 'My Lists' })
+  fireEvent.click(await screen.findByRole('button', { name: /Groceries/ }))
   await screen.findByText('Milk')
 })
 
-test('App screen loop reuses warm cart/catalog/trip data when later reads are offline', async () => {
+test('App screen loop reuses warm list/catalog/trip data when later reads are offline', async () => {
   let offline = false
   const calls = mockFetch((url, options) => {
     if (offline && ['/api/cart', '/api/catalog', '/api/trips'].some((route) => url.endsWith(route))) return Promise.reject(new TypeError('offline'))
@@ -161,13 +177,13 @@ test('App screen loop reuses warm cart/catalog/trip data when later reads are of
   fireEvent.click(appNav('Settings'))
   await screen.findByRole('heading', { name: 'Settings' })
   offline = true
-  fireEvent.click(appNav('Shopping list'))
-  assert.ok(screen.queryAllByText('Milk').length)
+  fireEvent.click(appNav('My Lists'))
+  assert.ok(await screen.findByRole('button', { name: /Groceries/ }))
   fireEvent.click(appNav('Catalog'))
   assert.ok(screen.queryAllByText('Milk').length)
   fireEvent.click(appNav('Trips'))
   assert.ok(screen.getByRole('heading', { name: 'No finished trips yet' }))
-  assert.equal(calls.filter((call) => ['/api/cart', '/api/catalog', '/api/trips'].some((route) => call.url.endsWith(route))).length, 3)
+  assert.equal(calls.filter((call) => ['/api/lists', '/api/catalog', '/api/trips'].some((route) => call.url.endsWith(route))).length, 3)
 })
 
 test('trip detail stays cached when closed and reopened', async () => {
@@ -320,8 +336,8 @@ test('logout and signing back into the same account starts a fresh private cache
   fireEvent.change(screen.getByLabelText('Email address'), { target: { value: user.email } })
   fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'local-password' } })
   fireEvent.submit(screen.getByLabelText('Email address').closest('form'))
-  await screen.findByRole('heading', { name: 'My Shopping List' })
-  await waitFor(() => assert.equal(calls.filter((call) => call.url.endsWith('/api/cart')).length, 2))
+  await screen.findByRole('heading', { name: 'My Lists' })
+  await waitFor(() => assert.equal(calls.filter((call) => call.url === '/api/lists' && !call.options.method).length, 2))
   assert.equal(calls.filter((call) => call.url.endsWith('/api/catalog')).length, 2)
   assert.equal(calls.filter((call) => call.url.endsWith('/api/trips')).length, 2)
 })
@@ -340,6 +356,7 @@ test('logout aborts an outstanding private collection request', async () => {
   await openApp(calls)
   await waitFor(() => assert.ok(catalogSignal))
   fireEvent.click(appNav('Sign out'))
+  await waitFor(() => assert.equal(calls.some((call) => call.url.endsWith('/api/auth/logout')), true))
   await screen.findByRole('heading', { name: 'Sign in' })
   await waitFor(() => assert.equal(catalogSignal.aborted, true))
   catalogResponse.resolve(json({ items: groceries }))

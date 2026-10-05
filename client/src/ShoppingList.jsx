@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { deleteCartItem, finishTrip, updateCart, updateCartItem } from './api/httpApi.js'
+import { deleteListItem, finishTrip, getList, updateList, updateListItem } from './api/httpApi.js'
 import { getShoppingProgress, sortShoppingItems } from './shoppingProgress.js'
 import { budgetProgress, formatMoney, moneySummary, normalizeMoney } from './money.js'
-import { createPurchaseMutations } from './purchaseMutations.js'
-import { useDataCache, useDataQuery, fetchCart } from './dataCache.jsx'
-import { cacheCompletedTrip } from './dataCache.js'
+import { createPurchaseMutations, mergePendingListResponse } from './purchaseMutations.js'
+import { useDataCache, useDataQuery } from './dataCache.jsx'
+import { cacheCompletedTrip, removeListSummary, replaceListSummary } from './dataCache.js'
 
 const EMPTY_FORM = { name: '', quantity: '1', unitLabel: '', estimatedTotal: '', actualTotal: '' }
 
@@ -33,18 +33,21 @@ function BudgetMeter({ budget, summary, currency, label }) {
   </div>
 }
 
-export default function ShoppingList({ active = true, editItem, onEditHandled, onBrowseCatalog, onMutationPending, onReviewChange }) {
+export default function ShoppingList({ listId, active = true, editItem, onEditHandled, onBrowseCatalog, onBackToLists, onMutationPending, onReviewChange }) {
   const cache = useDataCache()
+  const cacheKey = `list:${listId}`
+  const fetchList = (signal) => getList(listId, { signal })
   const [reviewing, setReviewing] = useState(false)
-  const cartQuery = useDataQuery('cart', fetchCart, { enabled: active && !reviewing })
-  const { items = [], currency = 'PHP', tripId = null, revision = null, budget = null } = cartQuery.data || {}
+  const cartQuery = useDataQuery(cacheKey, fetchList, { enabled: active && !reviewing })
+  const { items = [], currency = 'PHP', tripId = listId, revision = null, budget = null, name = 'Shopping list' } = cartQuery.data || {}
   const loading = cartQuery.loading
   const error = cartQuery.error ? 'We could not refresh your shopping list. Check your connection and try again.' : ''
   const hasCart = cartQuery.data !== undefined
   function setItems(value) {
-    cache.set('cart', (current) => current && { ...current, items: typeof value === 'function' ? value(current.items) : value })
+    cache.set(cacheKey, (current) => current && { ...current, items: typeof value === 'function' ? value(current.items) : value })
+    replaceListSummary(cache, cache.get(cacheKey).data)
   }
-  function setBudget(value) { cache.set('cart', (current) => current && { ...current, budget: value }) }
+  function setBudget(value) { cache.set(cacheKey, (current) => current && { ...current, budget: value }) }
   const [finishBusy, setFinishBusy] = useState(false)
   const [reviewBusy, setReviewBusy] = useState(false)
   const [finishError, setFinishError] = useState('')
@@ -52,6 +55,7 @@ export default function ShoppingList({ active = true, editItem, onEditHandled, o
   const reviewRef = useRef(null)
   const reviewSurfaceRef = useRef(null)
   const finishTriggerRef = useRef(null)
+  const mounted = useRef(false)
   const [budgetDraft, setBudgetDraft] = useState('')
   const [budgetEditing, setBudgetEditing] = useState(false)
   const [budgetError, setBudgetError] = useState('')
@@ -66,13 +70,20 @@ export default function ShoppingList({ active = true, editItem, onEditHandled, o
   const [hidePurchased, setHidePurchased] = useState(false)
   const [sortMode, setSortMode] = useState('default')
   const [purchasePending, setPurchasePending] = useState(0)
-  const purchases = useMemo(() => createPurchaseMutations(cache, updateCartItem, {
-    onPending: setPurchasePending, onError: setActionError,
-  }), [cache])
+  const purchases = useMemo(() => createPurchaseMutations(cache, (itemId, input) => updateListItem(listId, itemId, input), {
+    onPending: (count) => { setPurchasePending(count); onMutationPending(Boolean(count || pendingMutation.current)) }, onError: setActionError, listId,
+  }), [cache, listId])
+  useEffect(() => purchases.subscribe(), [purchases])
   const pendingMutation = useRef(false)
   const editorVersion = useRef(0)
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
+  function reportPending() { onMutationPending(Boolean(pendingMutation.current || purchases.size)) }
 
   useEffect(() => { onReviewChange(reviewing) }, [reviewing, onReviewChange])
+  useEffect(() => () => { onReviewChange(false); onMutationPending(false) }, [])
 
   useEffect(() => {
     if (!editItem) return
@@ -89,7 +100,7 @@ export default function ShoppingList({ active = true, editItem, onEditHandled, o
 
   useEffect(() => { if (!budgetEditing) setBudgetDraft(budget ?? '') }, [budget, budgetEditing])
   // Freeze the exact reviewed snapshot and revision until confirmation is closed.
-  useEffect(() => { if (reviewing) return cache.beginMutation('cart') }, [cache, reviewing])
+  useEffect(() => { if (reviewing) return cache.beginMutation(cacheKey) }, [cache, cacheKey, reviewing])
 
   useEffect(() => {
     if (!reviewing) return
@@ -115,21 +126,24 @@ export default function ShoppingList({ active = true, editItem, onEditHandled, o
   async function confirmFinish() {
     if (pendingMutation.current || purchases.size || finishBusy || !tripId) return
     pendingMutation.current = true
-    const release = cache.beginMutation('cart')
-    onMutationPending(true)
+    const release = cache.beginMutation(cacheKey)
+    reportPending()
     setFinishBusy(true)
     setFinishError('')
     try {
       const result = await finishTrip(tripId, revision)
-      const fresh = result.activeTrip
-      cache.set('cart', fresh)
-      cacheCompletedTrip(cache, result.completedTrip)
-      setBudgetDraft(fresh.budget ?? '')
+      if (!cache.alive) return
+      const completedTrip = result.completedTrip
+      cache.set(cacheKey, undefined)
+      removeListSummary(cache, listId)
+      cacheCompletedTrip(cache, completedTrip)
+      if (!mounted.current) return
       setEditor(null)
       setHidePurchased(false)
       setReviewing(false)
       setFinished(true)
-      setNotice('Your trip was saved. A new empty shopping list is ready.')
+      setNotice('Your list was saved to history.')
+      onBackToLists?.()
     } catch (caught) {
       setFinishError(caught.status === 409
         ? 'This trip changed since you opened the review. Return to your list and review it again.'
@@ -138,25 +152,24 @@ export default function ShoppingList({ active = true, editItem, onEditHandled, o
     } finally {
       release()
       pendingMutation.current = false
-      onMutationPending(false)
-      setFinishBusy(false)
+      if (mounted.current) { reportPending(); setFinishBusy(false) }
     }
   }
 
   async function openReview() {
     if (pendingMutation.current || purchases.size || reviewBusy) return
     pendingMutation.current = true
-    onMutationPending(true)
+    reportPending()
     setReviewBusy(true)
     setActionError('')
     try {
-      const current = await cache.load('cart', fetchCart, { force: true })
+      const current = await cache.load(cacheKey, fetchList, { force: true })
       setBudgetDraft(current.budget ?? '')
       if (!current.items.length) return
       setFinishError('')
       setReviewing(true)
     } catch (caught) { setActionError(caught.message || 'Could not load the current trip for review.') }
-    finally { pendingMutation.current = false; onMutationPending(false); setReviewBusy(false) }
+    finally { pendingMutation.current = false; reportPending(); setReviewBusy(false) }
   }
 
   function openEdit(item) {
@@ -193,8 +206,8 @@ export default function ShoppingList({ active = true, editItem, onEditHandled, o
     const previous = items.find((item) => item.id === itemId)
     if (!previous) { setFormError('This item is no longer in your list. Try again.'); return }
     pendingMutation.current = true
-    const release = cache.beginMutation('cart')
-    onMutationPending(true)
+    const release = cache.beginMutation(cacheKey)
+    reportPending()
     setBusy(true)
     setBusyItemId(itemId)
     setBusyAction('save')
@@ -205,23 +218,25 @@ export default function ShoppingList({ active = true, editItem, onEditHandled, o
       : item))
     setEditor(null)
     try {
-      const result = await updateCartItem(itemId, {
+      const result = await updateListItem(listId, itemId, {
         name: trimmedName,
         quantity: rawQuantity,
         unitLabel: form.unitLabel.trim(),
         estimatedTotal,
         actualTotal,
       })
-      setItems((current) => current.map((item) => item.id === itemId ? result.item : item))
+      const serverList = mergePendingListResponse(cache, listId, result.list)
+      cache.set(cacheKey, serverList)
+      replaceListSummary(cache, serverList)
       setNotice('Shopping list item saved.')
     } catch (caught) {
       setItems((current) => current.map((item) => item.id === itemId ? previous : item))
-      cache.invalidate('cart')
+      cache.invalidate(cacheKey)
       if (editorVersion.current === versionAtSave) {
         setEditor({ id: itemId })
         setFormError(caught.message || 'We could not save this item. Please try again.')
       } else setActionError(caught.message || 'We could not save this item. Please try again.')
-    } finally { release(); pendingMutation.current = false; onMutationPending(false); setBusy(false); setBusyItemId(null); setBusyAction('') }
+    } finally { release(); pendingMutation.current = false; reportPending(); setBusy(false); setBusyItemId(null); setBusyAction('') }
   }
 
   async function saveBudget(event) {
@@ -232,8 +247,8 @@ export default function ShoppingList({ active = true, editItem, onEditHandled, o
     catch (caught) { setBudgetError(caught.message); return }
     const previous = budget
     pendingMutation.current = true
-    const release = cache.beginMutation('cart')
-    onMutationPending(true)
+    const release = cache.beginMutation(cacheKey)
+    reportPending()
     setBusy(true)
     setBudgetError('')
     setActionError('')
@@ -241,17 +256,20 @@ export default function ShoppingList({ active = true, editItem, onEditHandled, o
     setBudget(nextBudget)
     setBudgetEditing(false)
     try {
-      const result = await updateCart({ budget: nextBudget })
+      const result = await updateList(listId, { budget: nextBudget })
+      const serverList = mergePendingListResponse(cache, listId, result)
+      cache.set(cacheKey, serverList)
+      replaceListSummary(cache, serverList)
       setBudget(result.budget)
       setBudgetDraft(result.budget ?? '')
       setNotice(nextBudget === null ? 'Budget removed.' : 'Budget saved.')
     } catch (caught) {
       setBudget(previous)
-      cache.invalidate('cart')
+      cache.invalidate(cacheKey)
       setBudgetDraft(nextBudget ?? '')
       setBudgetEditing(true)
       setBudgetError(caught.message || 'We could not save your budget. Please try again.')
-    } finally { release(); pendingMutation.current = false; onMutationPending(false); setBusy(false) }
+    } finally { release(); pendingMutation.current = false; reportPending(); setBusy(false) }
   }
 
   async function remove(item) {
@@ -259,8 +277,8 @@ export default function ShoppingList({ active = true, editItem, onEditHandled, o
     if (!window.confirm(`Remove “${item.name}” from your shopping list?`)) return
     const previousIndex = items.findIndex((entry) => entry.id === item.id)
     pendingMutation.current = true
-    const release = cache.beginMutation('cart')
-    onMutationPending(true)
+    const release = cache.beginMutation(cacheKey)
+    reportPending()
     setBusy(true)
     setBusyItemId(item.id)
     setBusyAction('remove')
@@ -268,7 +286,10 @@ export default function ShoppingList({ active = true, editItem, onEditHandled, o
     setNotice('')
     setItems((current) => current.filter((entry) => entry.id !== item.id))
     try {
-      await deleteCartItem(item.id)
+      const result = await deleteListItem(listId, item.id)
+      const serverList = mergePendingListResponse(cache, listId, result.list)
+      cache.set(cacheKey, serverList)
+      replaceListSummary(cache, serverList)
       if (editor?.id === item.id) setEditor(null)
       setNotice(`${item.name} removed from your shopping list.`)
     } catch (caught) {
@@ -278,9 +299,9 @@ export default function ShoppingList({ active = true, editItem, onEditHandled, o
         restored.splice(Math.min(previousIndex, restored.length), 0, item)
         return restored
       })
-      cache.invalidate('cart')
+      cache.invalidate(cacheKey)
       setActionError(caught.message || 'We could not remove this item. Please try again.')
-    } finally { release(); pendingMutation.current = false; onMutationPending(false); setBusy(false); setBusyItemId(null); setBusyAction('') }
+    } finally { release(); pendingMutation.current = false; reportPending(); setBusy(false); setBusyItemId(null); setBusyAction('') }
   }
 
   function setBought(item, bought) {
@@ -298,10 +319,10 @@ export default function ShoppingList({ active = true, editItem, onEditHandled, o
   const spending = moneySummary(items)
 
   if (reviewing) return <main className="shopping-main trip-screen" aria-labelledby="finish-title" ref={reviewSurfaceRef}>
-    <div className="shopping-heading"><div><p className="catalog-eyebrow">REVIEW YOUR TRIP</p><h1 id="finish-title" ref={reviewRef} tabIndex="-1">Finish shopping?</h1><p className="catalog-subtitle">Check the trip summary before saving it to history.</p></div><span className="currency-label">{currency}</span></div>
+    <div className="shopping-heading"><div><p className="catalog-eyebrow">REVIEW YOUR LIST</p><h1 id="finish-title" ref={reviewRef} tabIndex="-1">Finish shopping?</h1><p className="catalog-subtitle">Check “{name}” before saving it to history.</p></div><span className="currency-label">{currency}</span></div>
     <section className="progress-card" aria-label="Shopping progress"><div className="progress-copy"><span className="progress-icon" aria-hidden="true">✓</span><div><p className="progress-kicker">SHOPPING PROGRESS</p><p className="progress-title">{purchasedCount} of {items.length} items bought</p></div></div><div className="progress-number"><strong>{purchasedCount} <span>/ {items.length}</span></strong><small>items picked up</small></div><div className="progress-track"><span style={{ width: `${progressPercent}%` }} /></div></section>
     <div className="trip-review-grid"><section className="catalog-panel"><h2>Bought <span className="count-badge">{purchasedCount}</span></h2><ReviewRows items={items.filter((item) => item.bought)} currency={currency} /><h2>Not bought <span className="count-badge">{remainingCount}</span></h2><ReviewRows items={items.filter((item) => !item.bought)} currency={currency} /></section>
-      <aside className="catalog-panel"><p className="catalog-eyebrow">OPTIONAL SPENDING</p><h2>{spending.actual.knownCount ? formatMoney(spending.actual.total, currency) : 'No actual prices recorded'}</h2><p className="optional-help">{spending.actual.missingCount ? `${spending.actual.missingCount} bought item${spending.actual.missingCount === 1 ? ' has' : 's have'} no actual price. Recorded spending is incomplete.` : spending.actual.knownCount ? 'Recorded spending includes all bought items.' : 'You can finish without recording prices.'}</p><p className="optional-help">{remainingCount} unchecked item{remainingCount === 1 ? '' : 's'} will be saved as not bought. Your next list starts empty, with your preferred currency and no budget.</p>{budget !== null && <p className="optional-help">Budget: {formatMoney(budget, currency)}. Going over budget does not prevent finishing.</p>}{finishError && <p className="alert" role="alert">{finishError}</p>}<div className="trip-actions"><button className="catalog-button secondary" type="button" onClick={() => { setReviewing(false); setFinishError(''); if (finishError) cache.invalidate('cart'); requestAnimationFrame(() => finishTriggerRef.current?.focus()) }} disabled={finishBusy}>Keep shopping</button><button className="catalog-button primary" type="button" onClick={confirmFinish} disabled={finishBusy}>{finishBusy ? 'Saving trip…' : 'Confirm and finish'}</button></div></aside></div>
+      <aside className="catalog-panel"><p className="catalog-eyebrow">OPTIONAL SPENDING</p><h2>{spending.actual.knownCount ? formatMoney(spending.actual.total, currency) : 'No actual prices recorded'}</h2><p className="optional-help">{spending.actual.missingCount ? `${spending.actual.missingCount} bought item${spending.actual.missingCount === 1 ? ' has' : 's have'} no actual price. Recorded spending is incomplete.` : spending.actual.knownCount ? 'Recorded spending includes all bought items.' : 'You can finish without recording prices.'}</p><p className="optional-help">{remainingCount} unchecked item{remainingCount === 1 ? '' : 's'} will be saved as not bought. Other active lists remain available.</p>{budget !== null && <p className="optional-help">Budget: {formatMoney(budget, currency)}. Going over budget does not prevent finishing.</p>}{finishError && <p className="alert" role="alert">{finishError}</p>}<div className="trip-actions"><button className="catalog-button secondary" type="button" onClick={() => { setReviewing(false); setFinishError(''); if (finishError) cache.invalidate(cacheKey); requestAnimationFrame(() => finishTriggerRef.current?.focus()) }} disabled={finishBusy}>Keep shopping</button><button className="catalog-button primary" type="button" onClick={confirmFinish} disabled={finishBusy}>{finishBusy ? 'Saving trip…' : 'Confirm and finish'}</button></div></aside></div>
   </main>
 
   function renderItems(entries, label) {
@@ -316,11 +337,11 @@ export default function ShoppingList({ active = true, editItem, onEditHandled, o
 
   return <main className="shopping-main">
     <div className="shopping-heading">
-      <div><p className="catalog-eyebrow">{loading ? 'SHOPPING LIST' : items.length ? "TODAY'S TRIP" : 'YOUR CART'}</p><h1>My Shopping List</h1><p className="catalog-subtitle">{loading ? 'Loading your active list.' : items.length ? 'Everything you need, in one easy list.' : 'A fresh start for your next trip.'}</p></div>
-      <div className="trip-actions"><button className="catalog-button secondary" type="button" onClick={cartQuery.refresh} disabled={busy || reviewBusy || cartQuery.fetching}>Refresh list</button><button className="catalog-button primary" type="button" onClick={onBrowseCatalog} disabled={busy || reviewBusy}>＋ Add Item</button>{items.length > 0 && <button ref={finishTriggerRef} className="catalog-button secondary" type="button" onClick={openReview} disabled={busy || loading || reviewBusy || purchasePending > 0}>{reviewBusy ? 'Preparing review…' : 'Finish shopping'}</button>}</div>
+      <div><p className="catalog-eyebrow">{loading ? 'SHOPPING LIST' : name}</p><h1>{name}</h1><p className="catalog-subtitle">{loading ? 'Loading your list.' : items.length ? 'Everything you need, in one easy list.' : 'Add groceries when you are ready.'}</p></div>
+      <div className="trip-actions"><button className="catalog-button secondary" type="button" onClick={onBackToLists}>My Lists</button><button className="catalog-button secondary" type="button" onClick={cartQuery.refresh} disabled={busy || reviewBusy || cartQuery.fetching}>Refresh list</button><button className="catalog-button primary" type="button" onClick={onBrowseCatalog} disabled={busy || reviewBusy}>＋ Add Item</button>{items.length > 0 && <button ref={finishTriggerRef} className="catalog-button secondary" type="button" onClick={openReview} disabled={busy || loading || reviewBusy || purchasePending > 0}>{reviewBusy ? 'Preparing review…' : 'Finish shopping'}</button>}</div>
     </div>
     {notice && <p className="catalog-notice" role="status">{notice}</p>}
-    {finished && <p className="catalog-notice" role="status">Your completed trip is available under Trips.</p>}
+    {finished && <p className="catalog-notice" role="status">Your completed list is available in History.</p>}
     {actionError && <p className="alert" role="alert">{actionError}</p>}
     {error && <div className="catalog-state" role="alert"><p>{error}</p><button className="catalog-button secondary" type="button" onClick={cartQuery.refresh}>Try again</button></div>}
     {loading && <div className="catalog-state" role="status"><p>Loading your shopping list…</p></div>}

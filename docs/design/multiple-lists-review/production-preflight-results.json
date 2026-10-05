@@ -1,0 +1,514 @@
+{
+  "inspectedAt": "2026-10-05T11:22:07.653Z",
+  "classification": "READY FOR RELEASE APPROVAL",
+  "productionWrites": false,
+  "queries": [
+    {
+      "label": "migration history",
+      "sql": "SELECT filename, sha256 FROM cartcheck.schema_migrations ORDER BY filename",
+      "rows": [
+        {
+          "filename": "001_initial.sql",
+          "sha256": "901f874a804d02252f3ad7f20ffa9c63dc78a3b3fd8465358f4cffc45c25b3f8"
+        },
+        {
+          "filename": "002_nullable_historical_product.sql",
+          "sha256": "11aac60e9020e79ba8d1aaef404ccb3a7cb8a4e5f3bea2284faad3b965024927"
+        },
+        {
+          "filename": "003_account_enhancements.sql",
+          "sha256": "ea6d7d140dc07fa1011572f3147815245ede1bbca43bf6910d581a063fbdc649"
+        }
+      ]
+    },
+    {
+      "label": "encoding",
+      "sql": "SELECT current_setting('server_encoding') AS server_encoding",
+      "rows": [
+        {
+          "server_encoding": "UTF8"
+        }
+      ]
+    },
+    {
+      "label": "trip and item columns",
+      "sql": "SELECT table_name,column_name,data_type,is_nullable,column_default,is_identity,identity_generation,numeric_precision,numeric_scale FROM information_schema.columns WHERE table_schema='cartcheck' AND table_name IN ('shopping_trips','trip_items') ORDER BY table_name,ordinal_position",
+      "rows": [
+        {
+          "table_name": "shopping_trips",
+          "column_name": "id",
+          "data_type": "bigint",
+          "is_nullable": "NO",
+          "column_default": null,
+          "is_identity": "YES",
+          "identity_generation": "BY DEFAULT",
+          "numeric_precision": 64,
+          "numeric_scale": 0
+        },
+        {
+          "table_name": "shopping_trips",
+          "column_name": "user_id",
+          "data_type": "bigint",
+          "is_nullable": "NO",
+          "column_default": null,
+          "is_identity": "NO",
+          "identity_generation": null,
+          "numeric_precision": 64,
+          "numeric_scale": 0
+        },
+        {
+          "table_name": "shopping_trips",
+          "column_name": "status",
+          "data_type": "text",
+          "is_nullable": "NO",
+          "column_default": "'active'::text",
+          "is_identity": "NO",
+          "identity_generation": null,
+          "numeric_precision": null,
+          "numeric_scale": null
+        },
+        {
+          "table_name": "shopping_trips",
+          "column_name": "currency",
+          "data_type": "text",
+          "is_nullable": "NO",
+          "column_default": null,
+          "is_identity": "NO",
+          "identity_generation": null,
+          "numeric_precision": null,
+          "numeric_scale": null
+        },
+        {
+          "table_name": "shopping_trips",
+          "column_name": "budget",
+          "data_type": "numeric",
+          "is_nullable": "YES",
+          "column_default": null,
+          "is_identity": "NO",
+          "identity_generation": null,
+          "numeric_precision": 12,
+          "numeric_scale": 2
+        },
+        {
+          "table_name": "shopping_trips",
+          "column_name": "revision",
+          "data_type": "integer",
+          "is_nullable": "NO",
+          "column_default": "1",
+          "is_identity": "NO",
+          "identity_generation": null,
+          "numeric_precision": 32,
+          "numeric_scale": 0
+        },
+        {
+          "table_name": "shopping_trips",
+          "column_name": "created_at",
+          "data_type": "timestamp with time zone",
+          "is_nullable": "NO",
+          "column_default": "now()",
+          "is_identity": "NO",
+          "identity_generation": null,
+          "numeric_precision": null,
+          "numeric_scale": null
+        },
+        {
+          "table_name": "shopping_trips",
+          "column_name": "completed_at",
+          "data_type": "timestamp with time zone",
+          "is_nullable": "YES",
+          "column_default": null,
+          "is_identity": "NO",
+          "identity_generation": null,
+          "numeric_precision": null,
+          "numeric_scale": null
+        },
+        {
+          "table_name": "trip_items",
+          "column_name": "id",
+          "data_type": "bigint",
+          "is_nullable": "NO",
+          "column_default": null,
+          "is_identity": "YES",
+          "identity_generation": "BY DEFAULT",
+          "numeric_precision": 64,
+          "numeric_scale": 0
+        },
+        {
+          "table_name": "trip_items",
+          "column_name": "user_id",
+          "data_type": "bigint",
+          "is_nullable": "NO",
+          "column_default": null,
+          "is_identity": "NO",
+          "identity_generation": null,
+          "numeric_precision": 64,
+          "numeric_scale": 0
+        },
+        {
+          "table_name": "trip_items",
+          "column_name": "trip_id",
+          "data_type": "bigint",
+          "is_nullable": "NO",
+          "column_default": null,
+          "is_identity": "NO",
+          "identity_generation": null,
+          "numeric_precision": 64,
+          "numeric_scale": 0
+        },
+        {
+          "table_name": "trip_items",
+          "column_name": "product_id",
+          "data_type": "bigint",
+          "is_nullable": "YES",
+          "column_default": null,
+          "is_identity": "NO",
+          "identity_generation": null,
+          "numeric_precision": 64,
+          "numeric_scale": 0
+        },
+        {
+          "table_name": "trip_items",
+          "column_name": "name",
+          "data_type": "text",
+          "is_nullable": "NO",
+          "column_default": null,
+          "is_identity": "NO",
+          "identity_generation": null,
+          "numeric_precision": null,
+          "numeric_scale": null
+        },
+        {
+          "table_name": "trip_items",
+          "column_name": "category",
+          "data_type": "text",
+          "is_nullable": "NO",
+          "column_default": null,
+          "is_identity": "NO",
+          "identity_generation": null,
+          "numeric_precision": null,
+          "numeric_scale": null
+        },
+        {
+          "table_name": "trip_items",
+          "column_name": "quantity",
+          "data_type": "numeric",
+          "is_nullable": "NO",
+          "column_default": null,
+          "is_identity": "NO",
+          "identity_generation": null,
+          "numeric_precision": 12,
+          "numeric_scale": 3
+        },
+        {
+          "table_name": "trip_items",
+          "column_name": "unit_label",
+          "data_type": "text",
+          "is_nullable": "YES",
+          "column_default": null,
+          "is_identity": "NO",
+          "identity_generation": null,
+          "numeric_precision": null,
+          "numeric_scale": null
+        },
+        {
+          "table_name": "trip_items",
+          "column_name": "estimated_total",
+          "data_type": "numeric",
+          "is_nullable": "YES",
+          "column_default": null,
+          "is_identity": "NO",
+          "identity_generation": null,
+          "numeric_precision": 12,
+          "numeric_scale": 2
+        },
+        {
+          "table_name": "trip_items",
+          "column_name": "actual_total",
+          "data_type": "numeric",
+          "is_nullable": "YES",
+          "column_default": null,
+          "is_identity": "NO",
+          "identity_generation": null,
+          "numeric_precision": 12,
+          "numeric_scale": 2
+        },
+        {
+          "table_name": "trip_items",
+          "column_name": "bought",
+          "data_type": "boolean",
+          "is_nullable": "NO",
+          "column_default": "false",
+          "is_identity": "NO",
+          "identity_generation": null,
+          "numeric_precision": null,
+          "numeric_scale": null
+        },
+        {
+          "table_name": "trip_items",
+          "column_name": "created_at",
+          "data_type": "timestamp with time zone",
+          "is_nullable": "NO",
+          "column_default": "now()",
+          "is_identity": "NO",
+          "identity_generation": null,
+          "numeric_precision": null,
+          "numeric_scale": null
+        },
+        {
+          "table_name": "trip_items",
+          "column_name": "updated_at",
+          "data_type": "timestamp with time zone",
+          "is_nullable": "NO",
+          "column_default": "now()",
+          "is_identity": "NO",
+          "identity_generation": null,
+          "numeric_precision": null,
+          "numeric_scale": null
+        }
+      ]
+    },
+    {
+      "label": "trip indexes",
+      "sql": "SELECT indexname,indexdef FROM pg_indexes WHERE schemaname='cartcheck' AND tablename='shopping_trips' ORDER BY indexname",
+      "rows": [
+        {
+          "indexname": "shopping_trips_id_user_unique",
+          "indexdef": "CREATE UNIQUE INDEX shopping_trips_id_user_unique ON cartcheck.shopping_trips USING btree (id, user_id)"
+        },
+        {
+          "indexname": "shopping_trips_one_active_per_user_idx",
+          "indexdef": "CREATE UNIQUE INDEX shopping_trips_one_active_per_user_idx ON cartcheck.shopping_trips USING btree (user_id) WHERE (status = 'active'::text)"
+        },
+        {
+          "indexname": "shopping_trips_pkey",
+          "indexdef": "CREATE UNIQUE INDEX shopping_trips_pkey ON cartcheck.shopping_trips USING btree (id)"
+        },
+        {
+          "indexname": "shopping_trips_user_completed_idx",
+          "indexdef": "CREATE INDEX shopping_trips_user_completed_idx ON cartcheck.shopping_trips USING btree (user_id, completed_at DESC)"
+        }
+      ]
+    },
+    {
+      "label": "new index name collision",
+      "sql": "SELECT tablename,indexname,indexdef FROM pg_indexes WHERE schemaname='cartcheck' AND indexname='shopping_trips_active_updated_idx'",
+      "rows": []
+    },
+    {
+      "label": "constraints",
+      "sql": "SELECT c.relname AS table_name,p.conname,p.contype,p.convalidated,pg_get_constraintdef(p.oid) AS definition FROM pg_constraint p JOIN pg_class c ON c.oid=p.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='cartcheck' AND (c.relname IN ('shopping_trips','trip_items') OR p.confrelid IN ('cartcheck.shopping_trips'::regclass,'cartcheck.trip_items'::regclass)) ORDER BY c.relname,p.conname",
+      "rows": [
+        {
+          "table_name": "shopping_trips",
+          "conname": "shopping_trips_budget_check",
+          "contype": "c",
+          "convalidated": true,
+          "definition": "CHECK (((budget IS NULL) OR (budget >= (0)::numeric)))"
+        },
+        {
+          "table_name": "shopping_trips",
+          "conname": "shopping_trips_completion_matches_status",
+          "contype": "c",
+          "convalidated": true,
+          "definition": "CHECK ((((status = 'active'::text) AND (completed_at IS NULL)) OR ((status = 'completed'::text) AND (completed_at IS NOT NULL))))"
+        },
+        {
+          "table_name": "shopping_trips",
+          "conname": "shopping_trips_currency_check",
+          "contype": "c",
+          "convalidated": true,
+          "definition": "CHECK ((currency = ANY (ARRAY['PHP'::text, 'USD'::text, 'EUR'::text])))"
+        },
+        {
+          "table_name": "shopping_trips",
+          "conname": "shopping_trips_id_user_unique",
+          "contype": "u",
+          "convalidated": true,
+          "definition": "UNIQUE (id, user_id)"
+        },
+        {
+          "table_name": "shopping_trips",
+          "conname": "shopping_trips_pkey",
+          "contype": "p",
+          "convalidated": true,
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "table_name": "shopping_trips",
+          "conname": "shopping_trips_revision_check",
+          "contype": "c",
+          "convalidated": true,
+          "definition": "CHECK ((revision > 0))"
+        },
+        {
+          "table_name": "shopping_trips",
+          "conname": "shopping_trips_status_check",
+          "contype": "c",
+          "convalidated": true,
+          "definition": "CHECK ((status = ANY (ARRAY['active'::text, 'completed'::text])))"
+        },
+        {
+          "table_name": "shopping_trips",
+          "conname": "shopping_trips_user_id_fkey",
+          "contype": "f",
+          "convalidated": true,
+          "definition": "FOREIGN KEY (user_id) REFERENCES cartcheck.users(id) ON DELETE CASCADE"
+        },
+        {
+          "table_name": "trip_items",
+          "conname": "trip_items_actual_total_check",
+          "contype": "c",
+          "convalidated": true,
+          "definition": "CHECK (((actual_total IS NULL) OR (actual_total >= (0)::numeric)))"
+        },
+        {
+          "table_name": "trip_items",
+          "conname": "trip_items_category_check",
+          "contype": "c",
+          "convalidated": true,
+          "definition": "CHECK (((length(btrim(category)) >= 1) AND (length(btrim(category)) <= 80)))"
+        },
+        {
+          "table_name": "trip_items",
+          "conname": "trip_items_estimated_total_check",
+          "contype": "c",
+          "convalidated": true,
+          "definition": "CHECK (((estimated_total IS NULL) OR (estimated_total >= (0)::numeric)))"
+        },
+        {
+          "table_name": "trip_items",
+          "conname": "trip_items_name_check",
+          "contype": "c",
+          "convalidated": true,
+          "definition": "CHECK (((length(btrim(name)) >= 1) AND (length(btrim(name)) <= 120)))"
+        },
+        {
+          "table_name": "trip_items",
+          "conname": "trip_items_one_product_per_trip",
+          "contype": "u",
+          "convalidated": true,
+          "definition": "UNIQUE (trip_id, product_id)"
+        },
+        {
+          "table_name": "trip_items",
+          "conname": "trip_items_pkey",
+          "contype": "p",
+          "convalidated": true,
+          "definition": "PRIMARY KEY (id)"
+        },
+        {
+          "table_name": "trip_items",
+          "conname": "trip_items_product_owner_fk",
+          "contype": "f",
+          "convalidated": true,
+          "definition": "FOREIGN KEY (product_id, user_id) REFERENCES cartcheck.products(id, user_id) ON DELETE RESTRICT"
+        },
+        {
+          "table_name": "trip_items",
+          "conname": "trip_items_quantity_check",
+          "contype": "c",
+          "convalidated": true,
+          "definition": "CHECK ((quantity > (0)::numeric))"
+        },
+        {
+          "table_name": "trip_items",
+          "conname": "trip_items_trip_owner_fk",
+          "contype": "f",
+          "convalidated": true,
+          "definition": "FOREIGN KEY (trip_id, user_id) REFERENCES cartcheck.shopping_trips(id, user_id) ON DELETE CASCADE"
+        },
+        {
+          "table_name": "trip_items",
+          "conname": "trip_items_unit_label_check",
+          "contype": "c",
+          "convalidated": true,
+          "definition": "CHECK (((unit_label IS NULL) OR ((length(btrim(unit_label)) >= 1) AND (length(btrim(unit_label)) <= 24))))"
+        }
+      ]
+    },
+    {
+      "label": "aggregate row counts",
+      "sql": "SELECT (SELECT count(*) FROM cartcheck.shopping_trips) AS total_trips,(SELECT count(*) FROM cartcheck.shopping_trips WHERE status='active') AS active_trips,(SELECT count(*) FROM cartcheck.shopping_trips WHERE status='completed') AS completed_trips,(SELECT count(*) FROM cartcheck.trip_items) AS total_items,(SELECT count(DISTINCT user_id) FROM cartcheck.shopping_trips WHERE status='active') AS accounts_with_active_trip,(SELECT COALESCE(max(n),0) FROM (SELECT count(*) AS n FROM cartcheck.shopping_trips WHERE status='active' GROUP BY user_id) a) AS max_active_per_account",
+      "rows": [
+        {
+          "total_trips": "8",
+          "active_trips": "6",
+          "completed_trips": "2",
+          "total_items": "4",
+          "accounts_with_active_trip": "6",
+          "max_active_per_account": "1"
+        }
+      ]
+    },
+    {
+      "label": "exact candidate backfills",
+      "sql": "WITH candidate AS (\n      SELECT status,to_jsonb(t)->>'name' AS name,\n      btrim(to_jsonb(t)->>'name', U&'\\0009\\000A\\000B\\000C\\000D\\0020\\00A0\\1680\\2000\\2001\\2002\\2003\\2004\\2005\\2006\\2007\\2008\\2009\\200A\\2028\\2029\\202F\\205F\\3000\\FEFF') AS trimmed_name,\n      to_jsonb(t)->>'updated_at' AS updated_at FROM cartcheck.shopping_trips t\n    ) SELECT status,count(*) AS total_rows,\n      count(*) FILTER (WHERE name IS NULL OR trimmed_name='') AS name_backfill_rows,\n      count(*) FILTER (WHERE updated_at IS NULL) AS timestamp_backfill_rows,\n      count(*) FILTER (WHERE trimmed_name<>'') AS existing_nonblank_names,\n      count(*) FILTER (WHERE trimmed_name<>'' AND (name<>trimmed_name OR char_length(name)>100)) AS invalid_existing_names\n      FROM candidate GROUP BY status ORDER BY status",
+      "rows": [
+        {
+          "status": "active",
+          "total_rows": "6",
+          "name_backfill_rows": "6",
+          "timestamp_backfill_rows": "6",
+          "existing_nonblank_names": "0",
+          "invalid_existing_names": "0"
+        },
+        {
+          "status": "completed",
+          "total_rows": "2",
+          "name_backfill_rows": "2",
+          "timestamp_backfill_rows": "2",
+          "existing_nonblank_names": "0",
+          "invalid_existing_names": "0"
+        }
+      ]
+    },
+    {
+      "label": "integrity aggregate counts",
+      "sql": "SELECT (SELECT count(*) FROM cartcheck.trip_items i LEFT JOIN cartcheck.shopping_trips t ON t.id=i.trip_id WHERE t.id IS NULL OR t.user_id<>i.user_id) AS orphan_or_trip_owner_mismatch,(SELECT count(*) FROM cartcheck.trip_items i LEFT JOIN cartcheck.products p ON p.id=i.product_id WHERE i.product_id IS NOT NULL AND (p.id IS NULL OR p.user_id<>i.user_id)) AS orphan_or_product_owner_mismatch,(SELECT count(*) FROM (SELECT trip_id,product_id FROM cartcheck.trip_items WHERE product_id IS NOT NULL GROUP BY trip_id,product_id HAVING count(*)>1) d) AS duplicate_product_groups",
+      "rows": [
+        {
+          "orphan_or_trip_owner_mismatch": "0",
+          "orphan_or_product_owner_mismatch": "0",
+          "duplicate_product_groups": "0"
+        }
+      ]
+    },
+    {
+      "label": "table sizes",
+      "sql": "SELECT pg_total_relation_size('cartcheck.shopping_trips') AS trips_total_bytes,pg_total_relation_size('cartcheck.trip_items') AS items_total_bytes",
+      "rows": [
+        {
+          "trips_total_bytes": "114688",
+          "items_total_bytes": "81920"
+        }
+      ]
+    }
+  ],
+  "checksums": [
+    {
+      "filename": "001_initial.sql",
+      "checkedInSha256": "901f874a804d02252f3ad7f20ffa9c63dc78a3b3fd8465358f4cffc45c25b3f8",
+      "checkoutSha256": "901f874a804d02252f3ad7f20ffa9c63dc78a3b3fd8465358f4cffc45c25b3f8",
+      "productionSha256": "901f874a804d02252f3ad7f20ffa9c63dc78a3b3fd8465358f4cffc45c25b3f8",
+      "matches": true
+    },
+    {
+      "filename": "002_nullable_historical_product.sql",
+      "checkedInSha256": "11aac60e9020e79ba8d1aaef404ccb3a7cb8a4e5f3bea2284faad3b965024927",
+      "checkoutSha256": "11aac60e9020e79ba8d1aaef404ccb3a7cb8a4e5f3bea2284faad3b965024927",
+      "productionSha256": "11aac60e9020e79ba8d1aaef404ccb3a7cb8a4e5f3bea2284faad3b965024927",
+      "matches": true
+    },
+    {
+      "filename": "003_account_enhancements.sql",
+      "checkedInSha256": "ea6d7d140dc07fa1011572f3147815245ede1bbca43bf6910d581a063fbdc649",
+      "checkoutSha256": "ea6d7d140dc07fa1011572f3147815245ede1bbca43bf6910d581a063fbdc649",
+      "productionSha256": "ea6d7d140dc07fa1011572f3147815245ede1bbca43bf6910d581a063fbdc649",
+      "matches": true
+    }
+  ],
+  "readOnly": "on",
+  "tls": true,
+  "endedWithRollback": true,
+  "localReview": "Reviewed legacy trip/item columns, index and validated constraints against migrations 001–003; no inspected drift. Read-only on and rollback confirmed."
+}

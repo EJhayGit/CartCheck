@@ -10,10 +10,11 @@ import * as authRepo from './authRepo.js'
 import * as catalogRepo from './catalogRepo.js'
 import * as cartRepo from './cartRepo.js'
 import * as tripRepo from './tripRepo.js'
+import * as listRepo from './listRepo.js'
+import { parseListId, validateListChanges, validateListCreate, validateListQuery } from './listValidation.js'
 import { CATALOG_CATEGORIES, parseCatalogId, validateCatalogInput, validateCatalogQuery } from './catalogValidation.js'
 import {
   parseItemId,
-  validateCartChanges,
   validateCurrencyChanges,
   validateItemChanges,
 } from './cartValidation.js'
@@ -331,22 +332,59 @@ app.delete('/api/catalog/:id', checkRequestOrigin, authenticate, async (request,
   }
 })
 
-app.get('/api/cart', authenticate, async (request, response, next) => {
-  try { response.json(await cartRepo.getCart(pool, request.user.id)) }
+app.get('/api/lists', authenticate, async (request, response, next) => {
+  const query = validateListQuery(request.query)
+  if (query.error) return response.status(400).json({ error: query.error })
+  try { response.json(await listRepo.listActiveLists(pool, request.user.id, query)) }
   catch (error) { next(error) }
 })
 
-app.patch('/api/cart', checkRequestOrigin, authenticate, async (request, response, next) => {
-  const changes = validateCartChanges(request.body)
-  if (changes.error) return response.status(400).json({ error: changes.error })
+app.post('/api/lists', checkRequestOrigin, authenticate, async (request, response, next) => {
+  const input = validateListCreate(request.body)
+  if (input.error) return response.status(400).json({ error: input.error })
   try {
-    const cart = await cartRepo.updateActiveBudget(pool, request.user.id, changes.budget)
-    if (!cart) return response.status(404).json({ error: 'Active trip not found' })
-    response.json({ budget: cart.budget, currency: cart.currency })
+    const list = await listRepo.createList(pool, request.user.id, input)
+    if (!list) return response.status(404).json({ error: 'Account not found' })
+    response.status(201).json(list)
   } catch (error) { next(error) }
 })
 
-app.post('/api/cart/items', checkRequestOrigin, authenticate, async (request, response, next) => {
+app.get('/api/lists/:id', authenticate, async (request, response, next) => {
+  const id = parseListId(request.params.id)
+  if (id === null) return response.status(400).json({ error: 'Invalid list ID' })
+  try {
+    const list = await listRepo.getActiveList(pool, request.user.id, id)
+    if (list) return response.json(list)
+    const completedTrip = await tripRepo.getTrip(pool, request.user.id, id)
+    if (!completedTrip) return response.status(404).json({ error: 'List not found' })
+    response.json({ completedTrip })
+  } catch (error) { next(error) }
+})
+
+app.patch('/api/lists/:id', checkRequestOrigin, authenticate, async (request, response, next) => {
+  const id = parseListId(request.params.id)
+  if (id === null) return response.status(400).json({ error: 'Invalid list ID' })
+  const changes = validateListChanges(request.body)
+  if (changes.error) return response.status(400).json({ error: changes.error })
+  try {
+    const list = await listRepo.updateList(pool, request.user.id, id, changes)
+    if (!list) return response.status(404).json({ error: 'List not found' })
+    response.json(list)
+  } catch (error) { next(error) }
+})
+
+app.delete('/api/lists/:id', checkRequestOrigin, authenticate, async (request, response, next) => {
+  const id = parseListId(request.params.id)
+  if (id === null) return response.status(400).json({ error: 'Invalid list ID' })
+  try {
+    if (!await listRepo.deleteList(pool, request.user.id, id)) return response.status(404).json({ error: 'List not found' })
+    response.status(204).end()
+  } catch (error) { next(error) }
+})
+
+app.post('/api/lists/:id/items', checkRequestOrigin, authenticate, async (request, response, next) => {
+  const listId = parseListId(request.params.id)
+  if (listId === null) return response.status(400).json({ error: 'Invalid list ID' })
   const body = request.body
   if (!body || typeof body !== 'object' || Array.isArray(body) ||
       Object.keys(body).length !== 1 || !Object.hasOwn(body, 'productId')) {
@@ -358,34 +396,43 @@ app.post('/api/cart/items', checkRequestOrigin, authenticate, async (request, re
   const productId = parseCatalogId(String(body.productId))
   if (productId === null) return response.status(400).json({ error: 'Invalid catalog product ID' })
   try {
-    const result = await cartRepo.addCatalogItem(pool, request.user.id, productId)
-    if (!result) return response.status(404).json({ error: 'Catalog item not found' })
+    const result = await listRepo.addCatalogItem(pool, request.user.id, listId, productId)
+    if (!result) return response.status(404).json({ error: 'List or catalog item not found' })
     response.status(result.created ? 201 : 200).json(result)
   } catch (error) { next(error) }
 })
 
-app.patch('/api/cart/items/:id', checkRequestOrigin, authenticate, async (request, response, next) => {
-  const id = parseItemId(request.params.id)
+app.patch('/api/lists/:id/items/:itemId', checkRequestOrigin, authenticate, async (request, response, next) => {
+  const listId = parseListId(request.params.id)
+  if (listId === null) return response.status(400).json({ error: 'Invalid list ID' })
+  const id = parseItemId(request.params.itemId)
   if (id === null) return response.status(400).json({ error: 'Invalid list item ID' })
   const changes = validateItemChanges(request.body)
   if (changes.error) return response.status(400).json({ error: changes.error })
   try {
-    const item = await cartRepo.updateItem(pool, request.user.id, id, changes)
-    if (!item) return response.status(404).json({ error: 'List item not found' })
-    response.json({ item })
+    const result = await listRepo.updateListItem(pool, request.user.id, listId, id, changes)
+    if (!result) return response.status(404).json({ error: 'List item not found' })
+    response.json(result)
   } catch (error) { next(error) }
 })
 
-app.delete('/api/cart/items/:id', checkRequestOrigin, authenticate, async (request, response, next) => {
-  const id = parseItemId(request.params.id)
+app.delete('/api/lists/:id/items/:itemId', checkRequestOrigin, authenticate, async (request, response, next) => {
+  const listId = parseListId(request.params.id)
+  if (listId === null) return response.status(400).json({ error: 'Invalid list ID' })
+  const id = parseItemId(request.params.itemId)
   if (id === null) return response.status(400).json({ error: 'Invalid list item ID' })
   try {
-    if (!await cartRepo.deleteItem(pool, request.user.id, id)) {
+    const result = await listRepo.deleteListItem(pool, request.user.id, listId, id)
+    if (!result) {
       return response.status(404).json({ error: 'List item not found' })
     }
-    response.status(204).end()
+    response.json(result)
   } catch (error) { next(error) }
 })
+
+const retiredCart = (_request, response) => response.status(410).json({ error: 'This cart endpoint is retired; use an explicit list ID' })
+app.all('/api/cart', retiredCart)
+app.all('/api/cart/*', retiredCart)
 
 app.post('/api/trips/:id/finish', checkRequestOrigin, authenticate, async (request, response, next) => {
   const id = parseTripId(request.params.id)

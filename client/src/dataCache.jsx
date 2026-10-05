@@ -1,11 +1,14 @@
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, useCallback } from 'react'
-import { createDataCache, mergeHistoryPage } from './dataCache.js'
-import { getCart, getCatalog, getTrips } from './api/httpApi.js'
+import { createDataCache, listSummary, mergeHistoryPage } from './dataCache.js'
+import { getCatalog, getLists, getTrips } from './api/httpApi.js'
 
 const DataContext = createContext(null)
-export const fetchCart = (signal) => getCart({ signal })
 const fetchCatalog = (signal) => getCatalog({ signal })
 const fetchHistory = (signal) => getTrips(null, { signal })
+export const fetchLists = async (signal) => {
+  const page = await getLists(null, { signal })
+  return { ...page, items: page.items.map(listSummary) }
+}
 
 export function DataCacheProvider({ children, cache: providedCache }) {
   const [localCache] = useState(createDataCache)
@@ -14,14 +17,15 @@ export function DataCacheProvider({ children, cache: providedCache }) {
   useEffect(() => {
     const version = ++lifecycle.current
     // Independent reads start together; the primary screen never waits for the others.
-    for (const [key, fetcher] of [['cart', fetchCart], ['catalog', fetchCatalog], ['trips', fetchHistory]]) cache.load(key, fetcher).catch(() => {})
+    for (const [key, fetcher] of [['lists', fetchLists], ['catalog', fetchCatalog], ['trips', fetchHistory]]) cache.load(key, fetcher).catch(() => {})
     function revalidate() {
       if (document.visibilityState === 'hidden') return
-      cache.load('cart', fetchCart).catch(() => {})
+      cache.load('lists', fetchLists).catch(() => {})
       cache.load('trips', (signal) => getTrips(null, { signal }).then((first) => {
         const previous = cache.get('trips').data
         return mergeHistoryPage(previous, first)
       })).catch(() => {})
+      cache.revalidateSubscribedDetails()
     }
     window.addEventListener('focus', revalidate)
     window.addEventListener('online', revalidate)

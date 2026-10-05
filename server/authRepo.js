@@ -18,11 +18,6 @@ export async function createAccount(pool, { email, passwordHash, sessionHash, ex
       [user.id]
     )
     await client.query(
-      `INSERT INTO cartcheck.shopping_trips (user_id, status, currency)
-       VALUES ($1, 'active', $2)`,
-      [user.id, user.preferred_currency]
-    )
-    await client.query(
       `INSERT INTO cartcheck.sessions (user_id, token_hash, expires_at)
        VALUES ($1, $2, $3)`,
       [user.id, sessionHash, expiresAt]

@@ -1,6 +1,7 @@
-import { useMemo, useRef, useState } from 'react'
-import { createCatalogItem, deleteCatalogItem, getCatalog, updateCatalogItem } from './api/httpApi.js'
-import { useDataCache, useDataQuery } from './dataCache.jsx'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createCatalogItem, deleteCatalogItem, getCatalog, getLists, updateCatalogItem } from './api/httpApi.js'
+import { fetchLists, useDataCache, useDataQuery } from './dataCache.jsx'
+import { listSummary } from './dataCache.js'
 
 const CATEGORIES = ['Produce', 'Dairy & eggs', 'Meat & seafood', 'Bakery', 'Pantry', 'Frozen', 'Snacks', 'Beverages', 'Household', 'Other']
 const CATEGORY_LABELS = { 'Dairy & eggs': 'Dairy', 'Meat & seafood': 'Meat & seafood' }
@@ -9,9 +10,10 @@ const sortItems = (items) => [...items].sort((a, b) =>
   a.name.toLocaleLowerCase().localeCompare(b.name.toLocaleLowerCase()) || Number(a.id) - Number(b.id))
 const catalogItems = (data) => Array.isArray(data) ? data : data?.items || []
 
-export default function Catalog({ onAdd, onAddPending, active = true }) {
+export default function Catalog({ onAdd, onAddPending, active = true, destinationId = null, onManageLists }) {
   const cache = useDataCache()
   const catalogQuery = useDataQuery('catalog', (signal) => getCatalog({ signal }), { staleTime: Infinity, enabled: active })
+  const listsQuery = useDataQuery('lists', fetchLists, { enabled: active })
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('')
   const [notice, setNotice] = useState('')
@@ -20,9 +22,51 @@ export default function Catalog({ onAdd, onAddPending, active = true }) {
   const [formError, setFormError] = useState('')
   const [busy, setBusy] = useState(false)
   const [addingId, setAddingId] = useState(null)
+  const [selectedDestination, setSelectedDestination] = useState(destinationId || '')
   const [operationError, setOperationError] = useState('')
+  const [pageBusy, setPageBusy] = useState(false)
+  const [pageError, setPageError] = useState('')
   const mutationBusyRef = useRef(false)
   const addBusyRef = useRef(false)
+  const pageBusyRef = useRef(false)
+  const pageSessionRef = useRef(0)
+  const mountedRef = useRef(false)
+  useEffect(() => {
+    mountedRef.current = true
+    const session = ++pageSessionRef.current
+    return () => {
+      mountedRef.current = false
+      if (pageSessionRef.current === session) pageSessionRef.current += 1
+    }
+  }, [])
+  useEffect(() => { if (destinationId) setSelectedDestination(String(destinationId)) }, [destinationId])
+
+  async function loadMoreLists() {
+    const cursor = listsQuery.data?.nextCursor
+    if (!cursor || pageBusyRef.current) return
+    pageBusyRef.current = true
+    const session = pageSessionRef.current
+    setPageBusy(true)
+    setPageError('')
+    try {
+      const result = await getLists(cursor)
+      if (!mountedRef.current || pageSessionRef.current !== session || !cache.alive) return
+      if (cache.get('lists').data?.nextCursor !== cursor) return
+      const normalized = result.items.map(listSummary)
+      cache.set('lists', (current) => current && ({
+        ...current,
+        items: [...current.items, ...normalized.filter((entry) => !current.items.some((known) => String(known.id) === String(entry.id)))],
+        nextCursor: result.nextCursor,
+      }))
+    } catch (caught) {
+      if (mountedRef.current && pageSessionRef.current === session && cache.alive && cache.get('lists').data?.nextCursor === cursor) {
+        setPageError(caught.message || 'Could not load more lists.')
+      }
+    } finally {
+      if (mountedRef.current && pageSessionRef.current === session) setPageBusy(false)
+      pageBusyRef.current = false
+    }
+  }
 
   const items = catalogItems(catalogQuery.data)
   // Normalize once per collection; keystrokes filter locally and never issue search requests.
@@ -145,7 +189,8 @@ export default function Catalog({ onAdd, onAddPending, active = true }) {
     setAddingId(item.id)
     onAddPending(true)
     try {
-      const result = await onAdd(item.id)
+      if (!selectedDestination) { setOperationError('Choose a list before adding this item.'); return }
+      const result = await onAdd(item.id, selectedDestination)
       if (result?.created) setNotice(`${item.name} added to your shopping list.`)
     } catch (caught) {
       setOperationError(`We could not add ${item.name} to your shopping list. ${caught.message}`)
@@ -167,12 +212,13 @@ export default function Catalog({ onAdd, onAddPending, active = true }) {
       <div className="catalog-heading"><div><p className="catalog-eyebrow">REUSABLE ITEMS</p><h1>Grocery catalog</h1><p className="catalog-subtitle">Find a familiar item or register a custom grocery.</p></div><button className="catalog-button primary" type="button" onClick={openCreate}>＋ Register custom item</button></div>
       <section className="catalog-panel catalog-tools" aria-label="Search and filter catalog"><label htmlFor="catalog-search">Search catalog</label><input id="catalog-search" type="search" placeholder="Try milk, rice, or soap" value={search} onChange={(event) => setSearch(event.target.value)} maxLength={100} /><div className="catalog-filters" aria-label="Filter by category"><button type="button" className={!category ? 'selected' : ''} aria-pressed={!category} onClick={() => setCategory('')}>All items</button>{CATEGORIES.map((value) => <button key={value} type="button" className={category === value ? 'selected' : ''} aria-pressed={category === value} onClick={() => setCategory(value)}>{CATEGORY_LABELS[value] || value}</button>)}</div></section>
       <div className="catalog-section-heading"><div><h2>Common items</h2><p>No prices are shown for catalog items.</p></div><div><button type="button" className="catalog-button secondary" onClick={catalogQuery.refresh} disabled={catalogQuery.fetching}>Refresh</button> <button type="button" className="catalog-button secondary" onClick={openCreate}>Register custom item</button></div></div>
+      {destinationId ? <p className="catalog-notice catalog-destination" role="status">Adding to <strong>{listsQuery.data?.items?.find((list) => String(list.tripId ?? list.id) === String(destinationId))?.name || 'selected list'}</strong></p> : <section className="catalog-panel catalog-tools catalog-destination-select"><label htmlFor="catalog-destination">Add items to</label>{listsQuery.data?.items?.length ? <><select id="catalog-destination" value={selectedDestination} onChange={(event) => setSelectedDestination(event.target.value)}><option value="">Choose a list</option>{listsQuery.data.items.map((list) => <option key={list.tripId ?? list.id} value={list.tripId ?? list.id}>{list.name}</option>)}</select>{listsQuery.data?.nextCursor && <button className="catalog-button secondary" type="button" onClick={loadMoreLists} disabled={pageBusy}>{pageBusy ? 'Loading…' : 'Load more lists'}</button>}</> : <><p className="optional-help">Create a list before adding groceries.</p><button className="catalog-button secondary" type="button" onClick={onManageLists}>Go to My Lists</button></>}{pageError && <p className="alert" role="alert">{pageError}</p>}</section>}
       {notice && <p className="catalog-notice" role="status">{notice}</p>}
       {operationError && <p className="alert" role="alert">{operationError}</p>}
       {queryError && <div className="catalog-state" role="alert"><p>{queryError}</p><button className="catalog-button secondary" type="button" onClick={catalogQuery.refresh}>Try again</button></div>}
       {catalogQuery.loading && <div className="catalog-state" role="status"><p>Loading your catalog…</p></div>}
       {catalogQuery.fetching && !catalogQuery.loading && <p className="optional-help" role="status">Refreshing catalog…</p>}
-      {!catalogQuery.loading && (visibleItems.length ? <div className="catalog-grid">{visibleItems.map((item) => <article className="catalog-item" key={item.id}><span className="catalog-icon" aria-hidden="true">{item.category.slice(0, 2).toUpperCase()}</span><span className="catalog-info"><strong>{item.name}</strong><small>{CATEGORY_LABELS[item.category] || item.category}{item.source === 'custom' ? ' · custom' : ''}</small></span><span className="catalog-actions"><button className="catalog-small-button" type="button" onClick={() => openEdit(item)} disabled={busy}>{item.source === 'starter' ? 'Customize' : 'Edit'}</button>{item.source === 'custom' && <><button className="catalog-small-button" type="button" onClick={() => remove(item)} disabled={busy}>Delete</button></>}<button className="catalog-small-button" type="button" onClick={() => add(item)} disabled={addingId !== null || busy}>{addingId === item.id ? 'Adding…' : 'Add to list'}</button></span></article>)}</div> : !catalogQuery.error && <div className="catalog-state"><h2>{search.trim() ? `No matches for “${search.trim()}”` : 'No catalog items in this category'}</h2><p>Try another search, choose a category, or register a custom grocery.</p><button className="catalog-button secondary" type="button" onClick={openCreate}>Register a custom item</button></div>)}
+      {!catalogQuery.loading && (visibleItems.length ? <div className="catalog-grid">{visibleItems.map((item) => <article className="catalog-item" key={item.id}><span className="catalog-icon" aria-hidden="true">{item.category.slice(0, 2).toUpperCase()}</span><span className="catalog-info"><strong>{item.name}</strong><small>{CATEGORY_LABELS[item.category] || item.category}{item.source === 'custom' ? ' · custom' : ''}</small></span><span className="catalog-actions"><button className="catalog-small-button" type="button" onClick={() => openEdit(item)} disabled={busy}>{item.source === 'starter' ? 'Customize' : 'Edit'}</button>{item.source === 'custom' && <><button className="catalog-small-button" type="button" onClick={() => remove(item)} disabled={busy}>Delete</button></>}<button className="catalog-small-button" type="button" onClick={() => add(item)} disabled={addingId !== null || busy || (!destinationId && !selectedDestination)}>{addingId === item.id ? 'Adding…' : 'Add to list'}</button></span></article>)}</div> : !catalogQuery.error && <div className="catalog-state"><h2>{search.trim() ? `No matches for “${search.trim()}”` : 'No catalog items in this category'}</h2><p>Try another search, choose a category, or register a custom grocery.</p><button className="catalog-button secondary" type="button" onClick={openCreate}>Register a custom item</button></div>)}
     </>}
   </main>
 }

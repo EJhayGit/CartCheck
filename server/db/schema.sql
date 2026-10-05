@@ -68,9 +68,15 @@ CREATE TABLE IF NOT EXISTS cartcheck.shopping_trips (
   currency     TEXT NOT NULL CHECK (currency IN ('PHP', 'USD', 'EUR')),
   budget       NUMERIC(12, 2) CHECK (budget IS NULL OR budget >= 0),
   revision     INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
+  name         TEXT NOT NULL,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   completed_at TIMESTAMPTZ,
   CONSTRAINT shopping_trips_id_user_unique UNIQUE (id, user_id),
+  CONSTRAINT shopping_trips_name_valid CHECK (
+    char_length(name) BETWEEN 1 AND 100 AND
+    name = btrim(name, U&'\0009\000A\000B\000C\000D\0020\00A0\1680\2000\2001\2002\2003\2004\2005\2006\2007\2008\2009\200A\2028\2029\202F\205F\3000\FEFF')
+  ),
   CONSTRAINT shopping_trips_completion_matches_status CHECK (
     (status = 'active' AND completed_at IS NULL) OR
     (status = 'completed' AND completed_at IS NOT NULL)
@@ -114,7 +120,7 @@ CREATE INDEX IF NOT EXISTS products_user_category_idx
   ON cartcheck.products (user_id, category);
 CREATE INDEX IF NOT EXISTS shopping_trips_user_completed_idx
   ON cartcheck.shopping_trips (user_id, completed_at DESC);
-CREATE UNIQUE INDEX IF NOT EXISTS shopping_trips_one_active_per_user_idx
-  ON cartcheck.shopping_trips (user_id) WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS shopping_trips_active_updated_idx
+  ON cartcheck.shopping_trips (user_id, updated_at DESC, id DESC) WHERE status = 'active';
 CREATE INDEX IF NOT EXISTS trip_items_trip_id_idx
   ON cartcheck.trip_items (trip_id);

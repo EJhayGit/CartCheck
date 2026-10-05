@@ -30,7 +30,8 @@ async function tripSummary(queryable, userId, tripId) {
 }
 
 async function detail(queryable, userId, row) {
-  return { id: String(row.id), completedAt: row.completed_at, currency: row.currency,
+  return { id: String(row.id), name: row.name, status: row.status, completedAt: row.completed_at,
+    createdAt: row.created_at, updatedAt: row.updated_at, budget: row.budget, currency: row.currency,
     revision: row.revision, items: await tripItems(queryable, userId, row.id),
     summary: await tripSummary(queryable, userId, row.id) }
 }
@@ -40,54 +41,38 @@ export async function finishTrip(pool, userId, tripId, revision) {
   try {
     await client.query('BEGIN')
     const locked = await client.query(
-      `SELECT id, status, currency, revision, completed_at FROM cartcheck.shopping_trips
+      `SELECT id, name, status, currency, budget, revision, created_at, updated_at, completed_at FROM cartcheck.shopping_trips
        WHERE id = $1 AND user_id = $2 FOR UPDATE`, [tripId, userId]
     )
     const trip = locked.rows[0]
     if (!trip) { await client.query('ROLLBACK'); return { error: 'not_found' } }
     if (trip.status === 'completed') {
       const completedTrip = await detail(client, userId, trip)
-      const activeTrip = await ensureActive(client, userId)
       await client.query('COMMIT')
-      return { completedTrip, activeTrip }
+      return { completedTrip }
     }
     if (trip.revision !== revision) { await client.query('ROLLBACK'); return { error: 'stale' } }
     const count = await client.query('SELECT count(*)::int AS count FROM cartcheck.trip_items WHERE user_id = $1 AND trip_id = $2', [userId, tripId])
     if (!count.rows[0].count) { await client.query('ROLLBACK'); return { error: 'empty' } }
     const completed = await client.query(
-      `UPDATE cartcheck.shopping_trips SET status = 'completed', completed_at = now(), revision = revision + 1
+      `UPDATE cartcheck.shopping_trips SET status = 'completed', completed_at = now(), updated_at = now(), revision = revision + 1
        WHERE id = $1 AND user_id = $2 AND status = 'active'
-       RETURNING id, status, currency, revision, completed_at`, [tripId, userId]
+       RETURNING id, name, status, currency, budget, revision, created_at, updated_at, completed_at`, [tripId, userId]
     )
     await client.query('UPDATE cartcheck.trip_items SET product_id = NULL WHERE user_id = $1 AND trip_id = $2', [userId, tripId])
-    const activeTrip = await ensureActive(client, userId)
     const completedTrip = await detail(client, userId, completed.rows[0])
     await client.query('COMMIT')
-    return { completedTrip, activeTrip }
+    return { completedTrip }
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {})
     throw error
   } finally { client.release() }
 }
 
-async function ensureActive(queryable, userId) {
-  await queryable.query(
-    `INSERT INTO cartcheck.shopping_trips (user_id, status, currency)
-     SELECT id, 'active', preferred_currency FROM cartcheck.users WHERE id = $1
-     ON CONFLICT (user_id) WHERE status = 'active' DO NOTHING`, [userId]
-  )
-  const result = await queryable.query(
-    `SELECT id, currency, budget, revision FROM cartcheck.shopping_trips
-     WHERE user_id = $1 AND status = 'active'`, [userId]
-  )
-  const row = result.rows[0]
-  return { tripId: String(row.id), revision: row.revision, currency: row.currency, budget: row.budget,
-    items: await tripItems(queryable, userId, row.id), summary: await tripSummary(queryable, userId, row.id) }
-}
-
 export async function listTrips(pool, userId, { limit, cursor }) {
   const result = await pool.query(
-    `SELECT t.id, t.completed_at, t.currency, t.revision,
+    `SELECT t.id, t.name, t.created_at, t.updated_at, t.completed_at, t.currency, t.budget, t.revision,
+            to_char(t.completed_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_completed_at,
             count(i.id)::int AS item_count,
             count(i.id) FILTER (WHERE i.bought)::int AS bought_count,
             count(i.id) FILTER (WHERE NOT i.bought)::int AS not_bought_count,
@@ -103,19 +88,20 @@ export async function listTrips(pool, userId, { limit, cursor }) {
   )
   const hasMore = result.rows.length > limit
   const rows = result.rows.slice(0, limit)
-  const items = rows.map((row) => ({ id: String(row.id), completedAt: row.completed_at, currency: row.currency,
+  const items = rows.map((row) => ({ id: String(row.id), name: row.name, createdAt: row.created_at,
+    updatedAt: row.updated_at, completedAt: row.completed_at, currency: row.currency, budget: row.budget,
     itemCount: row.item_count, boughtCount: row.bought_count, notBoughtCount: row.not_bought_count,
     summary: { estimatedTotal: row.estimated_total, estimatedMissingCount: row.estimated_missing_count,
       actualTotal: row.actual_total, actualMissingCount: row.actual_missing_count } }))
   const last = rows.at(-1)
   return { items, nextCursor: hasMore && last
-    ? Buffer.from(JSON.stringify({ completedAt: last.completed_at.toISOString(), id: String(last.id) })).toString('base64url')
+    ? Buffer.from(JSON.stringify({ completedAt: last.cursor_completed_at, id: String(last.id) })).toString('base64url')
     : null }
 }
 
 export async function getTrip(pool, userId, tripId) {
   const result = await pool.query(
-    `SELECT id, completed_at, currency, revision FROM cartcheck.shopping_trips
+    `SELECT id, name, status, created_at, updated_at, completed_at, currency, budget, revision FROM cartcheck.shopping_trips
      WHERE id = $1 AND user_id = $2 AND status = 'completed'`, [tripId, userId]
   )
   return result.rows[0] ? detail(pool, userId, result.rows[0]) : null
@@ -126,7 +112,7 @@ export async function correctTrip(pool, userId, tripId, revision, items) {
   try {
     await client.query('BEGIN')
     const found = await client.query(
-      `SELECT id, status, currency, revision, completed_at FROM cartcheck.shopping_trips
+      `SELECT id, name, status, created_at, updated_at, completed_at, currency, budget, revision FROM cartcheck.shopping_trips
        WHERE id = $1 AND user_id = $2 FOR UPDATE`, [tripId, userId]
     )
     const trip = found.rows[0]
@@ -165,9 +151,9 @@ export async function correctTrip(pool, userId, tripId, revision, items) {
       }
     }
     const updated = await client.query(
-      `UPDATE cartcheck.shopping_trips SET revision = revision + 1
+      `UPDATE cartcheck.shopping_trips SET revision = revision + 1, updated_at = now()
        WHERE id = $1 AND user_id = $2 AND status = 'completed'
-       RETURNING id, status, currency, revision, completed_at`, [tripId, userId]
+       RETURNING id, name, status, created_at, updated_at, completed_at, currency, budget, revision`, [tripId, userId]
     )
     const correctedTrip = await detail(client, userId, updated.rows[0])
     await client.query('COMMIT')

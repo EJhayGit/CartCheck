@@ -136,7 +136,7 @@ test('account lifecycle, session security, and initial private data isolation', 
          (SELECT count(*)::int FROM cartcheck.shopping_trips WHERE user_id = $1) AS trips`,
       [storedA.rows[0].id]
     )
-    assert.equal(ownedState.rows[0].trips, 1, 'registration should create one private active trip')
+    assert.equal(ownedState.rows[0].trips, 0, 'registration must not create a hidden shopping list')
 
     const badLogin = await jsonRequest(baseUrl, '/api/auth/login', {
       method: 'POST', body: { email: emailA, password: `${passwordA}wrong` },
@@ -184,8 +184,7 @@ test('account lifecycle, session security, and initial private data isolation', 
        GROUP BY user_id ORDER BY user_id`,
       [[storedA.rows[0].id, storedB.rows[0].id]]
     )
-    assert.equal(accountRows.rowCount, 2, 'initial trip rows should remain scoped to their respective owners')
-    assert.ok(accountRows.rows.every((row) => row.trip_count === 1))
+    assert.equal(accountRows.rowCount, 0, 'accounts create shopping lists only through the explicit create flow')
 
     const aState = await client.query(
       `SELECT user_id FROM cartcheck.products WHERE user_id = $1`, [storedA.rows[0].id]

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createDataCache, cacheCompletedTrip, mergeHistoryPage } from './dataCache.js'
+import { createDataCache, cacheCompletedTrip, listSummary, mergeHistoryPage, replaceListSummary } from './dataCache.js'
 
 function deferred() {
   let resolve
@@ -129,4 +129,34 @@ test('an isolated newest overlap does not preserve a tail with missing interveni
   const previous = { items: [{ id: 'trip-126' }, ...Array.from({ length: 40 }, (_, index) => ({ id: `trip-${100 - index}` }))], nextCursor: 'cursor-after-61', hasLoadedTail: true, hasMorePages: true }
   const fresh = { items: Array.from({ length: 20 }, (_, index) => ({ id: `trip-${126 - index}` })), nextCursor: 'fresh-cursor', hasMorePages: true }
   assert.equal(mergeHistoryPage(previous, fresh), fresh)
+})
+
+test('list summaries use live item counts and totals even when stale nested counts are present', () => {
+  const summary = listSummary({ tripId: 'active', name: 'Market', itemCount: 8, boughtCount: 7, notBoughtCount: 1,
+    summary: { itemCount: 8, boughtCount: 7, notBoughtCount: 1, estimatedTotal: '999.00' },
+    items: [{ bought: true, estimatedTotal: '5.00', actualTotal: '4.00' }, { bought: false, estimatedTotal: null, actualTotal: null }] })
+  assert.equal(summary.id, 'active')
+  assert.equal(summary.itemCount, 2)
+  assert.equal(summary.boughtCount, 1)
+  assert.equal(summary.notBoughtCount, 1)
+  assert.equal(summary.summary.estimatedTotal, '5.00')
+  assert.equal(summary.summary.actualTotal, '4.00')
+  const empty = listSummary({ tripId: 'empty', itemCount: 4, boughtCount: 3, items: [] })
+  assert.equal(empty.itemCount, 0)
+  assert.equal(empty.boughtCount, 0)
+})
+
+test('a detail mutation invalidates a cold overview so its stale in-flight page cannot replace current summaries', async () => {
+  const cache = createDataCache()
+  const pending = deferred()
+  const loading = cache.load('lists', () => pending.promise)
+  await Promise.resolve()
+  replaceListSummary(cache, { tripId: 'one', name: 'One', items: [] })
+  assert.equal(cache.get('lists').fetching, false)
+  pending.resolve({ items: [{ id: 'one' }, { id: 'two' }], nextCursor: null })
+  await loading
+  assert.equal(cache.get('lists').data, undefined)
+  await cache.load('lists', () => Promise.resolve({ items: [{ id: 'one', itemCount: 2 }, { id: 'two', itemCount: 4 }], nextCursor: null }))
+  assert.deepEqual(cache.get('lists').data.items.map((list) => list.id), ['one', 'two'])
+  cache.dispose()
 })
