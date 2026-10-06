@@ -2,17 +2,11 @@
 
 CartCheck still owns authentication in Express. Supabase hosts the PostgreSQL tables; Supabase Auth and its mailer are not used. `server/emailService.js` is the delivery boundary, so a different provider can replace its implementation without changing token or session handling.
 
-## Provider choice
+## Provider and sending domain
 
-Resend is the selected transactional provider. Its [free plan](https://resend.com/pricing) currently includes 3,000 emails per month, a 100-email daily cap, and three domains. Its [Express support](https://resend.com/express) and HTTP API make integration small enough to use Node's built-in `fetch`; no email package is needed. Brevo's [free plan](https://help.brevo.com/hc/en-us/articles/208580669-FAQs-What-are-the-limits-of-the-Free-plan) allows 300 emails per day, but Resend's simple API and test addresses are a better fit for this small project. Recheck quotas before production setup.
+The Express adapter uses Resend's HTTPS API through Node's built-in `fetch`. Configure a sending API key and a verified sender domain for your installation. Use the provider's [domain setup guide](https://resend.com/docs/dashboard/domains/introduction) for the exact DNS records and check your account's current sending limits.
 
-Resend needs an account, an API key, and a sender domain you control. Add the domain in its dashboard and publish the SPF/DKIM DNS records it gives you. Its `resend.dev` testing domain cannot be used to deliver to arbitrary shoppers. Resend offers [test recipient addresses](https://resend.com/changelog/sending-test-emails) that simulate delivery, bounce, and complaint events, but those simulations are not proof that a real mailbox received a message. A real verified sender, inbox test, and delivery monitoring are needed before enforcing confirmation.
-
-## Live web domain and pending email verification
-
-The owner has purchased `merzbuilds.dev`. [CartCheck](https://cartcheck.merzbuilds.dev) is live over HTTPS; `https://merzbuilds.dev` is the intended portfolio URL. `mail.merzbuilds.dev` is the selected **Resend sending subdomain**; `no-reply@mail.merzbuilds.dev` is an example sender address until it is verified. The sending subdomain is a DNS/email identity, not a second web host. Its Spaceship DNS records were corrected on 2026-09-30; Resend reported partial verification at the last check, and the owner deferred a real inbox delivery test. Resend [recommends a sending subdomain](https://resend.com/docs/dashboard/domains/introduction) to separate its reputation from the root domain.
-
-Wherever the domain's authoritative DNS is managed (for example Spaceship, if its nameservers remain in use), publish the exact records Resend displays for the **actual sending subdomain**. These include SPF and DKIM authorization/verification records; add an appropriate DMARC record for the chosen domain or subdomain policy and verify alignment and status. Do not invent record names or values. A website `A`/`CNAME` record routes web traffic and does not authenticate email. Conversely, Resend's mail-authentication records do not connect a site to Render or Vercel. Preserve any existing portfolio or mailbox DNS records when changing nameservers. [Resend verified domains](https://resend.com/docs/dashboard/domains/introduction), [Render custom-domain DNS](https://render.com/docs/custom-domains), [Vercel domain setup](https://vercel.com/docs/domains/working-with-domains/add-a-domain).
+The CartCheck web origin is `https://cartcheck.merzbuilds.dev`; `mail.merzbuilds.dev` is the selected sending subdomain. Web routing and email authentication are separate. Publish the exact records supplied for the sending domain, verify SPF/DKIM and the applicable DMARC policy, and preserve existing website and mailbox records.
 
 ## Configuration
 
@@ -21,9 +15,9 @@ Wherever the domain's authoritative DNS is managed (for example Spaceship, if it
 3. Keep `CLIENT_ORIGIN` set to the canonical CartCheck origin, `https://cartcheck.merzbuilds.dev`, with no trailing slash, and `CORS_ORIGINS` restricted to the approved browser origin. The verification and reset links use this client origin. The Render default hostname is disabled.
 4. Keep `REQUIRE_VERIFIED_EMAIL=false` until real verification emails have been sent to, received by, and opened from a real mailbox in the deployed environment. Test resend, expiry, and password reset as well. Then set `REQUIRE_VERIFIED_EMAIL=true` deliberately. Existing accounts remain exempt; new unverified accounts are restricted when the flag is true.
 
-If `RESEND_API_KEY` or `EMAIL_FROM` is missing outside production, the development sink discards message contents and prints only the message type. It does **not** send mail or expose token links. In production, missing delivery configuration causes an email-send failure. The API retains generic responses to prevent email lookup; check private server logs and provider dashboard when diagnosing delivery. No real email delivery has been verified as part of this milestone.
+If `RESEND_API_KEY` or `EMAIL_FROM` is missing outside production, the development sink discards message contents and prints only the message type. It does **not** send mail or expose token links. In production, missing delivery configuration causes an email-send failure. The API retains generic responses to prevent email lookup; check private server logs and provider dashboard when diagnosing delivery.
 
-The new `003_account_enhancements.sql` migration preserves users and sessions. Existing users remain `email_verified=false` unless they actually follow a verification link, but have `legacy_verification_exempt=true`. New users are not exempt. Action token hashes, expiry, and email cooldowns live in separate account tables. Never reset the database to apply this migration. Use the existing migration runner only after reviewing the target and the [database setup guide](MILESTONE_1_SETUP.md).
+The `003_account_enhancements.sql` migration preserves users and sessions. Existing users remain `email_verified=false` unless they actually follow a verification link, but have `legacy_verification_exempt=true`. New users are not exempt. Action token hashes, expiry, and email cooldowns live in separate account tables. Never reset the database to apply this migration. Use the existing migration runner only after reviewing the target and the [database setup guide](MILESTONE_1_SETUP.md).
 
 ## Delivery checks before enforcement
 

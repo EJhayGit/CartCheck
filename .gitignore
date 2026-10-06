@@ -23,3 +23,9 @@ backup*.sql
 npm-debug.log*
 log.md
 server/.test-runs/
+
+# Local documentation archive and generated review evidence
+/archive/
+/docs/design/*-preview/
+/docs/design/*-review/
+/docs/assets/mockups/

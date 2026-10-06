@@ -1,6 +1,6 @@
-# Milestone 1: database foundation
+# Database setup
 
-The React/Vite client and Express API retain the course starter layout. This milestone prepares the CartCheck data model; the sightings page and routes remain starter examples until Milestone 2. The approved visual mockups in `docs/design/prototype/` and `docs/assets/mockups/` are reference assets.
+Set up CartCheck on a disposable PostgreSQL database. Review [migration compatibility](MIGRATIONS.md) before upgrading a retained database.
 
 ## Database setup
 
@@ -35,10 +35,4 @@ The backend uses `pg` and `DATABASE_URL` only on the Express server. Do not put 
 
 Hosted connections require TLS certificate verification. The server rejects URL query options, including `sslmode`, to keep that setting explicit. If Node cannot validate the certificate chain with its default trust store, download the database CA from the Supabase dashboard and set server-only `SSL_CA_FILE` to its local path. Test `GET /readyz` after configuring the URL; `GET /healthz` only confirms that Express is alive. An unavailable database returns 503 from `/readyz`.
 
-The app tables live in the non-exposed `cartcheck` schema. Do not expose it through Supabase's Data API or grant browser roles access. Express will implement authenticated, owner-scoped queries in later milestones. Review the migration before applying it to any remote or retained database. The development Supabase project may be used for this milestone's verification when its owner authorizes it; this does not authorize a production reset.
-
-## Development Supabase verification (2026-09-27)
-
-The `001_initial.sql` migration applied to the development project and a repeat run reported it already applied. Two seed runs each left 108 rows with 108 distinct starter codes. `db:verify` confirmed uniqueness, foreign keys, owner linkage, positive quantity, nonnegative item totals, independent nullable estimated/actual totals, and known `0.00` values. Its test rows were rolled back. The server used the Session pooler with TLS certificate verification; `/healthz` and `/readyz` both returned HTTP 200. No reset or destructive operation was used.
-
-The local `server/.env` and downloaded certificate are Git-ignored. A different developer or host must provide its own connection URI and certificate path. The starter sightings routes will fail against a CartCheck-only database until Milestone 2 replaces them.
+The app tables live in the non-exposed `cartcheck` schema. Do not expose it through Supabase's Data API or grant browser roles access. Express provides authenticated, owner-scoped queries. Review the migration before applying it to any remote or retained database. The development Supabase project may be used for this milestone's verification when its owner authorizes it; this does not authorize a production reset.

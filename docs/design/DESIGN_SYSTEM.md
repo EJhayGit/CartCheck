@@ -4,25 +4,18 @@ The interface can be built with React, semantic HTML, and CSS custom properties 
 
 ## Tokens
 
-The October 4, 2026 local neutral-dark proposal supersedes the forest-green dark canvas described below: canvas `#0D0F0E`, card `#161917`, input/muted surface `#1B1E1C`, elevated/hover surface `#242825`, border `#3B423E`, text `#F4F6F5`, muted text `#A8B0AC`, and primary accent `#9CD8AD`. Header, dialogs, budget cards, and mobile navigation use neutral surfaces. Mint remains a restrained selected-control accent; the official logo asset stays unchanged. Light/Dark/System behavior and approved light tokens are preserved. See `docs/SHOPPING_UX_REVIEW.md` and `docs/design/ux-review/` for the local approval review; production deployment is pending.
+The light palette and neutral dark palette use semantic CSS tokens. Appearance choices (Light/Dark/System) persist in browser storage; System follows the device preference. Keep the official wordmark assets in `client/public/`.
 
-The September 30, 2026 brand refinement adds the supplied official wordmark, header green `#0A3125`, and mint accent `#B2E7BC`. Light remains the default. Explicit Appearance choices (Light/Dark/System) persist in browser storage; System follows device preference. Current optional dark canvas is `#10271F` and surface `#19372C`, with accessible off-white text and mint actions. The implementation uses semantic CSS tokens throughout; see `docs/BRAND_REFINEMENT_REVIEW.md` for assets and validation. These approved changes supersede the older future-only dark prototype guidance below.
-
-The original `03-design-system.pdf` is authoritative for the light appearance. The static prototype always opens in this light theme, regardless of operating-system preference. A future application may offer an explicit dark theme, but it must not replace the light default.
-
-| Role | Approved light | Future optional dark | Use |
+| Role | Light | Dark | Use |
 | --- | --- | --- | --- |
-| Canvas | `#F4F7F4` | `#171B18` | Page background |
-| Surface | `#FFFFFF` | `#242A25` | Dialogs, summary blocks, fields |
-| Text / header | `#172B26` | `#F0F2EA` | Primary copy and dark navigation header in the light theme |
-| Muted text | `#42584E` | `#B5C1B3` | Secondary copy |
-| Border | `#D7E2D9` | `#465248` | Neutral dividers and fields |
-| Primary actions | `#176B45` | `#A9C9A5` | Main buttons and important actions |
-| Primary text | `#FFFFFF` | `#17251B` | Text on primary |
-| Warning | `#8B4B36` | `#E6A98D` | Budget and missing-price warnings with text label |
-| Error | `#9C3737` | `#F1A0A0` | Validation and failure with text label |
+| Canvas | `#F4F7F4` | `#0D0F0E` | Page background |
+| Surface | `#FFFFFF` | `#161917` | Cards and dialogs |
+| Text | `#172B26` | `#F4F6F5` | Primary copy |
+| Muted text | `#42584E` | `#A8B0AC` | Secondary copy |
+| Border | `#D7E2D9` | `#3B423E` | Dividers and fields |
+| Primary accent | `#176B45` | `#9CD8AD` | Actions and selected controls |
 
-The first four approved light colors are exact values from the PDF; muted and border colors are supporting neutrals. Check each real text/background pair in implementation and adjust supporting neutrals to meet WCAG AA contrast. The navigation header uses `#172B26` with white labels. The future dark column is not used automatically in the visual prototype.
+Dark input/muted surfaces use `#1B1E1C`; elevated/hover surfaces use `#242825`. Use neutral dark surfaces for headers, dialogs, summaries, and mobile navigation. Mint stays a restrained accent. Light navigation may use the approved brand header green `#0A3125` and mint `#B2E7BC`. Check each text/background pair against WCAG AA and communicate warnings and errors with text, not color alone.
 
 Use a system sans-serif stack (`system-ui`, `Segoe UI`, Arial) for easy loading. Suggested type scale: 14px helper, 16px body and controls, 20px section title, 28px page title. Use tabular numerals for money and totals. Keep body line height near 1.5. Spacing follows 4, 8, 12, 16, 24, 32px; 16px mobile gutters and 24–32px desktop gutters. Use restrained 8–12px corners, thin borders, and little or no shadow.
 
@@ -36,14 +29,14 @@ Use a system sans-serif stack (`system-ui`, `Segoe UI`, Arial) for easy loading.
 | Product row | White card with optional small image, name/category, and Add action. No brand, variant or price is required. Placeholder remains useful without image. |
 | Cart row | White card with comfortable padding, large bought checkbox, editable displayed name and quantity, category, and labeled edit/remove controls. Optional prices are secondary. Checked rows remain readable and accessible. |
 | Budget summary | Optional budget, known estimated and actual-spending subtotals, missing-price counts, and remaining/over amount where meaningful. Clearly label incomplete amounts; never combine currencies. |
-| Navigation | Same four destinations at all widths, text labels visible, current page announced via `aria-current`. Dark top header on desktop and phone landscape; labeled bottom navigation on phone portrait. |
+| Navigation | My Lists, Catalog, Trips, and Settings at all widths, text labels visible, current page announced via `aria-current`. Dark top header on desktop and phone landscape; labeled bottom navigation on phone portrait. |
 | Feedback | Inline field errors; page-level retry on load failure; polite status on save; clear empty-state next action; confirmation before Finish Trip or past-trip correction. |
 | Dialog/review | Focus moves into review, remains trapped while open, and returns to its trigger on close. Escape closes without committing. |
 
 ## Screen states
 
 - **Loading:** visible text and stable skeleton/placeholder geometry; no misleading zero totals.
-- **Empty cart:** explain the next action and link to Catalog; budget may be set but is never required.
+- **Empty lists:** offer Create list. An empty selected list links to Catalog with its destination retained; budget is optional.
 - **No catalog results:** show searched term and Register product, retaining the term.
 - **No history:** explain that finished trips appear here after Finish Trip.
 - **Error/offline:** keep entered data when possible, say what failed, and provide retry.
@@ -54,4 +47,4 @@ Use a system sans-serif stack (`system-ui`, `Segoe UI`, Arial) for easy loading.
 
 Below roughly 600px, use one column with bottom navigation and stacked cart controls. From 600–959px, use a compact dark top header and allow two columns only if each stays readable. At 960px and above, retain the dark top header with a wider list/summary arrangement. Breakpoints are layout guides, not device names; test content fit and zoom before fixing exact values.
 
-The October 4, 2026 local large-screen refinement uses a centered 1600px shell (including padding) for the header, Shopping List, and Catalog, with 24–32px fluid desktop gutters and existing 16px mobile gutters. Shopping List uses a 3:1 list/summary split above 959px with a 280px sidebar minimum. Catalog adds columns automatically with a 280px card minimum; mobile retains one column. Trips stays constrained to 1280px, Settings and item editors to 960px. Authentication keeps its existing 1240px shell and 480px form cap. The clickable logo keeps a keyboard focus outline without a hover effect. See `docs/LARGE_SCREEN_LAYOUT_REVIEW.md` for local review evidence; publication is pending owner approval.
+The large-screen layout uses a centered 1600px shell (including padding) for the header, Shopping List, and Catalog, with 24–32px fluid desktop gutters and existing 16px mobile gutters. Shopping List uses a 3:1 list/summary split above 959px with a 280px sidebar minimum. Catalog adds columns automatically with a 280px card minimum; mobile retains one column. Trips stays constrained to 1280px, Settings and item editors to 960px. Authentication keeps its existing 1240px shell and 480px form cap. The clickable logo keeps a keyboard focus outline without a hover effect.

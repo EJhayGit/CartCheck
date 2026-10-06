@@ -2,22 +2,26 @@
 
 CartCheck is a private grocery checklist for planning a shop and keeping a record of completed trips. Add groceries from a starter catalog or create your own, check items off while shopping, and finish a trip without entering prices. Estimated item totals, actual item totals, and a budget are optional.
 
-**Live app:** [cartcheck.merzbuilds.dev](https://cartcheck.merzbuilds.dev). The React client and Express API run together on Render with the existing Supabase PostgreSQL project. The public shopping flow, HTTPS, and database readiness were verified on 2026-09-30. Real email delivery remains untested, so required email verification is off. Google Sign-In was cancelled.
+**Status:** Completed application (October 6, 2026).
+
+**Live app:** [cartcheck.merzbuilds.dev](https://cartcheck.merzbuilds.dev). Built with React, Vite, Express, and PostgreSQL; the client and API share one Render service, with the database hosted by Supabase.
 
 ## What it does
 
-- Keeps one active list per account, with searchable groceries, custom items, quantities, and bought status.
-- Records bought and not-bought items as a dated trip, then starts a new empty list.
+- Provides a searchable starter catalog of 160 groceries and private custom items.
+- Keeps multiple named lists per account, with searchable groceries, custom items, quantities, and bought status.
+- Records a selected list as a named dated trip, then returns to My Lists. Other lists remain available; new lists are created explicitly.
 - Lets you review and correct past trips without changing their original finish date.
 - Tracks optional spending and budget in PHP, USD, or EUR. Missing prices stay visibly incomplete; a known free item can be entered as `0.00`.
+- Offers responsive layouts and Light, Dark, and System appearance settings.
 - Keeps shopper data behind authenticated Express routes with account ownership checks.
-- Supports email verification, password reset links, and password changes. Email confirmation remains optional until real delivery is configured and tested.
+- Supports email verification, password reset links, and password changes through configurable transactional email.
 
-The approved behavior and release criteria are in the [product requirements](docs/PRODUCT_REQUIREMENTS.md). The [design references](docs/design/README.md) and [roadmap](docs/architecture/ROADMAP.md) provide more detail.
+The [documentation index](docs/README.md) links the approved requirements, architecture, design, setup, and testing guides.
 
-## Hosting and release status
+## Architecture
 
-React and Vite provide the client. One [Render web service](https://dashboard.render.com/web/srv-dau0bv093c1s73c8k60g) serves the built client and Express `/api` from the canonical HTTPS origin, [cartcheck.merzbuilds.dev](https://cartcheck.merzbuilds.dev), with Supabase PostgreSQL behind Express. The default `cartcheck.onrender.com` hostname is disabled. `mail.merzbuilds.dev` is the selected Resend sending subdomain; DNS verification and real inbox delivery are still pending. Keep `REQUIRE_VERIFIED_EMAIL=false` until delivery and recovery links are tested. Database credentials stay on the server; browser builds must never contain them. Vercel frontend hosting was evaluated and is not in the CartCheck deployment plan. [System design and deployment review](docs/architecture/SYSTEM_DESIGN.md) records the configuration and remaining release checks. A running-app screenshot and final course evidence remain to be added.
+Express serves the Vite build and `/api` from a single HTTPS origin, with PostgreSQL behind the API. Database credentials stay on the server. Email delivery and verification policy are configured through server environment variables. See the [system design](docs/architecture/SYSTEM_DESIGN.md) and [migration guide](docs/MIGRATIONS.md) before releasing schema changes.
 
 ## Run locally
 
@@ -44,7 +48,7 @@ npm ci
 npm run dev
 ```
 
-Open `http://localhost:5173`. Vite proxies `/api` to Express on port 3000. `GET /healthz` checks the API process and `GET /readyz` checks database readiness. The React app uses the authenticated API; it does not use the old browser-only demo.
+Open `http://localhost:5173`. Vite proxies `/api` to Express on port 3000. `GET /healthz` checks the API process and `GET /readyz` checks database readiness. The React app uses the authenticated API.
 
 The [server environment example](server/.env.example) documents database, TLS, pool, CORS, and email settings. Follow the [account email setup guide](docs/ACCOUNT_EMAIL_SETUP.md) before enabling real delivery or required verification. Leave `VITE_API_BASE_URL` unset for the local proxy and approved single-origin Render service. The [client environment example](client/.env.example) documents a direct API origin only for a separately hosted development API. Never put secrets in a `VITE_` variable. Database integration tests against the approved development project require the [guarded procedure](docs/MILESTONE_7_TEST_SAFETY.md).
 
@@ -66,10 +70,9 @@ The database integration suites use a separate guarded runner and are skipped by
 | --- | --- |
 | [client](client) | React screens, styles, API client, and frontend tests |
 | [server](server) | Express routes, account-scoped PostgreSQL queries, migrations, and tests |
-| [docs](docs) | Requirements, architecture, design, and project evidence |
-| [AI-USAGE.md](AI-USAGE.md) | Record of AI assistance for this project |
+| [docs](docs) | Requirements, architecture, design, setup, and testing guides |
 
-The mockup images in [docs/assets/mockups](docs/assets/mockups) are design references, not screenshots of the running app.
+Course submissions, historical reports, prototypes, and generated review evidence are kept in a local Git-ignored `archive/`. They are not required to run or contribute to CartCheck.
 
 ## License
 

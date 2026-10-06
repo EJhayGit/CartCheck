@@ -1,19 +1,19 @@
-# Project documents
+# CartCheck documentation
 
-Everything your project is marked on that is not code. Keep it here, in the
-repository, so it is versioned alongside the thing it describes.
+CartCheck is a completed application as of October 6, 2026. These guides describe its delivered behavior and maintenance procedures.
 
-| File | What it is | When |
-| --- | --- | --- |
-| [01-proposal.md](01-proposal.md) | the revised proposal | finals, m8a1 |
-| [02-mockup.md](02-mockup.md) | what the app will look like | finals, m8a2 |
-| [03-design-system.md](03-design-system.md) | colours, type, components | finals, m8a3 |
-| [04-weekly-reports.md](04-weekly-reports.md) | a few lines a week | every week |
-| [05-demo-video.md](05-demo-video.md) | the recording, and its plan | the end |
-| [06-security-and-privacy.md](06-security-and-privacy.md) | what you checked before making this public | before your first push |
+Keep documentation here when it helps someone understand, run, maintain, or contribute to the application.
 
-Put images in `assets/`. The public site is linked from the main README; add a
-verified running-app screenshot there when one is ready for course evidence.
+| Document | Purpose |
+| --- | --- |
+| [Product requirements](PRODUCT_REQUIREMENTS.md) | Approved behavior and acceptance criteria |
+| [System design](architecture/SYSTEM_DESIGN.md) | Architecture, data model, API, and security boundaries |
+| [Design system](design/README.md) | Interface tokens, components, and responsive behavior |
+| [Database setup](MILESTONE_1_SETUP.md) | Local setup, migrations, TLS, and verification |
+| [Migration guide](MIGRATIONS.md) | Multiple-list upgrade and coordinated release constraints |
+| [Account email setup](ACCOUNT_EMAIL_SETUP.md) | Verification and password-recovery configuration |
+| [Test safety](MILESTONE_7_TEST_SAFETY.md) | Guarded integration testing and cleanup |
 
-**Write these as you go.** A weekly report written on the last day is obvious to
-read and worth very little.
+Course submissions, superseded planning documents, implementation reports, private release evidence, prototypes, and generated screenshots belong in the local Git-ignored `archive/`. Generated UI review output is also ignored at its existing tool output paths. Essential source code, tests, environment examples, and development tools remain versioned.
+
+Archiving removes files from the next committed tree; earlier copies remain in Git history. The archive is local and needs a separate backup to retain it across machines.
