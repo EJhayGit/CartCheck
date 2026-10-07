@@ -17,7 +17,7 @@ CartCheck is a private grocery checklist for planning a shop and keeping a recor
 - Keeps shopper data behind authenticated Express routes with account ownership checks.
 - Supports email verification, password reset links, and password changes through configurable transactional email.
 
-The [documentation index](docs/README.md) links the approved requirements, architecture, design, setup, and testing guides.
+The [documentation index](docs/README.md) links the approved requirements, architecture, design, setup, and testing guides. See the [security and privacy checklist](docs/SECURITY_CHECKLIST.md) for verified controls and open maintenance items.
 
 ## Architecture
 

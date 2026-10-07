@@ -13,6 +13,7 @@ Keep documentation here when it helps someone understand, run, maintain, or cont
 | [Migration guide](MIGRATIONS.md) | Multiple-list upgrade and coordinated release constraints |
 | [Account email setup](ACCOUNT_EMAIL_SETUP.md) | Verification and password-recovery configuration |
 | [Test safety](MILESTONE_7_TEST_SAFETY.md) | Guarded integration testing and cleanup |
+| [Security and privacy checklist](SECURITY_CHECKLIST.md) | Verified controls, dependency findings, and open maintenance checks |
 
 Course submissions, superseded planning documents, implementation reports, private release evidence, prototypes, and generated screenshots belong in the local Git-ignored `archive/`. Generated UI review output is also ignored at its existing tool output paths. Essential source code, tests, environment examples, and development tools remain versioned.
 
