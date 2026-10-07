@@ -71,6 +71,7 @@ The database integration suites use a separate guarded runner and are skipped by
 | [client](client) | React screens, styles, API client, and frontend tests |
 | [server](server) | Express routes, account-scoped PostgreSQL queries, migrations, and tests |
 | [docs](docs) | Requirements, architecture, design, setup, and testing guides |
+| [AI-USAGE.md](AI-USAGE.md) | Disclosure of AI contributions, decisions, and verification |
 
 Course submissions, historical reports, prototypes, and generated review evidence are kept in a local Git-ignored `archive/`. They are not required to run or contribute to CartCheck.
 
