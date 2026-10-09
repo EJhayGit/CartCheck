@@ -1,5 +1,9 @@
 # CartCheck
 
+[![Made with AI assistance](https://img.shields.io/badge/Made_with-AI_assistance-blue)](AI-USAGE.md)
+
+Developed with substantial OpenAI Codex assistance across planning, implementation, tests, and documentation; the project owner wrote the shopping-list sorting function and dropdown integration. See [AI usage and authorship](AI-USAGE.md).
+
 CartCheck is a private grocery checklist for planning a shop and keeping a record of completed trips. Add groceries from a starter catalog or create your own, check items off while shopping, and finish a trip without entering prices. Estimated item totals, actual item totals, and a budget are optional.
 
 **Status:** Completed application (October 6, 2026).
@@ -80,5 +84,3 @@ Course submissions, historical reports, prototypes, and generated review evidenc
 ## License
 
 [MIT](LICENSE).
-
-[![Made with Codex](https://img.shields.io/badge/Made%20with-Codex-111827)](https://openai.com/codex/)

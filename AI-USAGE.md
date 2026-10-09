@@ -1,10 +1,12 @@
 # AI usage in CartCheck
 
-**Completed record:** October 7, 2026. The project owner confirmed the application complete on October 6, 2026.
+**Record updated:** October 9, 2026. The project owner confirmed the application complete on October 6, 2026; sorting authorship was clarified on October 9.
 
 CartCheck was developed with Codex assistance across planning, UI design, implementation, testing, review, and documentation. This record summarizes work evidenced by the local development log and the linked public commits. It describes requests and outcomes rather than claiming to reproduce exact prompts. The log is local and is not published because it also records development environment and test details.
 
-## Dated work
+## 1. How I used AI
+
+The tool used for each entry below was OpenAI Codex. The requests, returned work, and decisions to keep or change it are summarized from available records.
 
 ### 2026-09-23 — Product and interface design
 
@@ -58,7 +60,7 @@ CartCheck was developed with Codex assistance across planning, UI design, implem
 
 - **Request and contribution:** Codex helped configure the single Render web service, connect the existing Supabase database with verified TLS, check the public shopping flow, and document the canonical website in this repository and GitHub deployment metadata.
 - **Decisions and checks:** HTTPS, `/healthz`, `/readyz`, session and shopping actions, history, logout, and foreign-Origin rejection passed public smoke checks. The owner chose to keep the temporary smoke account. Resend DNS was corrected, but sender verification remained partial at the last check and the owner deferred real inbox delivery testing. At that checkpoint, required email verification was off; this entry does not establish current provider configuration.
-- **Evidence:** [Live CartCheck site](https://cartcheck.merzbuilds.dev), [deployment architecture](docs/architecture/SYSTEM_DESIGN.md).
+- **Evidence:** [Deployment documentation commit](https://github.com/EJhayGit/CartCheck/commit/cf17655), [live CartCheck site](https://cartcheck.merzbuilds.dev), [deployment architecture](docs/architecture/SYSTEM_DESIGN.md).
 
 ### 2026-09-29–30 — Account recovery and authentication interface
 
@@ -74,7 +76,7 @@ CartCheck was developed with Codex assistance across planning, UI design, implem
 
 ### 2026-10-04 — Responsive layout, caching, and shopping refinements
 
-- **Request and contribution:** Codex helped refine wide-screen layouts, add an account-session cache with request deduplication and stale-response protection, improve instant navigation/search, expand the seed catalog from 108 to 160 groceries, and improve sorting, budget meters, purchase toggles, and neutral dark surfaces.
+- **Request and contribution:** Codex helped refine wide-screen layouts, add an account-session cache with request deduplication and stale-response protection, improve instant navigation/search, expand the seed catalog from 108 to 160 groceries, and improve budget meters, purchase toggles, and neutral dark surfaces. The project owner identifies the shopping-list sorting function and Sort dropdown integration in this release as their own code; those parts are credited separately in section 3.
 - **Decisions and checks:** The existing React/API architecture was retained. Safe mutations update immediately and reconcile with the server or roll back on failure. Recorded checks included client/server tests, production builds, responsive screenshots, delayed/offline/error scenarios, and targeted security review. The additive catalog backfill was prepared separately; the application deployment did not itself run a production seed or backfill. Security review was not a comprehensive penetration test.
 - **Evidence:** [Responsive layout and cache](https://github.com/EJhayGit/CartCheck/commit/d2715a2), [shopping refinements and catalog definitions](https://github.com/EJhayGit/CartCheck/commit/9fc705c), [header refinement](https://github.com/EJhayGit/CartCheck/commit/4107f8b).
 
@@ -90,7 +92,7 @@ CartCheck was developed with Codex assistance across planning, UI design, implem
 - **Decisions and checks:** The logged production walkthrough confirmed that finishing the selected list preserved the other list and created no replacement. Cross-account resource requests returned 404; protected existing trip/item fingerprints remained unchanged. Process and database-readiness endpoints returned 200. These were scoped checks using approved test accounts, not exhaustive testing. The owner confirmed completion and requested publication of current documentation; old reports, prototypes, and screenshots were preserved in an ignored local archive.
 - **Evidence:** [Completed-app documentation and cleanup](https://github.com/EJhayGit/CartCheck/commit/023e532), [system design](docs/architecture/SYSTEM_DESIGN.md). Detailed production evidence stays local to avoid publishing account and environment details.
 
-## Corrections worth recording
+## 2. Where the AI got it wrong
 
 ### October 9, 2026 — Local security and release preparation
 
@@ -100,21 +102,44 @@ The local catalog runner was corrected after review found that its first version
 
 **Approved release evidence:** The owner subsequently authorized push/deployment and the separate catalog operation. [Commit 0db7eb7](https://github.com/EJhayGit/CartCheck/commit/0db7eb7964132316d626537fa4c56ed7a367dc27) passed [GitHub Actions](https://github.com/EJhayGit/CartCheck/actions/runs/37930369657) and was verified live on Render with health/readiness checks. A fresh approved private application export restored successfully in isolation before the guarded additive production seed/backfill. Final validation confirmed 160 shared starters, missing account copies supplied, no duplicates, and existing customizations/list/history rows preserved. No migrations, grants, verification policy or auto-deploy setting were changed. Detailed private evidence remains local; real email delivery and complete provider-level recovery are not implied.
 
-Fresh audits returned zero known advisories locally. Isolated ownership/API tests, client tests, builds, and browser checks are recorded separately in the local release review. Production data, infrastructure, commits, pushes, and deployment require the owner's final approval; no release is implied by this entry. Backup scope, unverified real inbox delivery, provider configuration, and academic evidence limits remain explicit.
+Fresh audits returned zero known advisories locally. Isolated ownership/API tests, client tests, builds, and browser checks are recorded separately in the local release review. The approved release is documented above; backup scope, unverified real inbox delivery, provider configuration, and academic evidence limits remain explicit.
 
 1. **Incomplete progress UI.** The first shopping-progress pass lacked the approved progress card and separate remaining/purchased sections. Review identified the gap, and the UI was corrected before the [progress commit](https://github.com/EJhayGit/CartCheck/commit/faa40f5).
 2. **Wrong test expectation.** The optional-money integration test initially expected an unbought item's actual price in spending. The assertion was corrected so actual spending follows bought status before the [budget commit](https://github.com/EJhayGit/CartCheck/commit/418bbbd).
 3. **Unsafe test cleanup order.** A guarded development run exposed a foreign-key failure when cleaning up temporary accounts. The run stopped; only the verified temporary rows were recovered. Cleanup was changed to delete verified dependent trip items first, and the guarded suites then passed before the [trip commit](https://github.com/EJhayGit/CartCheck/commit/7d438a8).
 
-4. **Cache and asynchronous state.** Review found draft preservation, stale response, pagination, and session disposal issues. The cache/list implementations and regression tests were corrected before their releases.
+4. **Cache and asynchronous state.** Review found draft preservation, stale response, pagination, and session disposal issues. The cache/list implementations and regression tests were corrected before the [cache release](https://github.com/EJhayGit/CartCheck/commit/d2715a2) and [multiple-list release](https://github.com/EJhayGit/CartCheck/commit/8f127a3).
 5. **List destinations beyond the first page.** Final multiple-list review identified missing access to later catalog destinations. A Load more lists control and regression tests for a later destination and stale cursor responses resolved the finding before the [multiple-list commit](https://github.com/EJhayGit/CartCheck/commit/8f127a3).
-6. **Obsolete single-list documentation.** Earlier entries describe automatic active-list creation and replacement after finish. That was the behavior at the time; the October release superseded it with explicit named-list creation and independent completion.
+6. **Obsolete single-list documentation.** Earlier entries describe automatic active-list creation and replacement after finish. That was the behavior at the time; the [multiple-list release](https://github.com/EJhayGit/CartCheck/commit/8f127a3) superseded it with explicit named-list creation and independent completion, reflected in the [completed-app documentation](https://github.com/EJhayGit/CartCheck/commit/023e532).
 
-## Human decisions and responsibility
+## 3. Who wrote what
+
+### Code I wrote myself: shopping-list sorting
+
+On October 9, 2026, I confirmed that I wrote the sorting function and its dropdown integration. This credits those specific parts, not every change in their shared release commit or the entirety of either file. This authorship clarification was added after implementation; it is not a contemporaneous authorship record.
+
+- **Sorting function:** [`sortShoppingItems` in client/src/shoppingProgress.js](client/src/shoppingProgress.js), introduced in [commit 9fc705c](https://github.com/EJhayGit/CartCheck/commit/9fc705c). It copies the array with `[...items]` before sorting because JavaScript's `sort()` changes the array it receives. Copying keeps the stored list order intact. A–Z compares item names with `localeCompare`. Category sorting compares categories first, treats a missing category as an empty string, and uses the name to break category ties. For purchase sorting, `bought === true` becomes either 1 or 0; subtracting these values puts bought or unbought items first depending on the selected mode. Default mode returns the copy in its original order. Items with equal sort keys retain their relative order.
+- **Dropdown and rendering integration:** [client/src/ShoppingList.jsx](client/src/ShoppingList.jsx), introduced in [the same commit](https://github.com/EJhayGit/CartCheck/commit/9fc705c). React state holds `sortMode`, initially `default`. The labeled Sort dropdown changes that state, and `sortShoppingItems(visibleItems, sortMode)` computes the display order on each render. The function receives the items after purchased-item filtering, so sorting works together with Hide purchased. A chosen sort displays one ordered list; default mode uses separate remaining and purchased sections. Sorting changes the view locally without updating item records or sending a sorting request to the server.
+
+Existing tests in [shoppingSort.test.js](client/src/shoppingSort.test.js) check all five modes, stable purchase ties, unchanged input order, empty/single-item lists, and filtering. The integration test in [shoppingUx.test.js](client/src/shoppingUx.test.js) checks the dropdown together with Hide purchased and verifies that these interactions send no mutation request. These tests support the behavior; they are not claimed as my unaided code.
+
+**Extent of my contribution:** The sorting function and dropdown integration are the student-written parts identified so far. This record does not establish that they represent at least 20% of the whole project. No percentage is claimed without additional evidence or the instructor's assessment of scope.
+
+### AI-written code example: shopping progress and purchased filtering
+
+**File and commit:** [`getShoppingProgress` in client/src/shoppingProgress.js](client/src/shoppingProgress.js), introduced in [commit faa40f5](https://github.com/EJhayGit/CartCheck/commit/faa40f5). This function is credited to Codex separately from my sorting function in the same file.
+
+The function takes the shopping items and an optional `hidePurchased` flag, which defaults to false. It counts only entries whose `bought` field is exactly `true`, then subtracts that count from the total to get the number remaining. It returns both counts and the items to display. When hiding is enabled, `filter` creates an array excluding bought entries; otherwise it returns the original items array. It does not delete entries or change their bought status.
+
+This structure was kept because hiding purchased items is a display preference: the full list must remain available for progress totals, spending, and finishing the trip. Returning counts alongside the visible items keeps that behavior in one reusable function. The separate sorting function copies the visible array before sorting, so even when progress returns the original array, sorting does not mutate it.
+
+The explanations in this section were drafted with Codex assistance from the current code and my authorship clarification. They are not presented as an independently written explanation or proof of my understanding; I should review them and be able to explain this behavior myself for the badge.
+
+### Human decisions and responsibility
 
 The project owner provided the application goals, approved scope and design choices, supplied the official brand assets, authorized publication and production operations, and confirmed completion. Codex contributed substantially to planning, code, tests, reviews, documentation, and approved tooling operations. This is a disclosure of AI-assisted development; it does not imply the application was written entirely without AI.
 
-The record does not assign a student-written percentage or identify unaided authorship of individual lines. Those claims cannot be established from commit history or the development log alone. Exact prompts are not reproduced here; the dated entries summarize requests and outcomes supported by available records.
+The sorting attribution above is based on the project owner's explicit confirmation. Commit history and the development log alone do not establish unaided authorship or a student-written percentage. Exact prompts are not reproduced here; the dated entries summarize requests and outcomes supported by available records.
 
 ## Verification boundaries
 
