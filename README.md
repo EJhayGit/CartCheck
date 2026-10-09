@@ -8,7 +8,7 @@ CartCheck is a private grocery checklist for planning a shop and keeping a recor
 
 ## What it does
 
-- Defines 160 starter groceries in the repository, alongside private custom items. The October 9 read-only production check found 108 shared starters; the additive seed and existing-account backfill await release approval.
+- Provides a searchable catalog of 160 starter groceries and private custom items. The approved October 9 additive seed and existing-account backfill were verified in production without overwriting existing customizations.
 - Keeps multiple named lists per account, with searchable groceries, custom items, quantities, and bought status.
 - Records a selected list as a named dated trip, then returns to My Lists. Other lists remain available; new lists are created explicitly.
 - Lets you review and correct past trips without changing their original finish date.
@@ -64,7 +64,7 @@ npm run build
 
 The database integration suites use a separate guarded runner and are skipped by the ordinary server test command. See the [test safety guide](docs/MILESTONE_7_TEST_SAFETY.md) before running them.
 
-[GitHub Actions CI](.github/workflows/ci.yml) installs both lockfiles, runs unit/client tests, and builds the client on Node.js 24. It uses no database or email credentials and does not deploy. A published successful run remains to be verified after release approval. See [backup and recovery](docs/BACKUP_RECOVERY.md) for the private export and isolated restoration procedure.
+[GitHub Actions CI](.github/workflows/ci.yml) installs both lockfiles, runs unit/client tests, and builds the client on Node.js 24. It uses no database or email credentials and does not deploy. The [application release run](https://github.com/EJhayGit/CartCheck/actions/runs/37930369657) passed for deployed commit `0db7eb7`. See [backup and recovery](docs/BACKUP_RECOVERY.md) for the private export and isolated restoration procedure.
 
 ## Project layout
 
