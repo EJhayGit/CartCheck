@@ -9,13 +9,14 @@ globalThis.HTMLElement = dom.window.HTMLElement
 globalThis.Node = dom.window.Node
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
-const { cleanup, fireEvent, render, screen, waitFor, within } = await import('@testing-library/react')
+const { act, cleanup, fireEvent, render, screen, waitFor, within } = await import('@testing-library/react')
 const React = await import('react')
 const { createServer } = await import('vite')
 const vite = await createServer({ configFile: 'vite.config.js', server: { middlewareMode: true, hmr: false }, appType: 'custom' })
 const { default: Catalog } = await vite.ssrLoadModule('/src/Catalog.jsx')
 const { DataCacheProvider } = await vite.ssrLoadModule('/src/dataCache.jsx')
 const { default: App } = await vite.ssrLoadModule('/src/App.jsx')
+const { getLists } = await vite.ssrLoadModule('/src/api/httpApi.js')
 
 test.afterEach(() => {
   cleanup()
@@ -361,4 +362,186 @@ test('logout aborts an outstanding private collection request', async () => {
   await waitFor(() => assert.equal(catalogSignal.aborted, true))
   catalogResponse.resolve(json({ items: groceries }))
   assert.equal(calls.filter((call) => call.url.endsWith('/api/catalog')).length, 1)
+})
+
+test('focus confirms the shared cookie identity before refreshing private cache data', async () => {
+  const accountA = user
+  const accountB = { ...user, id: 'shopper-2', email: 'other@example.test' }
+  let activeAccount = accountA
+  const calls = mockFetch((url) => {
+    if (url.endsWith('/api/auth/me')) return json({ user: activeAccount })
+    if (url.endsWith('/api/cart')) return json({ tripId: `list-${activeAccount.id}`, name: `List ${activeAccount.id}`, items: [], currency: 'PHP', revision: 1 })
+    if (url.endsWith('/api/catalog')) return json({ items: groceries })
+    if (url.endsWith('/api/trips')) return json(emptyTrips)
+    throw new Error(`Unexpected request: ${url}`)
+  })
+  render(React.createElement(App))
+  await screen.findByRole('heading', { name: 'My Lists' })
+  await screen.findByRole('button', { name: /List shopper-1/ })
+  const privateReads = () => calls.filter((call) => !call.url.includes('/api/auth/'))
+  assert.ok(privateReads().length >= 3)
+  assert.ok(privateReads().every((call) => call.options.headers['X-Expected-Account-Id'] === accountA.id))
+  assert.equal(calls.find((call) => call.url.endsWith('/api/auth/me')).options.headers['X-Expected-Account-Id'], undefined)
+
+  activeAccount = accountB
+  window.dispatchEvent(new window.Event('focus'))
+  await screen.findByRole('button', { name: /List shopper-2/ })
+  assert.equal(screen.queryByRole('button', { name: /List shopper-1/ }), null)
+  assert.ok(privateReads().some((call) => call.options.headers['X-Expected-Account-Id'] === accountB.id))
+  assert.ok(calls.filter((call) => call.url.endsWith('/api/auth/me')).length >= 2)
+})
+
+test('cross-tab session signals adopt sign-in and quarantine sign-out without sharing identity data', async () => {
+  const otherUser = { ...user, id: 'shopper-2', email: 'other@example.test' }
+  let authenticated = false
+  const calls = mockFetch((url) => {
+    if (url.endsWith('/api/auth/me')) return authenticated ? json({ user: otherUser }) : json({ error: 'Authentication required' }, 401)
+    if (url.endsWith('/api/cart')) return json({ tripId: 'list-b', name: 'List B', items: [], currency: 'PHP', revision: 1 })
+    if (url.endsWith('/api/catalog')) return json({ items: groceries })
+    if (url.endsWith('/api/trips')) return json(emptyTrips)
+    throw new Error(`Unexpected request: ${url}`)
+  })
+  render(React.createElement(App))
+  await screen.findByRole('heading', { name: 'Sign in' })
+
+  authenticated = true
+  fireEvent(window, new window.StorageEvent('storage', { key: 'cartcheck:session-change', newValue: 'signal-1' }))
+  await screen.findByRole('button', { name: /List B/ })
+  assert.ok(calls.filter((call) => !call.url.includes('/api/auth/')).every((call) => call.options.headers['X-Expected-Account-Id'] === otherUser.id))
+
+  authenticated = false
+  fireEvent(window, new window.StorageEvent('storage', { key: 'cartcheck:session-change', newValue: 'signal-2' }))
+  await screen.findByRole('heading', { name: 'Sign in' })
+  assert.equal(screen.queryByRole('button', { name: 'List B' }), null)
+})
+
+test('switching accounts releases the prior account settings busy state', async () => {
+  const save = deferred()
+  const accountB = { ...user, id: 'shopper-2', email: 'other@example.test', preferred_currency: 'PHP' }
+  let activeAccount = user
+  const calls = mockFetch((url) => {
+    if (url.endsWith('/api/auth/me')) return json({ user: activeAccount })
+    if (url.endsWith('/api/cart')) return json({ ...cart, tripId: `trip-${activeAccount.id}`, name: activeAccount.id === user.id ? 'Groceries' : 'List shopper-2' })
+    if (url.endsWith('/api/catalog')) return json({ items: groceries })
+    if (url.endsWith('/api/trips')) return json(emptyTrips)
+    if (url.endsWith('/api/me/settings')) return save.promise
+    throw new Error(`Unexpected request: ${url}`)
+  })
+  await openApp(calls)
+  fireEvent.click(appNav('Settings'))
+  await screen.findByRole('heading', { name: 'Settings' })
+  fireEvent.change(screen.getByLabelText('Preferred currency for new lists'), { target: { value: 'USD' } })
+  fireEvent.submit(screen.getByLabelText('Preferred currency for new lists').closest('form'))
+  await waitFor(() => assert.equal(calls.some((call) => call.url.endsWith('/api/me/settings')), true))
+
+  activeAccount = accountB
+  fireEvent(window, new window.StorageEvent('storage', { key: 'cartcheck:session-change', newValue: 'settings-switch' }))
+  await screen.findByRole('button', { name: /List shopper-2/ })
+  fireEvent.click(appNav('Settings'))
+  await screen.findByRole('heading', { name: 'Settings' })
+  assert.equal(screen.getByLabelText('Preferred currency for new lists').disabled, false)
+
+  save.resolve(json({ preferredCurrency: 'USD' }))
+  await waitFor(() => assert.equal(screen.getByLabelText('Preferred currency for new lists').value, 'PHP'))
+})
+
+test('same-account quarantine clears pending settings state and retries after a transient check failure', async () => {
+  const save = deferred()
+  let sessionReads = 0
+  const calls = mockFetch((url, options) => {
+    if (url.endsWith('/api/auth/me')) {
+      sessionReads++
+      if (sessionReads === 2) return Promise.reject(new TypeError('offline'))
+      return json({ user })
+    }
+    if (url.endsWith('/api/me/settings')) return save.promise
+    return appResponse(url, options)
+  })
+  await openApp(calls)
+  fireEvent.click(appNav('Settings'))
+  await screen.findByRole('heading', { name: 'Settings' })
+  fireEvent.change(screen.getByLabelText('Preferred currency for new lists'), { target: { value: 'USD' } })
+  fireEvent.submit(screen.getByLabelText('Preferred currency for new lists').closest('form'))
+  await waitFor(() => assert.equal(calls.some((call) => call.url.endsWith('/api/me/settings')), true))
+
+  fireEvent(window, new window.StorageEvent('storage', { key: 'cartcheck:session-change', newValue: 'same-account-pending' }))
+  await screen.findByRole('heading', { name: 'Could not connect' })
+  assert.equal(screen.queryByRole('navigation', { name: 'Main navigation' }), null)
+  fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
+  await screen.findByRole('heading', { name: 'My Lists' })
+  fireEvent.click(appNav('Settings'))
+  await screen.findByRole('heading', { name: 'Settings' })
+  assert.equal(screen.getByLabelText('Preferred currency for new lists').disabled, false)
+  assert.equal(screen.getByLabelText('Preferred currency for new lists').value, 'PHP')
+
+  save.resolve(json({ preferredCurrency: 'USD' }))
+  await waitFor(() => assert.equal(screen.getByLabelText('Preferred currency for new lists').value, 'PHP'))
+})
+
+test('a revoked cookie on focus clears the private screen and cache', async () => {
+  let authenticated = true
+  const calls = mockFetch((url) => {
+    if (url.endsWith('/api/auth/me')) return authenticated ? json({ user }) : json({ error: 'Authentication required' }, 401)
+    if (url.endsWith('/api/cart')) return json({ tripId: 'list-a', name: 'Private A list', items: [], currency: 'PHP', revision: 1 })
+    if (url.endsWith('/api/catalog')) return json({ items: groceries })
+    if (url.endsWith('/api/trips')) return json(emptyTrips)
+    throw new Error(`Unexpected request: ${url}`)
+  })
+  render(React.createElement(App))
+  await screen.findByRole('button', { name: /Private A list/ })
+  authenticated = false
+  window.dispatchEvent(new window.Event('focus'))
+  await screen.findByRole('heading', { name: 'Sign in' })
+  assert.equal(screen.queryByRole('button', { name: /Private A list/ }), null)
+  assert.equal(calls.filter((call) => !call.url.includes('/api/auth/')).length, 3)
+})
+
+test('a private 401 quarantines cached data even when session confirmation is offline', async () => {
+  let sessionReads = 0
+  let listReads = 0
+  const calls = mockFetch((url) => {
+    if (url.endsWith('/api/auth/me')) {
+      sessionReads++
+      return sessionReads === 1 ? json({ user }) : Promise.reject(new TypeError('offline'))
+    }
+    if (url.endsWith('/api/cart')) {
+      listReads++
+      return listReads === 1
+        ? json({ tripId: 'list-a', name: 'Quarantined A list', items: [], currency: 'PHP', revision: 1 })
+        : json({ error: 'Authentication required' }, 401)
+    }
+    if (url.endsWith('/api/catalog')) return json({ items: groceries })
+    if (url.endsWith('/api/trips')) return json(emptyTrips)
+    throw new Error(`Unexpected request: ${url}`)
+  })
+  render(React.createElement(App))
+  await screen.findByRole('button', { name: /Quarantined A list/ })
+
+  await act(async () => assert.rejects(getLists(), (error) => error.status === 401))
+  await screen.findByRole('heading', { name: 'Could not connect' })
+  assert.equal(screen.queryByRole('button', { name: /Quarantined A list/ }), null)
+  assert.equal(sessionReads, 2)
+  assert.equal(listReads, 2)
+})
+
+test('a transient focus check preserves the last confirmed account data', async () => {
+  let sessionReads = 0
+  const calls = mockFetch((url) => {
+    if (url.endsWith('/api/auth/me')) {
+      sessionReads++
+      return sessionReads === 1 ? json({ user }) : Promise.reject(new TypeError('offline'))
+    }
+    if (url.endsWith('/api/cart')) return json({ tripId: 'list-a', name: 'Known A list', items: [], currency: 'PHP', revision: 1 })
+    if (url.endsWith('/api/catalog')) return json({ items: groceries })
+    if (url.endsWith('/api/trips')) return json(emptyTrips)
+    throw new Error(`Unexpected request: ${url}`)
+  })
+  render(React.createElement(App))
+  await screen.findByRole('button', { name: /Known A list/ })
+  const privateRequestCount = calls.filter((call) => !call.url.includes('/api/auth/')).length
+
+  window.dispatchEvent(new window.Event('focus'))
+  await waitFor(() => assert.equal(sessionReads, 2))
+  assert.ok(screen.getByRole('button', { name: /Known A list/ }))
+  assert.equal(calls.filter((call) => !call.url.includes('/api/auth/')).length, privateRequestCount)
 })

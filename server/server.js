@@ -59,8 +59,12 @@ const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
   .filter(Boolean)
 
 app.use(helmet())
-app.use(cors({ origin: allowedOrigins, credentials: true, exposedHeaders: ['Retry-After'] }))
+app.use(cors({ origin: allowedOrigins, credentials: true, allowedHeaders: ['Content-Type', 'X-Expected-Account-Id'], exposedHeaders: ['Retry-After'] }))
 app.use(express.json({ limit: '100kb' }))
+app.use('/api', (_request, response, next) => {
+  response.set('Cache-Control', 'no-store')
+  next()
+})
 
 function checkRequestOrigin(request, response, next) {
   const origin = request.get('Origin')
@@ -109,6 +113,11 @@ async function authenticate(request, response, next) {
   try {
     const user = await authRepo.findUserBySessionHash(pool, hashSessionToken(token))
     if (!user) return response.status(401).json({ error: 'Authentication required' })
+    const expectedAccountId = request.get('X-Expected-Account-Id')
+    const guardedPrivateEndpoint = !request.path.startsWith('/api/auth/') || request.path === '/api/auth/change-password'
+    if (guardedPrivateEndpoint && expectedAccountId !== undefined && expectedAccountId !== String(user.id)) {
+      return response.status(409).json({ error: 'Session changed. Refresh and sign in again.', code: 'SESSION_MISMATCH' })
+    }
     if (requiresEmailVerification(user) && !isAuthStatusEndpoint(request.path)) {
       return response.status(403).json({ error: 'Verify your email address to continue', code: 'EMAIL_VERIFICATION_REQUIRED' })
     }

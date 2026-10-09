@@ -1,16 +1,37 @@
 const BASE = import.meta.env.VITE_API_BASE_URL || ''
+let expectedAccountId = null
+
+// Private API calls carry the identity the UI was rendered for. The server
+// checks it against the cookie session before serving data or accepting a
+// mutation, closing the gap when another tab changes the shared cookie.
+export function setExpectedAccountId(id) {
+  expectedAccountId = id == null ? null : String(id)
+}
+
+function reportSessionBoundary(path, status, code) {
+  if (path.startsWith('/api/auth/') && path !== '/api/auth/change-password') return
+  if (status !== 401 && code !== 'SESSION_MISMATCH') return
+  if (typeof window !== 'undefined') window.dispatchEvent(new window.CustomEvent('cartcheck:session-invalid'))
+}
 
 async function request(path, options = {}) {
+  const privateRequest = (path.startsWith('/api/') && !path.startsWith('/api/auth/')) || path === '/api/auth/change-password'
+  const requestAccountId = privateRequest ? expectedAccountId : null
+  const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) }
+  if (privateRequest && expectedAccountId) headers['X-Expected-Account-Id'] = expectedAccountId
   let response
   try {
     response = await fetch(`${BASE}${path}`, {
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
       ...options,
+      headers,
     })
   } catch (error) {
     if (error.name === 'AbortError') throw error
     throw new Error('Could not connect to the server. Please try again.')
+  }
+  if (privateRequest && requestAccountId !== expectedAccountId) {
+    throw new DOMException('Session identity changed', 'AbortError')
   }
   if (!response.ok) {
     let message = response.status >= 500
@@ -22,6 +43,7 @@ async function request(path, options = {}) {
       if (body?.error) message = body.error
       code = body?.code
     } catch { /* Keep the HTTP status if the body is not JSON. */ }
+    reportSessionBoundary(path, response.status, code)
     const error = new Error(message)
     error.status = response.status
     error.code = code

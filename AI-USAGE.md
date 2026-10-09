@@ -92,6 +92,14 @@ CartCheck was developed with Codex assistance across planning, UI design, implem
 
 ## Corrections worth recording
 
+### October 9, 2026 — Local security and release preparation
+
+Codex audited the current repository and read-only production state, applied compatible transitive dependency patches, prepared a credential-free CI workflow, and tested additive starter seeding/backfill in disposable PostgreSQL. AI review identified a cross-tab shared-cookie session mismatch; the local fix adds session revalidation, private-cache invalidation and server-side expected-account checks. Existing optimistic shopping behavior remains in scope; no feature redesign was requested.
+
+The local catalog runner was corrected after review found that its first version seeded all 160 shared rows before constructing the supposed 108-row baseline. The corrected runner begins with 108 shared rows and tests the actual 52-row addition. An isolated restoration comparison initially failed because timestamp formatting used a different timezone; UTC normalization made the older private export's rows compare exactly. These corrections are part of the verification evidence, not successful checks in their initial form.
+
+Fresh audits returned zero known advisories locally. Isolated ownership/API tests, client tests, builds, and browser checks are recorded separately in the local release review. Production data, infrastructure, commits, pushes, and deployment require the owner's final approval; no release is implied by this entry. Backup scope, unverified real inbox delivery, provider configuration, and academic evidence limits remain explicit.
+
 1. **Incomplete progress UI.** The first shopping-progress pass lacked the approved progress card and separate remaining/purchased sections. Review identified the gap, and the UI was corrected before the [progress commit](https://github.com/EJhayGit/CartCheck/commit/faa40f5).
 2. **Wrong test expectation.** The optional-money integration test initially expected an unbought item's actual price in spending. The assertion was corrected so actual spending follows bought status before the [budget commit](https://github.com/EJhayGit/CartCheck/commit/418bbbd).
 3. **Unsafe test cleanup order.** A guarded development run exposed a foreign-key failure when cleaning up temporary accounts. The run stopped; only the verified temporary rows were recovered. Cleanup was changed to delete verified dependent trip items first, and the guarded suites then passed before the [trip commit](https://github.com/EJhayGit/CartCheck/commit/7d438a8).

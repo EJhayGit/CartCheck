@@ -2,6 +2,8 @@
 
 **Status:** Completed application, confirmed by the project owner on 2026-10-06. These requirements document the delivered shopping, account, and interface behavior.
 
+**Catalog deployment note (October 9):** The repository defines the approved 160 templates. Read-only production inspection found 108 shared templates; the remaining 52 and corresponding existing-account copies are prepared for an approval-gated additive backfill. This requirement is not a claim that 160 are already deployed.
+
 ## Objective
 
 Help an individual shopper, including a student or family member, prepare a reusable grocery checklist, track shopping progress, and review finished trips. Budget tracking is optional. A shopper must be able to complete the checklist flow without entering a price or budget.

@@ -43,12 +43,13 @@ function cookiePair(response) {
 }
 
 async function jsonRequest(baseUrl, path, {
-  method = 'GET', body, cookie,
+  method = 'GET', body, cookie, expectedAccountId,
   origin = method === 'GET' ? undefined : 'http://localhost:5173',
 } = {}) {
   const headers = {}
   if (body !== undefined) headers['content-type'] = 'application/json'
   if (cookie) headers.cookie = cookie
+  if (expectedAccountId !== undefined) headers['X-Expected-Account-Id'] = String(expectedAccountId)
   if (origin) headers.origin = origin
   return fetch(`${baseUrl}${path}`, {
     method,
@@ -170,14 +171,37 @@ test('account lifecycle, session security, and initial private data isolation', 
     assert.equal(userB.status, 201)
     const userBCookie = cookiePair(userB)
     const identityA = await jsonRequest(baseUrl, '/api/auth/me', { cookie: registrationCookie })
-    const identityB = await jsonRequest(baseUrl, '/api/auth/me', { cookie: userBCookie })
+    const identityB = await jsonRequest(baseUrl, '/api/auth/me', { cookie: userBCookie, expectedAccountId: storedA.rows[0].id })
     assert.equal(identityA.status, 200)
     assert.equal((await identityA.json()).user.email, emailA)
     assert.equal(identityB.status, 200)
+    assert.equal(identityB.headers.get('cache-control'), 'no-store')
     assert.equal((await identityB.json()).user.email, emailB)
 
     const storedB = await client.query('SELECT id FROM cartcheck.users WHERE email = $1', [emailB])
     assert.equal(storedB.rowCount, 1)
+    await client.query('UPDATE cartcheck.users SET email_verified = true WHERE id = $1', [storedB.rows[0].id])
+    const stalePasswordChange = await jsonRequest(baseUrl, '/api/auth/change-password', {
+      method: 'POST', cookie: userBCookie, expectedAccountId: storedA.rows[0].id,
+      body: { currentPassword: passwordB, newPassword: `Changed-${randomUUID()}!` },
+    })
+    assert.equal(stalePasswordChange.status, 409, 'a stale tab must not change the shared cookie account password')
+    const staleTabMutation = await jsonRequest(baseUrl, '/api/lists', {
+      method: 'POST', cookie: userBCookie, expectedAccountId: storedA.rows[0].id,
+      body: { name: 'Must not be created for account B' },
+    })
+    assert.equal(staleTabMutation.status, 409)
+    assert.deepEqual(await staleTabMutation.json(), {
+      error: 'Session changed. Refresh and sign in again.', code: 'SESSION_MISMATCH',
+    })
+    const staleTabRead = await jsonRequest(baseUrl, '/api/lists', {
+      cookie: userBCookie, expectedAccountId: storedA.rows[0].id,
+    })
+    assert.equal(staleTabRead.status, 409)
+    const mismatchedWriteCount = await client.query(
+      'SELECT count(*)::int AS count FROM cartcheck.shopping_trips WHERE user_id = $1', [storedB.rows[0].id]
+    )
+    assert.equal(mismatchedWriteCount.rows[0].count, 0, 'a stale account tab must not write into the shared cookie account')
     const accountRows = await client.query(
       `SELECT user_id, count(*)::int AS trip_count
        FROM cartcheck.shopping_trips WHERE user_id = ANY($1::bigint[])

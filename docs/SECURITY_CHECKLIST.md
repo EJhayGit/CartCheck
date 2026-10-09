@@ -1,6 +1,6 @@
 # Security and privacy checklist
 
-**Reviewed:** October 7, 2026. **Scope:** Current repository, focused local tests, fresh dependency audits, and dated production evidence from October 6. No production settings or data were changed during this review.
+**Reviewed:** October 9, 2026 (local release candidate). **Scope:** Repository review, isolated PostgreSQL tests, fresh dependency audits, and read-only production checks. No production settings or data were changed. Local changes await release approval.
 
 Checked items have the evidence stated below. Unchecked items are open maintenance work or controls whose current deployment status has not been established. Project completion does not close ongoing security maintenance.
 
@@ -65,6 +65,17 @@ The October 4 audit recorded zero known advisories at that time. The fresh findi
 - [ ] Establish retention and account-data deletion procedures, including backups and email-provider records. Do not erase real users or retained test accounts merely to complete a checklist.
 
 ## Evidence and limits
+
+### October 9 release-candidate checks
+
+- Patched only the compatible transitive lockfile entries: Express → `proxy-addr` 2.0.7 → 2.0.8, and Vite → PostCSS → `source-map-js` 1.2.1 → 1.2.2. Fresh server production and complete client audits returned zero known advisories. These are local results; the running production commit still predates these fixes. The dated October 7 findings below remain historical evidence.
+- A security review found a cross-tab session mismatch: a tab displaying account A could use a shared cookie changed to B. The release candidate revalidates session identity before background refresh, clears private caches on session-change signals or private authentication failures, and sends the rendered account identity for server validation before private operations. `/api` responses now explicitly use `Cache-Control: no-store`. Release and focused regression verification are required before calling these deployed controls.
+- Read-only Supabase inspection confirmed that `anon` and `authenticated` lack schema USAGE and SELECT/INSERT/UPDATE/DELETE access to all internal `cartcheck` tables. RLS is disabled in that private schema; lack of browser grants is the verified boundary. No RLS or grant change was made. The actual exposed-schema dashboard setting and the production application's connection role remain unverified.
+- Supabase's advisor reports public execute privileges on `public.rls_auto_enable()`. Inspection shows this is the provider's `ensure_rls` event-trigger function, returning `event_trigger` with `search_path=pg_catalog`, rather than an ordinary application RPC. Its body enables RLS for newly created public tables. This warning does not establish access to private shopper tables. Do not invoke it through an RPC or modify provider grants merely to silence the warning. Any proposed privilege change needs separate compatibility review and approval. See the [advisor explanation](https://supabase.com/docs/guides/database/database-linter?lint=0028_anon_security_definer_function_executable).
+- Current read-only HTTPS checks returned 200 for `/healthz` and `/readyz`, and 401 for unauthenticated `/api/auth/me`. Render is live at `8f127a3` with auto-deploy off. Production cookie attributes, proxy/header topology, actual verification environment value, and real inbox delivery were not reverified.
+- The older private application export restored successfully into an isolated database with all rows equal, migration checksums verified, constraints validated, and sequences restored. See [backup scope and limits](BACKUP_RECOVERY.md). This does not verify a fresh production backup or full provider-level disaster recovery.
+
+The checklist's earlier checked controls retain their stated evidence. Open controls above remain open unless this section explicitly supplies current evidence; local fixes do not establish production deployment.
 
 On October 7, 15 focused tests passed using:
 

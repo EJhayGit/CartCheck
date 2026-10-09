@@ -10,16 +10,19 @@ export const fetchLists = async (signal) => {
   return { ...page, items: page.items.map(listSummary) }
 }
 
-export function DataCacheProvider({ children, cache: providedCache }) {
+export function DataCacheProvider({ children, cache: providedCache, onRevalidate }) {
   const [localCache] = useState(createDataCache)
   const cache = providedCache || localCache
   const lifecycle = useRef(0)
+  const onRevalidateRef = useRef(onRevalidate)
+  onRevalidateRef.current = onRevalidate
   useEffect(() => {
     const version = ++lifecycle.current
     // Independent reads start together; the primary screen never waits for the others.
     for (const [key, fetcher] of [['lists', fetchLists], ['catalog', fetchCatalog], ['trips', fetchHistory]]) cache.load(key, fetcher).catch(() => {})
-    function revalidate() {
+    async function revalidate() {
       if (document.visibilityState === 'hidden') return
+      if (onRevalidateRef.current && !await onRevalidateRef.current()) return
       cache.load('lists', fetchLists).catch(() => {})
       cache.load('trips', (signal) => getTrips(null, { signal }).then((first) => {
         const previous = cache.get('trips').data

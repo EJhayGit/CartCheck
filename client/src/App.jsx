@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { addListItem, getList, getSession, login, logout, register, resetPassword, updateSettings } from './api/httpApi.js'
+import { addListItem, getList, getSession, login, logout, register, resetPassword, setExpectedAccountId, updateSettings } from './api/httpApi.js'
 import Catalog from './Catalog.jsx'
 import { Brand, Footer, NavIcon } from './Brand.jsx'
 import { useAppearance } from './appearance.js'
@@ -15,6 +15,7 @@ import { DataCacheProvider, fetchLists } from './dataCache.jsx'
 import { hasPurchaseMutation, mergePendingListResponse, purchaseIntentVersion } from './purchaseMutations.js'
 import Lists from './Lists.jsx'
 import { replaceListSummary } from './dataCache.js'
+import { announceSessionChange, subscribeToSessionChanges } from './sessionSync.js'
 
 const EMPTY_FORM = { email: '', password: '', confirmation: '' }
 function routeFromLocation() {
@@ -111,6 +112,7 @@ export default function App() {
     restoring.then((result) => {
       if (active && generation === accountGeneration.current) {
         setUser(result.user)
+        setExpectedAccountId(result.user.id)
         setPreferredCurrency(result.user.preferred_currency)
         if (result.user.verification_required && !link) { setAccountEmail(result.user.email); setAccountView('pending') }
         setStatus('ready')
@@ -137,6 +139,7 @@ export default function App() {
       const result = await getSession()
       if (generation !== accountGeneration.current) { setStatus('ready'); return }
       setUser(result.user)
+      setExpectedAccountId(result.user.id)
       setPreferredCurrency(result.user.preferred_currency)
       if (result.user.verification_required && !link) { setAccountEmail(result.user.email); setAccountView('pending') }
       navigate('lists', null, { replace: true })
@@ -144,7 +147,7 @@ export default function App() {
       setStatus('ready')
     } catch (caught) {
       if (generation !== accountGeneration.current) { setStatus('ready'); return }
-      if (caught.status === 401) setUser(null)
+      if (caught.status === 401) { setUser(null); setExpectedAccountId(null) }
       setStatus(caught.status === 401 ? 'ready' : 'error')
       if (caught.status !== 401) setError('We could not restore your session. Please try again.')
     }
@@ -163,8 +166,11 @@ export default function App() {
     switchMode('login')
   }
 
-  function clearRevokedSession() {
+  function clearRevokedSession(notice = 'Your sign-in has ended. Please sign in again.') {
     accountGeneration.current += 1
+    setExpectedAccountId(null)
+    dataCache.dispose()
+    setSettingsBusy(false)
     resetCheckPending.current = false
     setUser(null)
     setPreferredCurrency('PHP')
@@ -179,7 +185,7 @@ export default function App() {
     setStatus('ready')
     setError('')
     switchMode('login')
-    setAuthNotice('Password updated. Sign in with your new password.')
+    setAuthNotice(notice)
   }
 
   async function applyResetOutcome(initialOutcome) {
@@ -192,6 +198,8 @@ export default function App() {
     if (outcome.status === 'authenticated') {
       if (user?.id && user.id !== outcome.user.id) {
         accountGeneration.current += 1
+        dataCache.dispose()
+        setSettingsBusy(false)
         navigate('lists', null, { replace: true })
         setCatalogVisited(false)
         setRequestedEdit(null)
@@ -201,6 +209,7 @@ export default function App() {
         setCatalogAddPending(false)
       }
       setUser(outcome.user)
+      setExpectedAccountId(outcome.user.id)
       setPreferredCurrency(outcome.user.preferred_currency)
       setAccountEmail(outcome.user.email)
       setAccountView(outcome.user.verification_required ? 'pending' : '')
@@ -208,7 +217,7 @@ export default function App() {
       setError('')
       resetCheckPending.current = false
     } else if (outcome.status === 'unauthenticated') {
-      clearRevokedSession()
+      clearRevokedSession('Password updated. Sign in with your new password.')
     } else {
       // Keep the last known account in memory, but hide private screens until
       // a successful retry confirms whether its server session still exists.
@@ -244,6 +253,8 @@ export default function App() {
       const result = await (mode === 'login' ? login({ email: form.email, password: form.password }) : register({ email: form.email, password: form.password }))
       accountGeneration.current += 1
       setUser(result.user)
+      setExpectedAccountId(result.user.id)
+      announceSessionChange()
       setPreferredCurrency(result.user.preferred_currency)
       navigate('lists', null, { replace: true })
       setCatalogVisited(false)
@@ -270,6 +281,10 @@ export default function App() {
       await logout()
       accountGeneration.current += 1
       setUser(null)
+      setExpectedAccountId(null)
+      dataCache.dispose()
+      setSettingsBusy(false)
+      announceSessionChange()
       setPreferredCurrency('PHP')
       setSettingsError('')
       setSettingsNotice('')
@@ -328,6 +343,108 @@ export default function App() {
     navigate('catalog')
   }
 
+  async function validatePrivateSession({ allowQuarantined = false } = {}) {
+    if (!user?.id || (!privateReady && !allowQuarantined)) return false
+    const currentId = String(user.id)
+    const generation = accountGeneration.current
+    let result
+    try {
+      result = await getSession()
+    } catch (caught) {
+      if (generation !== accountGeneration.current) return false
+      if (caught.status === 401) clearRevokedSession()
+      else if (allowQuarantined) {
+        setStatus('error')
+        setError('We could not confirm your current sign-in. Please try again.')
+      }
+      return false
+    }
+    if (generation !== accountGeneration.current) return false
+    if (String(result.user.id) !== currentId || result.user.verification_required) {
+      dataCache.dispose()
+      accountGeneration.current += 1
+      setSettingsBusy(false)
+      setExpectedAccountId(result.user.id)
+      setUser(result.user)
+      setPreferredCurrency(result.user.preferred_currency || 'PHP')
+      setSettingsError('')
+      setSettingsNotice('')
+      setRequestedEdit(null)
+      cartPendingRef.current = false
+      catalogAddPendingRef.current = false
+      setCartPending(false)
+      setCatalogAddPending(false)
+      navigate('lists', null, { replace: true })
+      setCatalogVisited(false)
+      if (result.user.verification_required) {
+        setAccountEmail(result.user.email)
+        setAccountView('pending')
+      } else {
+        setAccountView('')
+      }
+      setStatus('ready')
+      return false
+    }
+    setUser(result.user)
+    setPreferredCurrency(result.user.preferred_currency || 'PHP')
+    if (allowQuarantined) { setStatus('ready'); setError('') }
+    return true
+  }
+
+  const validatePrivateSessionRef = useRef(null)
+  validatePrivateSessionRef.current = validatePrivateSession
+  useEffect(() => {
+    setExpectedAccountId(user?.id)
+    return () => setExpectedAccountId(null)
+  }, [user?.id])
+
+  useEffect(() => {
+    const validate = () => {
+      if (!privateReady) {
+        if (!user && status === 'ready') {
+          const generation = accountGeneration.current
+          getSession().then((result) => {
+            if (generation !== accountGeneration.current) return
+            setUser(result.user)
+            setExpectedAccountId(result.user.id)
+            setPreferredCurrency(result.user.preferred_currency || 'PHP')
+            if (result.user.verification_required) {
+              setAccountEmail(result.user.email)
+              setAccountView('pending')
+            }
+            navigate('lists', null, { replace: true })
+            setCatalogVisited(false)
+          }).catch(() => {})
+        }
+        return
+      }
+      // A notification means the browser cookie may now identify another
+      // account. Remove the mounted private cache before asking /auth/me.
+      dataCache.dispose()
+      accountGeneration.current += 1
+      setStatus('loading')
+      setError('')
+      setSettingsBusy(false)
+      resetCheckPending.current = false
+      setRequestedEdit(null)
+      cartPendingRef.current = false
+      catalogAddPendingRef.current = false
+      setCartPending(false)
+      setCatalogAddPending(false)
+      setReviewOpen(false)
+      setCatalogDestinationId(null)
+      setCatalogVisited(false)
+      navigate('lists', null, { replace: true })
+      void validatePrivateSessionRef.current?.({ allowQuarantined: true })
+    }
+    const unsubscribe = subscribeToSessionChanges(validate)
+    window.addEventListener('cartcheck:session-invalid', validate)
+    return () => {
+      unsubscribe()
+      window.removeEventListener('cartcheck:session-invalid', validate)
+    }
+  }, [privateReady, dataCache, status, user])
+
   async function saveSettings(event) {
     event.preventDefault()
     if (settingsBusy) return
@@ -369,7 +486,7 @@ export default function App() {
   return (
     <div className={`app ${!user || accountView || status !== 'ready' || user.verification_required ? 'auth-app' : ''}`}>
       <header className="site-header"><div className="header-inner"><Brand onHome={goHome} disabled={busy || settingsBusy || cartPending || catalogAddPending || reviewOpen || status !== 'ready'} />{status === 'ready' && user && !user.verification_required && !accountView && <nav className="catalog-nav" aria-label="Main navigation">{navigation()}</nav>}</div></header>
-      {privateReady ? <DataCacheProvider key={`${user.id}:${renderedGeneration}`} cache={dataCache}>
+      {privateReady ? <DataCacheProvider key={`${user.id}:${renderedGeneration}`} cache={dataCache} onRevalidate={validatePrivateSession}>
         {error && <p className="alert" role="alert">{error}</p>}
         {page === 'lists' && <Lists onOpenList={(id) => navigate('list', id)} preferredCurrency={preferredCurrency} />}
         {page === 'list' && <ListRoute key={`${user.id}:${routeListId}`} listId={routeListId} editItem={requestedEdit} onEditHandled={() => setRequestedEdit(null)} onBrowseCatalog={() => browseCatalog(routeListId)} onBackToLists={() => navigate('lists', null, { replace: true })} onMutationPending={reportCartPending} onReviewChange={setReviewOpen} />}

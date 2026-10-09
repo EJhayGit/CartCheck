@@ -11,6 +11,7 @@ Keep documentation here when it helps someone understand, run, maintain, or cont
 | [Design system](design/README.md) | Interface tokens, components, and responsive behavior |
 | [Database setup](MILESTONE_1_SETUP.md) | Local setup, migrations, TLS, and verification |
 | [Migration guide](MIGRATIONS.md) | Multiple-list upgrade and coordinated release constraints |
+| [Backup and recovery](BACKUP_RECOVERY.md) | Private export scope and isolated restore verification |
 | [Account email setup](ACCOUNT_EMAIL_SETUP.md) | Verification and password-recovery configuration |
 | [Test safety](MILESTONE_7_TEST_SAFETY.md) | Guarded integration testing and cleanup |
 | [Security and privacy checklist](SECURITY_CHECKLIST.md) | Verified controls, dependency findings, and open maintenance checks |

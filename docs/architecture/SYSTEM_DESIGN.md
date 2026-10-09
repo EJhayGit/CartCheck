@@ -129,6 +129,8 @@ Use [DESIGN_SYSTEM.md](../design/DESIGN_SYSTEM.md): semantic controls, visible f
 
 ### Client data ownership
 
+The October 9 release candidate also treats a shared-cookie change in another tab as a session boundary. It revalidates identity before focus/online refresh, uses a credential-free cross-tab notification, discards private state on a confirmed boundary, and supplies the rendered account ID on private API requests. Express compares this hint with the authenticated cookie identity before accessing data. The hint is a consistency check, never an authorization source; server ownership predicates remain authoritative. All `/api` responses carry `Cache-Control: no-store`. These controls await release approval and deployment.
+
 Private screens share an account-session in-memory cache through `DataCacheProvider` and `useDataQuery`. Active-list summaries, complete catalog, and the first history-summary page prefetch concurrently after session restoration. Lists/history use a 30-second stale period; catalog and bounded lazy trip details remain cached until changed or explicitly refreshed. Cached content survives background refresh/error. Reads deduplicate, accept abort signals, and use version guards; optimistic mutation locks prevent stale GETs replacing writes. Session/provider disposal aborts and clears private resources. Server persistence, ownership checks, and revision-based Finish/correction confirmation remain authoritative. List detail caches and mutations are scoped by list ID; reads deduplicate and optimistic writes reconcile API responses without full-list refetches.
 
 ## 6. Authentication and security
