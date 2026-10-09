@@ -288,7 +288,7 @@ input, select, .primary-button, .catalog-button, .catalog-small-button, .trip-ed
 .auth-app .site-header { display: none; }
 .auth-app .auth-main { flex: 1; min-height: 0; }
 .auth-main { min-height: 100svh; max-width: 1240px; margin: 0 auto; padding: 48px 40px; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 72px; align-items: center; }
-.auth-story { width: 100%; padding: 36px; border-radius: 28px; background: var(--brand); color: var(--on-brand); }
+.auth-story { width: 100%; padding: 36px; border-radius: 28px; background: var(--header-background); color: var(--on-brand); }
 .auth-logo { display: block; width: 182px; height: auto; margin-bottom: 48px; }
 .story-eyebrow { color: var(--story-eyebrow); font-size: 10px; font-weight: 750; letter-spacing: .12em; margin-bottom: 16px; }
 .auth-story h2 { margin: 0 0 18px; font-size: clamp(32px, 3.2vw, 44px); line-height: 1.15; letter-spacing: -.035em; font-weight: 650; }
