@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-30T08:37:26.193Z",
+  "generatedAt": "2026-10-30T10:39:42.082Z",
   "title": "Design System: CartCheck",
   "extensions": {
     "colorMeta": {
@@ -195,6 +195,36 @@
           "#e8bfb1",
           "#faebe6"
         ]
+      },
+      "control-border": {
+        "role": "neutral",
+        "displayName": "Field Stroke",
+        "canonical": "#7f8f81",
+        "tonalRamp": [
+          "#090c09",
+          "#212722",
+          "#3c453e",
+          "#5b645c",
+          "#7c857d",
+          "#9fa8a1",
+          "#c5cbc6",
+          "#edefed"
+        ]
+      },
+      "margin-rule": {
+        "role": "neutral",
+        "displayName": "Margin Line",
+        "canonical": "#c9dccd",
+        "tonalRamp": [
+          "#090c09",
+          "#212722",
+          "#3c453e",
+          "#5b645c",
+          "#7c857d",
+          "#9fa8a1",
+          "#c5cbc6",
+          "#edefed"
+        ]
       }
     },
     "typographyMeta": {
@@ -218,16 +248,20 @@
         "displayName": "Label",
         "purpose": "Field labels, buttons, navigation."
       },
-      "eyebrow": {
-        "displayName": "Eyebrow",
-        "purpose": "Capitalized kicker above titles, in primary green."
+      "item": {
+        "displayName": "Item",
+        "purpose": "List and catalog item names, readable at arm's length."
+      },
+      "meta": {
+        "displayName": "Meta",
+        "purpose": "Category, quantity notes and recorded prices under an item."
       }
     },
     "shadows": [
       {
         "name": "ambient-card",
         "value": "0 8px 28px rgb(23 43 38 / 4%)",
-        "purpose": "Panels, cards, list surfaces, auth card. Dark mode uses rgb(0 0 0 / 22%)."
+        "purpose": "Panels, budget panel, list cards, trip cards, list surfaces, the catalog added bar and the auth card. Dark mode uses rgb(0 0 0 / 22%)."
       }
     ],
     "motion": [
@@ -239,7 +273,12 @@
       {
         "name": "progress",
         "value": "width .2s ease",
-        "purpose": "Progress fill. Disabled under prefers-reduced-motion."
+        "purpose": "Progress fill."
+      },
+      {
+        "name": "tick-draw",
+        "value": "stroke-dashoffset .28s cubic-bezier(.16, 1, .3, 1) .04s",
+        "purpose": "The bought tick drawing into its circle; the one authored motion. All motion is off under prefers-reduced-motion."
       }
     ],
     "breakpoints": [
@@ -283,7 +322,7 @@
       "refersTo": "input",
       "description": "Label above, 46px control, primary border on focus.",
       "html": "<label class=\"ds-field\"><span>Item name</span><input class=\"ds-input\" placeholder=\"e.g. Rice\"></label>",
-      "css": ".ds-field { display: flex; flex-direction: column; gap: 7px; font: 700 13px system-ui, sans-serif; color: var(--text, #172b26); } .ds-input { min-height: 46px; padding: 10px 13px; border: 1px solid var(--border, #d7e2d9); border-radius: var(--radius-control, 12px); background: var(--surface, #fff); color: var(--text, #172b26); font: 400 16px system-ui, sans-serif; transition: border-color .16s ease; } .ds-input:hover { border-color: var(--border-hover, #a0b6a8); } .ds-input:focus { border-color: var(--primary, #176b45); } .ds-input:focus-visible { outline: 3px solid var(--primary, #176b45); outline-offset: 3px; }"
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 7px; font: 700 13px system-ui, sans-serif; color: var(--text, #172b26); } .ds-input { min-height: 46px; padding: 10px 13px; border: 1px solid var(--border, #d7e2d9); border-radius: var(--radius-control, 12px); background: var(--surface, #fff); color: var(--text, #172b26); font: 400 16px system-ui, sans-serif; transition: border-color .16s ease; } .ds-input:hover { border-color: var(--border-hover, #6f8273); } .ds-input:focus { border-color: var(--primary, #176b45); } .ds-input:focus-visible { outline: 3px solid var(--primary, #176b45); outline-offset: 3px; }"
     },
     {
       "name": "Header Navigation",
@@ -298,27 +337,34 @@
       "kind": "card",
       "refersTo": "card",
       "description": "Panels and list surfaces: 18px radius, thin border, single ambient shadow.",
-      "html": "<section class=\"ds-card\"><p class=\"ds-eyebrow\">WEEKLY SHOP</p><h2 class=\"ds-card-title\">Groceries</h2><p class=\"ds-card-meta\">4 of 9 bought · ₱1,240.00 est.</p></section>",
-      "css": ".ds-card { padding: 22px; border: 1px solid var(--border, #d7e2d9); border-radius: var(--radius-card, 18px); background: var(--surface, #fff); box-shadow: 0 8px 28px rgb(23 43 38 / 4%); color: var(--text, #172b26); font-family: system-ui, sans-serif; } .ds-eyebrow { margin: 0 0 12px; color: var(--primary, #176b45); font-size: 11px; font-weight: 800; letter-spacing: .07em; } .ds-card-title { margin: 0 0 3px; font-size: 20px; } .ds-card-meta { margin: 0; color: var(--muted-text, #42584e); font-size: 14px; font-variant-numeric: tabular-nums; }"
+      "html": "<section class=\"ds-card\"><h2 class=\"ds-card-title\">Weekly shop</h2><p class=\"ds-card-meta\">4 of 9 bought · Estimated ₱1,240.00</p></section>",
+      "css": ".ds-card { padding: 20px; border: 1px solid var(--border, #d7e2d9); border-radius: var(--radius-card, 18px); background: var(--surface, #fff); box-shadow: 0 8px 28px rgb(23 43 38 / 4%); color: var(--text, #172b26); font-family: system-ui, -apple-system, \"Segoe UI\", Arial, sans-serif; } .ds-card-title { margin: 0 0 6px; font-size: 21px; } .ds-card-meta { margin: 0; color: var(--muted-text, #42584e); font-size: 14px; font-variant-numeric: tabular-nums; }"
     },
     {
       "name": "List Row with Checkmark",
       "kind": "custom",
-      "description": "Signature checklist row: large round bought checkmark, name, quantity.",
-      "html": "<label class=\"ds-row\"><input type=\"checkbox\" class=\"ds-check\" checked><span class=\"ds-row-name\">Brown rice <small>2 kg · Grains</small></span></label>",
-      "css": ".ds-row { display: flex; align-items: center; gap: 13px; min-height: 76px; padding: 14px; border: 1px solid var(--border, #d7e2d9); border-radius: var(--radius-card, 18px); background: var(--surface, #fff); color: var(--text, #172b26); font: 700 16px system-ui, sans-serif; transition: background-color .16s ease; cursor: pointer; } .ds-row:hover { background: var(--surface-hover, #eef4ef); } .ds-row small { display: block; color: var(--muted-text, #42584e); font-size: 13px; font-weight: 400; } .ds-check { appearance: none; display: grid; place-items: center; width: 26px; height: 26px; margin: 0; border: 2px solid var(--control-border, #8a998b); border-radius: 50%; } .ds-check:checked { border-color: var(--primary, #176b45); background: var(--primary, #176b45); } .ds-check:checked::after { content: \"✓\"; color: var(--on-primary, #fff); font-size: 16px; line-height: 1; } .ds-check:focus-visible { outline: 3px solid var(--primary, #176b45); outline-offset: 3px; }"
+      "description": "Signature notebook row: a drawn tick circle left of the margin line, then a row-wide edit button with name, meta and quantity.",
+      "html": "<ul class=\"ds-page\"><li class=\"ds-row\"><label class=\"ds-check\"><input type=\"checkbox\" aria-label=\"Jasmine rice\"><svg class=\"ds-tick\" viewBox=\"0 0 28 28\" aria-hidden=\"true\"><circle cx=\"14\" cy=\"14\" r=\"12\"/><path d=\"M8.5 14.5 12.2 18 19.5 10\"/></svg></label><button class=\"ds-row-edit\" type=\"button\"><span class=\"ds-info\"><strong>Jasmine rice</strong><small>Pantry · est. ₱540.00</small></span><span class=\"ds-qty\">5 kg</span></button></li><li class=\"ds-row is-bought\"><label class=\"ds-check\"><input type=\"checkbox\" aria-label=\"Fresh milk\" checked><svg class=\"ds-tick\" viewBox=\"0 0 28 28\" aria-hidden=\"true\"><circle cx=\"14\" cy=\"14\" r=\"12\"/><path d=\"M8.5 14.5 12.2 18 19.5 10\"/></svg></label><button class=\"ds-row-edit\" type=\"button\"><span class=\"ds-info\"><strong>Fresh milk</strong><small>Dairy &amp; eggs · paid ₱205.50</small></span><span class=\"ds-qty\">2 L</span></button></li></ul>",
+      "css": ".ds-page { position: relative; width: 360px; margin: 0; padding: 0; list-style: none; border: 1px solid var(--border, #d7e2d9); border-radius: var(--radius-card, 18px); background: var(--surface, #fff); overflow: hidden; color: var(--text, #172b26); font-family: system-ui, -apple-system, \"Segoe UI\", Arial, sans-serif; } .ds-page::before { content: \"\"; position: absolute; top: 0; bottom: 0; left: 56px; width: 1px; background: var(--margin-rule, #c9dccd); } .ds-row { display: grid; grid-template-columns: 64px 1fr; align-items: center; border-bottom: 1px solid var(--border, #d7e2d9); } .ds-row:last-child { border-bottom: 0; } .ds-check { display: grid; place-items: center; width: 44px; height: 44px; margin-right: 8px; justify-self: center; cursor: pointer; } .ds-check input { position: absolute; opacity: 0; width: 1px; height: 1px; } .ds-tick { width: 28px; height: 28px; } .ds-tick circle { fill: transparent; stroke: var(--control-border, #7f8f81); stroke-width: 2; transition: fill .16s ease, stroke .16s ease; } .ds-tick path { fill: none; stroke: var(--on-primary, #fff); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 17; stroke-dashoffset: 17; transition: stroke-dashoffset .28s cubic-bezier(.16, 1, .3, 1) .04s; } .ds-check input:checked + .ds-tick circle { fill: var(--primary, #176b45); stroke: var(--primary, #176b45); } .ds-check input:checked + .ds-tick path { stroke-dashoffset: 0; } .ds-check:has(input:focus-visible) .ds-tick { outline: 3px solid var(--primary, #176b45); outline-offset: 3px; border-radius: 50%; } .ds-row-edit { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 10px 16px 10px 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; transition: background-color .16s ease; } .ds-row-edit:hover { background: var(--surface-hover, #eef4ef); } .ds-row-edit:focus-visible { outline: 3px solid var(--primary, #176b45); outline-offset: -3px; } .ds-info { display: grid; flex: 1; gap: 2px; } .ds-info strong { font-size: 16px; font-weight: 650; } .ds-info small { color: var(--muted-text, #42584e); font-size: 13px; font-variant-numeric: tabular-nums; } .ds-qty { color: var(--muted-text, #42584e); font-size: 14px; font-weight: 650; font-variant-numeric: tabular-nums; } .is-bought .ds-info strong { color: var(--muted-text, #42584e); text-decoration: line-through; text-decoration-thickness: 1.5px; } @media (prefers-reduced-motion: reduce) { .ds-tick circle, .ds-tick path, .ds-row-edit { transition: none; } }"
     },
     {
       "name": "Progress Track",
       "kind": "custom",
-      "description": "Shopping progress: 6px pill track with primary fill.",
-      "html": "<div class=\"ds-progress\" role=\"progressbar\" aria-valuenow=\"44\" aria-valuemin=\"0\" aria-valuemax=\"100\"><span style=\"width:44%\"></span></div>",
-      "css": ".ds-progress { width: 240px; height: 6px; overflow: hidden; border-radius: 99px; background: var(--progress-track, #cbd8ca); } .ds-progress span { display: block; height: 100%; border-radius: inherit; background: var(--primary, #176b45); transition: width .2s ease; } @media (prefers-reduced-motion: reduce) { .ds-progress span { transition: none; } }"
+      "description": "List progress: \"3 of 10 bought\" over a 6px pill track with primary fill.",
+      "html": "<div class=\"ds-progress-wrap\"><p class=\"ds-progress-line\"><strong>3 of 10</strong> bought</p><div class=\"ds-progress\" role=\"img\" aria-label=\"3 of 10 items bought\"><span style=\"width:30%\"></span></div></div>",
+      "css": ".ds-progress-wrap { width: 280px; font-family: system-ui, -apple-system, \"Segoe UI\", Arial, sans-serif; } .ds-progress-line { margin: 0 0 10px; color: var(--muted-text, #42584e); font-size: 15px; font-variant-numeric: tabular-nums; } .ds-progress-line strong { color: var(--text, #172b26); } .ds-progress { height: 6px; overflow: hidden; border-radius: 99px; background: var(--progress-track, #cbd8ca); } .ds-progress span { display: block; height: 100%; border-radius: inherit; background: var(--primary, #176b45); transition: width .2s ease; } @media (prefers-reduced-motion: reduce) { .ds-progress span { transition: none; } }"
+    },
+    {
+      "name": "Find or Add Field",
+      "kind": "input",
+      "description": "One search field above the list: filters the list and offers catalog matches with Add.",
+      "html": "<div class=\"ds-find\"><label for=\"ds-find-input\">Find or add an item</label><input id=\"ds-find-input\" type=\"search\" value=\"gar\"><ul><li><span><strong>Garlic</strong><small>Produce</small></span><button type=\"button\" aria-label=\"Add Garlic\">Add</button></li></ul></div>",
+      "css": ".ds-find { width: 340px; color: var(--text, #172b26); font-family: system-ui, -apple-system, \"Segoe UI\", Arial, sans-serif; } .ds-find label { display: block; margin: 0 0 7px; font-size: 13px; font-weight: 700; } .ds-find input { width: 100%; box-sizing: border-box; min-height: 46px; padding: 10px 13px; border: 1px solid var(--control-border, #7f8f81); border-radius: var(--radius-control, 12px); background: var(--surface, #fff); color: inherit; font: inherit; } .ds-find input:hover { border-color: var(--border-hover, #6f8273); } .ds-find input:focus { outline: none; border-color: var(--primary, #176b45); } .ds-find ul { margin: 8px 0 0; padding: 4px 16px; list-style: none; border: 1px solid var(--border, #d7e2d9); border-radius: var(--radius-card, 18px); } .ds-find li { display: flex; align-items: center; justify-content: space-between; min-height: 56px; } .ds-find li span { display: grid; gap: 2px; } .ds-find small { color: var(--muted-text, #42584e); font-size: 13px; } .ds-find button { min-height: 44px; padding: 0 14px; border: 1px solid var(--primary, #176b45); border-radius: var(--radius-control, 12px); background: var(--surface, #fff); color: var(--primary, #176b45); font: 700 13px system-ui, sans-serif; cursor: pointer; } .ds-find button:hover { background: var(--accent-soft, #e8f0e9); } .ds-find button:focus-visible { outline: 3px solid var(--primary, #176b45); outline-offset: 3px; }"
     }
   ],
   "narrative": {
     "northStar": "The Market Notebook",
-    "overview": "CartCheck is a pocket notebook carried down the aisle: practical, legible with one hand, and calm enough to trust while you shop. The checklist does the talking. Prices, budgets and totals sit nearby but quieter, because a shopper must be able to finish a trip without them.\n\nThe surfaces are paper-like neutrals with one deep green accent, a dark brand-green header, and mint as a small highlight. Forms are soft and steady, with rounded controls and cards, thin borders, a faint ambient shadow and generous touch targets. Built with React, semantic HTML and CSS custom properties; no UI component package.",
+    "overview": "CartCheck is a pocket notebook carried down the aisle: practical, legible with one hand, and calm enough to trust while you shop. The checklist does the talking. Prices, budgets and totals sit nearby but quieter, because a shopper must be able to finish a trip without them.\n\nThe notebook is literal on the list screen: the list is a ruled page with a thin vertical margin line, item names sit in the text column to its right, and checking an item draws a tick into its circle like a pencil mark and strikes the name through.\n\nThe surfaces are paper-like neutrals with one deep green accent, a dark brand-green header, and mint as a small highlight. Forms are soft and steady, with rounded controls and cards, thin borders, a faint ambient shadow and generous touch targets. Built with React, semantic HTML and CSS custom properties; no UI component package.",
     "keyCharacteristics": [
       "One accent (deep green, mint in dark mode); everything else is neutral.",
       "Soft and steady forms: 12px controls, 18px cards, 48px touch targets.",
@@ -352,10 +398,12 @@
       "Do use the CSS custom properties in `client/src/styles.css`. Never hard-code a hex value in a component.",
       "Do keep the official wordmark assets in `client/public/`.",
       "Do honor `prefers-reduced-motion`; transitions stay short (0.16–0.2s ease).",
-      "Do keep every interactive target at least 44px tall, with a visible focus outline."
+      "Do keep every interactive target at least 44px tall, with a visible focus outline.",
+      "Do show a price only when one is recorded; the budget panel carries the incomplete counts."
     ],
     "donts": [
       "Don't add a second accent hue or a UI component library.",
+      "Don't put kicker or eyebrow labels above headings, or use Unicode glyphs as icons; icons are drawn SVG.",
       "Don't signal state by color alone.",
       "Don't show an unknown amount as `0.00`.",
       "Don't stack shadows or add elevation levels beyond the single ambient card shadow."
