@@ -108,3 +108,45 @@ test('deleting a list asks inline and Keep leaves it in place', async () => {
   await waitFor(() => assert.equal(document.activeElement, screen.getByRole('button', { name: 'Delete' })))
   assert.equal(calls.some((call) => call.options.method === 'DELETE'), false)
 })
+
+test('a trip link opens under Trips, names the page and returns to history', async () => {
+  const completed = { id: 'trip-88', name: 'Holiday run', status: 'completed', currency: 'PHP', completedAt: '2026-09-21T00:00:00Z', revision: 3, items: [{ id: 's1', name: 'Oats', category: 'Pantry', quantity: '1', bought: true, estimatedTotal: null, actualTotal: null }], summary: { actualTotal: null, actualMissingCount: 1, estimatedTotal: null, estimatedMissingCount: 1 } }
+  mockAppFetch({ tripPage: { items: [{ ...completed, itemCount: 1, boughtCount: 1, notBoughtCount: 0 }], nextCursor: null }, tripDetail: { trip: completed } })
+  window.history.replaceState(null, '', '/trips/trip-88')
+  render(React.createElement(App))
+  await screen.findByRole('heading', { name: 'Holiday run' })
+  const nav = screen.getByRole('navigation', { name: 'Main navigation' })
+  assert.equal([...nav.querySelectorAll('[aria-current="page"]')].map((button) => button.textContent).join(), 'Trips')
+  await waitFor(() => assert.equal(document.title, 'Holiday run · CartCheck'))
+  fireEvent.click(screen.getByRole('button', { name: 'All trips' }))
+  await screen.findByRole('heading', { name: 'Trips' })
+  assert.ok(screen.getByRole('button', { name: 'Shop again from Holiday run' }))
+})
+
+test('a new list can start from the not-bought items of the last trip with its own budget', async () => {
+  const last = { id: 'trip-7', name: 'Saturday', completedAt: '2026-10-24T00:00:00Z', currency: 'PHP', itemCount: 3, boughtCount: 1, notBoughtCount: 2, summary: {} }
+  const created = { tripId: 'list-9', name: 'Next shop', status: 'active', currency: 'PHP', budget: null, revision: 1, items: [] }
+  const calls = []
+  globalThis.fetch = async (url, options = {}) => {
+    const path = String(url)
+    calls.push({ path, options })
+    if (path.endsWith('/api/auth/me')) return json({ user })
+    if (path.endsWith('/api/lists') && !options.method) return json({ items: [], nextCursor: null })
+    if (path.endsWith('/api/catalog')) return json({ items: [] })
+    if (path.endsWith('/api/trips')) return json({ items: [last], nextCursor: null })
+    if (path.endsWith('/api/trips/trip-7/reuse')) return json(created, 201)
+    if (path.endsWith('/api/lists/list-9') && options.method === 'PATCH') return json({ ...created, budget: '500.00', revision: 2 })
+    if (path.endsWith('/api/lists/list-9')) return json({ ...created, budget: '500.00', revision: 2 })
+    throw new Error(`Unexpected request: ${path} ${options.method}`)
+  }
+  render(React.createElement(App))
+  fireEvent.click(await screen.findByRole('button', { name: 'Create list' }))
+  fireEvent.change(screen.getByLabelText('List name'), { target: { value: 'Next shop' } })
+  fireEvent.change(await screen.findByLabelText('Start with'), { target: { value: 'notBought' } })
+  assert.equal(screen.getByLabelText('Currency').disabled, true)
+  fireEvent.change(screen.getByLabelText('Budget (optional)'), { target: { value: '500' } })
+  fireEvent.submit(screen.getByLabelText('List name').closest('form'))
+  await waitFor(() => assert.equal(window.location.pathname, '/lists/list-9'))
+  assert.deepEqual(JSON.parse(calls.find((call) => call.path.endsWith('/reuse')).options.body), { items: 'notBought', name: 'Next shop' })
+  assert.deepEqual(JSON.parse(calls.find((call) => call.options.method === 'PATCH').options.body), { budget: '500.00' })
+})

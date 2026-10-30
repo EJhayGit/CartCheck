@@ -220,7 +220,7 @@ Soft, consistent rounding with thin 1px borders. Controls (buttons, inputs, sele
 - **Background:** `surface`, with a 1px `border` and the ambient card shadow.
 - **Internal Padding:** 22px (18px on phones; 16px on trip screens).
 - **Product row:** a card with the name and category, a quiet Edit or Customize link and an Add action outlined in Market Green. An item already on the destination list reads "on this list" and its action becomes Change, which opens that entry for editing. No brand, variant or price is required.
-- **List row:** a 44px check target holding a 28px drawn circle, then one row-wide button with the item name, category, any recorded price ("est. ₱90.00 · paid ₱85.00") and the quantity at the right. Nothing is printed for unknown prices. Tapping the row opens an inline editor directly under it (quantity first, then name, unit and both item totals), which also holds Remove. Bought rows stay readable with a struck-through name.
+- **List row:** a 44px check target holding a 28px drawn circle, then one row-wide button with the item name, category, any recorded price ("est. ₱90.00 · paid ₱85.00") and the quantity at the right. Nothing is printed for unknown prices. Tapping the row opens an inline editor directly under it (quantity first, then name, unit and both item totals), which also holds Remove. For a bought row the editor opens on the paid amount alone, with More details for the rest. Bought rows stay readable with a struck-through name.
 - **Find or add:** one search field above the list. Typing filters the list and offers up to five catalog matches not yet on it, each with Add. With no match it points to the catalog.
 
 ### Inputs / Fields
@@ -238,20 +238,25 @@ Soft, consistent rounding with thin 1px borders. Controls (buttons, inputs, sele
 ### Progress
 - "3 of 10 bought" under the list title, with a 6px pill track (`progress-track`) whose primary fill animates its width at 0.2s.
 - When nothing is left to buy, a completion panel ("Everything’s checked off.") offers the primary Review and finish.
-- The tick draws in about 0.3s with an exponential ease-out. All animation is off under reduced motion.
+- The tick draws in about 0.3s with an exponential ease-out. A checked row stays in To buy for 1.5s so the tick is seen where it was tapped, then settles into Bought; keyboard focus moves on only when it settles. All animation is off under reduced motion.
+- **Undo bar:** each check or uncheck shows "Bananas bought. 6 left." with Undo in a dark bar near the bottom (above the phone navigation) for six seconds.
 
 ### Feedback & States
-- **Budget summary:** the optional budget, known estimated and actual subtotals, missing-price counts, and remaining or over amount where meaningful. Incomplete amounts are labeled; currencies are never combined.
+- **Budget summary:** collapsed by default to one line ("Budget ₱15,000.00 · est. ₱13,220.00 (6 unpriced)"); open it for the subtotals, meters and budget editing. Incomplete totals use muted text; warning color is kept for over budget. Currencies are never combined.
+- **Finish review:** the decision comes first: "3 bought · 7 will be saved as not bought", recorded spending, then Keep shopping and Confirm (sticky above the phone navigation). The Not bought and Bought lists follow as collapsible groups.
 - **Feedback:** inline field errors, page-level retry on load failure, polite status on save, a clear next action on empty states, and confirmation before Finish Trip or a past-trip correction. Each check is announced once ("Bananas bought. 6 left."), and keyboard focus moves to the next item to buy. After finishing, My Lists shows "<list> is saved in Trips" with View trip.
-- **Shop again:** trip details offer Shop again as the primary action; it opens an inline panel (all items or only the not bought, plus a list name) and then opens the new list.
+- **Start from a trip:** Create list offers "Start with" (an empty list, or the last trip's items) when a finished trip exists; the currency follows the account preference.
+- **Reviews pause the menu:** the Finish and correction reviews say that the menu is paused until the shopper keeps going or confirms.
+- **Shop again:** trip details and each Trips card offer Shop again; it opens an inline panel (all items or only the not bought, plus a list name) and then opens the new list.
 - **Catalog adds:** adding a new item keeps the shopper in the catalog; a sticky bar counts the adds and offers Back to list.
 - **Dialog / review:** focus moves into the review, stays trapped while it's open, and returns to its trigger on close. Escape closes without committing.
-- **Loading:** visible text and stable placeholder geometry; no misleading zero totals.
+- **Loading:** placeholder rows and cards in the final geometry, with a text status for assistive technology; no misleading zero totals.
 - **Empty states:**
   - **No lists:** offer Create list.
   - **Empty selected list:** the find-or-add field plus Browse catalog, with the destination retained.
   - **No catalog results:** show the searched term and offer to create it as a new item, keeping the term.
   - **No history:** explain that finished trips appear here after Finish Trip.
+- **Navigation:** every screen sets the page title from its heading and moves focus to that heading after navigation. A skip link leads to the main content. Finished trips live at `/trips/:id`.
 - **Error / offline:** keep entered data when possible, say what failed, and offer retry.
 - **Over budget / unknown price:** a text message next to the affected amount. Missing amounts never appear as zero.
 - **Image unavailable:** a neutral placeholder with the product name still visible.

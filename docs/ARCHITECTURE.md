@@ -40,7 +40,7 @@ Supabase initially supplies PostgreSQL only. Keep all browser data access throug
 
 | Component | Responsibility |
 | --- | --- |
-| React shell and screens | Auth gate; My Lists, Catalog, Trips, Settings navigation; responsive checklist and secondary money controls. |
+| React shell and screens | Auth gate; My Lists, Catalog, Trips (and `/trips/:id`), Settings navigation; page title and heading focus on navigation; responsive checklist and secondary money controls. |
 | Client API facade | Named HTTP requests, cookie credentials, normalized loading and errors; fictitious mock fixtures only for isolated UI work. |
 | Express routes | Authenticate, validate, handle status codes, return decimal strings and predictable JSON. |
 | Services | Catalog resolution, list mutations/totals, transaction-safe finish and correction. |

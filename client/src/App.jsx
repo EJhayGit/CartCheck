@@ -25,6 +25,11 @@ function routeFromLocation() {
     catch { return { page: 'list', listId: match[1] } }
   }
   if (/^\/catalog\/?$/.test(window.location.pathname)) return { page: 'catalog', listId: null }
+  const trip = window.location.pathname.match(/^\/trips\/([^/]+)\/?$/)
+  if (trip) {
+    try { return { page: 'trips', listId: decodeURIComponent(trip[1]) } }
+    catch { return { page: 'trips', listId: trip[1] } }
+  }
   if (/^\/trips\/?$/.test(window.location.pathname)) return { page: 'trips', listId: null }
   if (/^\/settings\/?$/.test(window.location.pathname)) return { page: 'settings', listId: null }
   return { page: 'lists', listId: null }
@@ -57,6 +62,7 @@ export default function App() {
   const [route, setRoute] = useState(routeFromLocation)
   const { page, listId: routeListId } = route
   const [catalogDestinationId, setCatalogDestinationId] = useState(null)
+  const [catalogSearch, setCatalogSearch] = useState('')
   const [catalogVisited, setCatalogVisited] = useState(route.page === 'catalog')
   const [requestedEdit, setRequestedEdit] = useState(null)
   const [flash, setFlash] = useState(null)
@@ -78,7 +84,7 @@ export default function App() {
 
   function navigate(nextPage, id = null, { replace = false, flash: nextFlash = null } = {}) {
     setFlash(nextFlash)
-    const path = nextPage === 'list' ? `/lists/${encodeURIComponent(id)}` : ({ lists: '/lists', catalog: '/catalog', trips: '/trips', settings: '/settings' }[nextPage] || '/lists')
+    const path = nextPage === 'list' ? `/lists/${encodeURIComponent(id)}` : nextPage === 'trips' && id ? `/trips/${encodeURIComponent(id)}` : ({ lists: '/lists', catalog: '/catalog', trips: '/trips', settings: '/settings' }[nextPage] || '/lists')
     window.history[replace ? 'replaceState' : 'pushState']({ page: nextPage, listId: id }, '', path)
     setRoute({ page: nextPage, listId: id })
   }
@@ -342,10 +348,11 @@ export default function App() {
     } finally { release() }
   }
 
-  function browseCatalog(destinationId = null) {
+  function browseCatalog(destinationId = null, search = '') {
     if (cartPendingRef.current || catalogAddPendingRef.current) return
     setCatalogVisited(true)
     setCatalogDestinationId(destinationId)
+    setCatalogSearch(typeof search === 'string' ? search : '')
     navigate('catalog')
   }
 
@@ -396,6 +403,22 @@ export default function App() {
     if (allowQuarantined) { setStatus('ready'); setError('') }
     return true
   }
+
+  // Screen changes name the page and move focus to its heading, so assistive tech hears the new screen.
+  const firstScreen = useRef(true)
+  useEffect(() => {
+    if (!privateReady) return
+    const root = document.getElementById('main-content')
+    // Headings fill in as data loads, so the title follows the current h1.
+    const name = () => { const text = root?.querySelector('h1')?.textContent; document.title = text ? `${text} · CartCheck` : 'CartCheck' }
+    name()
+    const observer = root && window.MutationObserver ? new window.MutationObserver(name) : null
+    observer?.observe(root, { subtree: true, childList: true, characterData: true })
+    const heading = root?.querySelector('h1')
+    if (firstScreen.current) firstScreen.current = false
+    else if (heading) { heading.tabIndex = -1; heading.focus() }
+    return () => observer?.disconnect()
+  }, [page, routeListId, privateReady])
 
   const validatePrivateSessionRef = useRef(null)
   validatePrivateSessionRef.current = validatePrivateSession
@@ -492,12 +515,13 @@ export default function App() {
   return (
     <div className={`app ${!user || accountView || status !== 'ready' || user.verification_required ? 'auth-app' : ''}`}>
       <header className="site-header"><div className="header-inner"><Brand onHome={goHome} disabled={busy || settingsBusy || cartPending || catalogAddPending || reviewOpen || status !== 'ready'} />{status === 'ready' && user && !user.verification_required && !accountView && <nav className="catalog-nav" aria-label="Main navigation">{navigation()}</nav>}</div></header>
-      {privateReady ? <DataCacheProvider key={`${user.id}:${renderedGeneration}`} cache={dataCache} onRevalidate={validatePrivateSession}>
+      {privateReady && <a className="skip-link" href="#main-content">Skip to main content</a>}
+      {privateReady ? <DataCacheProvider key={`${user.id}:${renderedGeneration}`} cache={dataCache} onRevalidate={validatePrivateSession}><div id="main-content" tabIndex="-1">
         {error && <p className="alert" role="alert">{error}</p>}
-        {page === 'lists' && <Lists onOpenList={(id) => navigate('list', id)} preferredCurrency={preferredCurrency} flash={flash} />}
-        {page === 'list' && <ListRoute key={`${user.id}:${routeListId}`} listId={routeListId} editItem={requestedEdit} onEditHandled={() => setRequestedEdit(null)} onBrowseCatalog={() => browseCatalog(routeListId)} onQuickAdd={(productId) => addItem(productId, routeListId)} onBackToLists={(finished) => navigate('lists', null, { replace: true, flash: finished?.notice ? finished : null })} onOpenList={(id) => navigate('list', id)} onMutationPending={reportCartPending} onReviewChange={setReviewOpen} />}
-        {catalogVisited && page === 'catalog' && <Catalog active destinationId={catalogDestinationId} onAdd={addItem} onAddPending={reportCatalogAddPending} onManageLists={() => navigate('lists')} onOpenList={(id) => navigate('list', id)} />}
-        {page === 'trips' && <Trips key={user.id} onReviewChange={setReviewOpen} onOpenList={(id) => navigate('list', id)} />}
+        {page === 'lists' && <Lists onOpenList={(id) => navigate('list', id)} onOpenTrip={(id) => navigate('trips', id)} preferredCurrency={preferredCurrency} flash={flash} />}
+        {page === 'list' && <ListRoute key={`${user.id}:${routeListId}`} listId={routeListId} editItem={requestedEdit} onEditHandled={() => setRequestedEdit(null)} onBrowseCatalog={(search) => browseCatalog(routeListId, search)} onQuickAdd={(productId) => addItem(productId, routeListId)} onBackToLists={(finished) => navigate('lists', null, { replace: true, flash: finished?.notice ? finished : null })} onOpenList={(id) => navigate('list', id)} onMutationPending={reportCartPending} onReviewChange={setReviewOpen} />}
+        {catalogVisited && page === 'catalog' && <Catalog key={catalogSearch} active destinationId={catalogDestinationId} initialSearch={catalogSearch} onAdd={addItem} onAddPending={reportCatalogAddPending} onManageLists={() => navigate('lists')} onOpenList={(id) => navigate('list', id)} />}
+        {page === 'trips' && <Trips key={`${user.id}:${routeListId ?? ''}`} initialTripId={routeListId} onReviewChange={setReviewOpen} onOpenList={(id) => navigate('list', id)} />}
         {page === 'settings' && <main className="settings-main">
           <section className="catalog-panel" aria-labelledby="settings-heading">
             <h1 id="settings-heading">Settings</h1>
@@ -514,7 +538,7 @@ export default function App() {
           <section className="catalog-panel appearance-panel" aria-labelledby="appearance-heading"><h2 id="appearance-heading">Appearance</h2><p className="appearance-help">Choose your look. Saved in this browser across visits.</p><div className="appearance-options" role="group" aria-label="Appearance">{['light', 'dark', 'system'].map((option) => <button type="button" key={option} aria-pressed={appearance === option} onClick={() => setAppearance(option)}>{option[0].toUpperCase() + option.slice(1)}</button>)}</div><p className="appearance-help">System follows your device’s color preference.</p></section>
           <ChangePassword onChanged={clearRevokedSession} />
         </main>}
-      </DataCacheProvider> : <main className="auth-main"><AuthBrand onHome={goHome} disabled={busy || accountBusy || status !== 'ready' || user?.verification_required} /><div className="auth-form-area">
+      </div></DataCacheProvider> : <main className="auth-main"><AuthBrand onHome={goHome} disabled={busy || accountBusy || status !== 'ready' || user?.verification_required} /><div className="auth-form-area">
         {status === 'loading' && <section className="auth-card" role="status"><h1>Restoring your session</h1><p>Checking your account…</p></section>}
         {status === 'error' && <section className="auth-card"><h1>Could not connect</h1><p className="alert" role="alert">{error}</p><button className="primary-button" onClick={retryRestore}>Try again</button></section>}
         {status === 'ready' && accountView && <AccountFlows onBusyChange={setAccountBusy} key={`${accountView}:${accountEmail}`} view={accountView} token={linkToken} email={accountEmail} initialCooldownUntil={emailCooldownUntil} onBack={user?.verification_required ? signOut : returnToSignIn} onContinue={user && !user.verification_required ? () => setAccountView('') : null} onVerified={(verifiedUser) => { if (verifiedUser && user?.id === verifiedUser.id) setUser(verifiedUser) }} onReset={finishPasswordReset} />}

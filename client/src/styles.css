@@ -45,6 +45,20 @@ button:disabled { cursor: default; opacity: .65; }
 :focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
 h1 { margin: 0; font-size: 34px; line-height: 1.2; letter-spacing: -.035em; text-wrap: balance; }
 h2, h3 { text-wrap: balance; }
+h1[tabindex="-1"]:focus { outline: none; }
+#main-content:focus { outline: none; }
+.skip-link { position: absolute; top: 8px; left: 8px; z-index: 30; padding: 10px 16px; border-radius: var(--radius-control); background: var(--surface); color: var(--primary); font-weight: 700; transform: translateY(-160%); }
+.skip-link:focus { transform: none; }
+.check-status { position: fixed; left: 50%; bottom: 20px; z-index: 6; width: min(calc(100% - 32px), 480px); transform: translateX(-50%); pointer-events: none; }
+.check-status p { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; padding: 4px 8px 4px 18px; border-radius: var(--radius-card); background: var(--text); color: var(--surface); font-size: 15px; box-shadow: var(--surface-shadow); pointer-events: auto; }
+.check-status .text-button { padding: 0 10px; color: var(--mint); }
+/* In dark mode the bar inverts to a light surface, so Undo takes the dark green ink. */
+[data-theme="dark"] .check-status .text-button { color: var(--on-primary); }
+.skeleton .skeleton-row { display: flex; align-items: center; gap: 16px; min-height: 60px; padding: 0 16px; border-bottom: 1px solid var(--border-subtle); }
+.skeleton .skeleton-row span { display: block; width: 28px; height: 28px; border-radius: 50%; background: var(--surface-hover); }
+.skeleton .skeleton-row span + span { width: 45%; height: 14px; border-radius: 99px; }
+.list-card.skeleton { min-height: 180px; padding: 8px 4px; }
+.list-card.skeleton .skeleton-row span:only-child { width: 55%; height: 18px; border-radius: 99px; }
 p { text-wrap: pretty; }
 form { display: flex; flex-direction: column; }
 label { margin: 0 0 7px; font-size: 13px; font-weight: 700; }
@@ -120,12 +134,10 @@ input:focus, select:focus { border-color: var(--primary); }
 .list-progress-line { margin: 6px 0 0; color: var(--muted-text); font-size: 15px; font-variant-numeric: tabular-nums; }
 .list-progress-line strong { color: var(--text); }
 .saving-note { color: var(--muted-text); }
-.list-header > .progress-track, .review-progress .progress-track { grid-column: 1 / -1; }
-.review-progress { margin: -10px 0 24px; }
-.review-progress .list-progress-line { margin-bottom: 10px; }
+.list-header > .progress-track { grid-column: 1 / -1; }
 .progress-track { height: 6px; overflow: hidden; border-radius: 99px; background: var(--progress-track); }
 .progress-track span { display: block; height: 100%; border-radius: inherit; background: var(--primary); transition: width .2s ease; }
-.shopping-content { display: grid; grid-template-columns: minmax(0, 3fr) minmax(280px, 1fr); align-items: start; gap: 24px; }
+.shopping-content { display: grid; grid-template-columns: minmax(0, 880px) minmax(280px, 400px); align-items: start; gap: 24px; }
 .shopping-primary { min-width: 0; }
 .find-item { margin-bottom: 14px; }
 .find-item label { display: block; }
@@ -138,7 +150,8 @@ input:focus, select:focus { border-color: var(--primary); }
 .find-results strong { overflow-wrap: anywhere; font-size: 15px; }
 .find-results small { color: var(--muted-text); font-size: 13px; }
 .find-results .optional-help { margin: 10px 0; }
-.find-results .text-button { min-height: 0; }
+.find-empty { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; padding: 6px 0; }
+.find-empty .optional-help { margin: 0; }
 .list-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 0 12px; }
 .list-tools label { margin: 0; }
 .list-tools select { width: auto; max-width: 100%; min-height: 44px; margin: 0; padding: 8px 12px; }
@@ -190,13 +203,19 @@ input:focus, select:focus { border-color: var(--primary); }
 .list-complete p { margin: 0; }
 
 /* Budget and spending: secondary, ledger numerals */
-.budget-panel { padding: 22px; }
-.budget-panel-heading { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
-.budget-panel-heading h2 { margin: 0; font-size: 20px; }
+.budget-panel { padding: 0 22px; }
+.budget-panel[open] { padding-bottom: 18px; }
+.budget-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 64px; padding: 12px 0; cursor: pointer; list-style: none; }
+.budget-panel-heading::-webkit-details-marker { display: none; }
+.budget-panel-heading > span:first-child { display: grid; gap: 2px; min-width: 0; }
+.budget-title { font-size: 16px; font-weight: 750; }
+.budget-line { color: var(--muted-text); font-size: 14px; font-variant-numeric: tabular-nums; }
+.budget-panel-heading:focus-visible { outline-offset: 2px; border-radius: var(--radius-control); }
 .budget-stat { display: flex; justify-content: space-between; gap: 16px; padding: 11px 0; border-top: 1px solid var(--border); font-size: 14px; }
 .budget-stat strong { text-align: right; font-variant-numeric: tabular-nums; }
 .incomplete-note, .budget-warning, .budget-comparison { margin: 0 0 10px; font-size: 13px; line-height: 1.5; }
-.incomplete-note, .budget-warning { color: var(--warning); }
+.incomplete-note { color: var(--muted-text); }
+.budget-warning { color: var(--warning); }
 .budget-comparison { color: var(--muted-text); }
 .budget-edit-button { min-height: 44px; padding: 7px 0; border: 0; background: transparent; color: var(--primary); font-weight: 700; text-underline-offset: 3px; }
 .budget-edit-button:hover { text-decoration: underline; }
@@ -258,10 +277,15 @@ input:focus, select:focus { border-color: var(--primary); }
 .added-last { color: var(--muted-text); }
 
 /* Trips and reviews */
-.trip-review-grid { display: grid; grid-template-columns: minmax(0, 1fr) 294px; align-items: start; gap: 24px; }
-.trip-review-grid h2, .trip-screen .catalog-panel h2 { margin: 0 0 14px; font-size: 20px; }
-.trip-review-grid h2 .section-count { margin-left: 6px; }
-.review-amount { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.trip-screen .catalog-panel h2 { margin: 0 0 14px; font-size: 20px; }
+.review-summary { max-width: 720px; margin-bottom: 16px; }
+.review-fact { margin: 0 0 8px; font-size: 18px; line-height: 1.45; font-variant-numeric: tabular-nums; }
+.review-spend { margin: 0 0 4px; font-size: 15px; font-variant-numeric: tabular-nums; }
+.review-actions { margin-top: 14px; }
+.review-group { max-width: 720px; margin-bottom: 12px; padding-block: 4px; }
+.review-group summary { display: flex; align-items: center; min-height: 52px; cursor: pointer; }
+.review-group summary h2 { margin: 0; font-size: 18px; }
+.review-group summary h2 .section-count { margin-left: 6px; }
 .trip-review-list { margin: 0 0 24px; padding: 0; list-style: none; }
 .trip-review-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border-subtle); }
 .trip-review-list li > span:first-child { display: grid; gap: 3px; min-width: 0; }
@@ -288,8 +312,9 @@ input:focus, select:focus { border-color: var(--primary); }
 .trip-edit-item { margin: 10px 0; border: 1px solid var(--border); border-radius: var(--radius-control); }
 .trip-edit-item summary { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; min-height: 52px; padding: 14px 16px; cursor: pointer; }
 .trip-edit-item summary small { color: var(--muted-text); font-size: 13px; }
-.trip-edit-item summary::after { content: 'Edit'; margin-left: auto; color: var(--primary); font-size: 14px; font-weight: 700; }
-.trip-edit-item[open] summary::after { content: 'Close'; }
+.summary-action { margin-left: auto; color: var(--primary); font-size: 14px; font-weight: 700; }
+details > summary .when-open, details[open] > summary .when-closed { display: none; }
+details[open] > summary .when-open { display: inline; }
 .trip-edit-item[open] summary { border-bottom: 1px solid var(--border-subtle); }
 .trip-edit-item fieldset { display: grid; gap: 14px; margin: 0; padding: 16px; border: 0; }
 .trip-edit-item label { display: grid; gap: 6px; margin: 0; font-size: 13px; font-weight: 650; }
@@ -413,7 +438,8 @@ input:focus, select:focus { border-color: var(--primary); }
   .row-editor-save button { flex: 1; }
   .quantity-fields { grid-template-columns: 1fr; gap: 0; }
   .list-complete { align-items: stretch; flex-direction: column; }
-  .budget-panel { padding: 18px 16px; }
+  .budget-panel { padding: 0 16px; }
+  .budget-panel[open] { padding-bottom: 16px; }
   .list-card { padding: 18px; }
   .list-card-actions .catalog-button { flex: 1; }
   .list-dialog-backdrop { place-items: end center; padding: 8px; }
@@ -425,7 +451,10 @@ input:focus, select:focus { border-color: var(--primary); }
   .catalog-filters button { flex: none; }
   .catalog-grid { grid-template-columns: 1fr; gap: 8px; }
   .added-bar { bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom) + 10px); }
-  .trip-review-grid, .trip-card { grid-template-columns: 1fr; gap: 14px; }
+  .trip-card { grid-template-columns: 1fr; gap: 14px; }
+  .review-actions { position: sticky; bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom) + 8px); margin-inline: -8px; padding: 8px; border-radius: var(--radius-card); background: var(--surface); box-shadow: var(--surface-shadow); }
+  .check-status { bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom) + 10px); }
+  .brand-home { min-height: 44px; }
   .trip-screen .catalog-panel { padding: 16px; }
   .trip-review-list li { align-items: start; }
   .trip-card { padding: 18px 16px; }
