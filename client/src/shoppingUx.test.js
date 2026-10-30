@@ -265,8 +265,13 @@ test('checking an item moves keyboard focus to the next item still to buy', asyn
   const apples = await screen.findByRole('checkbox', { name: 'Apples' })
   apples.focus()
   fireEvent.click(apples)
-  await waitFor(() => assert.equal(document.activeElement, screen.getByRole('checkbox', { name: 'Bread' })))
+  // The ticked row stays in place briefly, then settles into Bought and focus moves on.
+  assert.equal(document.activeElement, screen.getByRole('checkbox', { name: 'Apples' }))
+  assert.equal(screen.getByRole('list', { name: 'To buy' }).contains(apples), true)
   assert.match(screen.getByText(/Apples bought/).textContent, /1 left/)
+  await new Promise((resolve) => setTimeout(resolve, 1700))
+  assert.equal(document.activeElement, screen.getByRole('checkbox', { name: 'Bread' }))
+  assert.equal(screen.getByRole('list', { name: 'Bought' }).contains(screen.getByRole('checkbox', { name: 'Apples' })), true)
 })
 
 test('adding a new catalog item keeps the shopper in the catalog and counts the add', async () => {
@@ -288,4 +293,35 @@ test('adding a new catalog item keeps the shopper in the catalog and counts the 
   assert.equal(calls.filter((call) => call.options.method === 'POST').length, 1)
   fireEvent.click(screen.getByRole('button', { name: 'Back to list' }))
   assert.equal(await screen.findByRole('checkbox', { name: 'Milk' }).then((box) => box.checked), false)
+})
+
+test('undo reverses the last check from the status bar', async () => {
+  const items = [{ id: 'a', name: 'Apples', category: 'Produce', quantity: '1', bought: false }]
+  const writes = []
+  mockFetch((url, options) => {
+    if (url.endsWith('/api/lists/trip-1') && !options.method) return json(seed(items))
+    if (url.endsWith('/api/lists/trip-1/items/a')) { writes.push(JSON.parse(options.body).bought); return json({ item: { ...items[0], bought: JSON.parse(options.body).bought } }) }
+    throw new Error()
+  })
+  shoppingFixture(items)
+  fireEvent.click(await screen.findByRole('checkbox', { name: 'Apples' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Undo' }))
+  await waitFor(() => assert.equal(screen.getByRole('checkbox', { name: 'Apples' }).checked, false))
+  assert.match(screen.getByText(/moved back to To buy/).textContent, /Apples/)
+  assert.equal(screen.queryByRole('button', { name: 'Undo' }), null)
+  await waitFor(() => assert.equal(writes.at(-1), false))
+})
+
+test('find-or-add suggests items from the last trip first', async () => {
+  const catalog = [{ id: 'p-1', name: 'Almond milk', category: 'Dairy & eggs', source: 'starter' }, { id: 'p-2', name: 'Fresh milk', category: 'Dairy & eggs', source: 'starter' }]
+  mockFetch((url, options) => {
+    if (url.endsWith('/api/lists/trip-1') && !options.method) return json(seed([]))
+    if (url.endsWith('/api/catalog')) return json({ items: catalog })
+    if (url.endsWith('/api/trips')) return json({ items: [{ id: 'old', name: 'Saturday', itemCount: 1, boughtCount: 1, notBoughtCount: 0, summary: {} }], nextCursor: null })
+    if (url.endsWith('/api/trips/old')) return json({ trip: { id: 'old', items: [{ id: 'x', productId: 'p-2', name: 'Fresh milk', bought: true }] } })
+    throw new Error(`Unexpected request: ${url}`)
+  })
+  shoppingFixture([])
+  fireEvent.change(await screen.findByLabelText('Find or add an item'), { target: { value: 'milk' } })
+  await waitFor(() => assert.match(screen.getByRole('list', { name: 'Add from your catalog' }).textContent, /^Fresh milk.*on your last trip.*Almond milk/))
 })

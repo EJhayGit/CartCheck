@@ -6,15 +6,16 @@ import { listSummary } from './dataCache.js'
 const CATEGORIES = ['Produce', 'Dairy & eggs', 'Meat & seafood', 'Bakery', 'Pantry', 'Frozen', 'Snacks', 'Beverages', 'Household', 'Other']
 const CATEGORY_LABELS = { 'Dairy & eggs': 'Dairy', 'Meat & seafood': 'Meat & seafood' }
 const EMPTY_ITEM = { name: '', category: 'Produce' }
+const DESTINATION_KEY = 'cartcheck:catalog-destination'
 const sortItems = (items) => [...items].sort((a, b) =>
   a.name.toLocaleLowerCase().localeCompare(b.name.toLocaleLowerCase()) || Number(a.id) - Number(b.id))
 const catalogItems = (data) => Array.isArray(data) ? data : data?.items || []
 
-export default function Catalog({ onAdd, onAddPending, active = true, destinationId = null, onManageLists, onOpenList }) {
+export default function Catalog({ onAdd, onAddPending, active = true, destinationId = null, onManageLists, onOpenList, initialSearch = '' }) {
   const cache = useDataCache()
   const catalogQuery = useDataQuery('catalog', (signal) => getCatalog({ signal }), { staleTime: Infinity, enabled: active })
   const listsQuery = useDataQuery('lists', fetchLists, { enabled: active })
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(initialSearch)
   const [category, setCategory] = useState('')
   const [notice, setNotice] = useState('')
   const [editor, setEditor] = useState(null)
@@ -22,13 +23,19 @@ export default function Catalog({ onAdd, onAddPending, active = true, destinatio
   const [formError, setFormError] = useState('')
   const [busy, setBusy] = useState(false)
   const [addingId, setAddingId] = useState(null)
-  const [selectedDestination, setSelectedDestination] = useState(destinationId || '')
+  const [selectedDestination, setSelectedDestination] = useState(() => {
+    if (destinationId) return destinationId
+    try { return window.localStorage.getItem(DESTINATION_KEY) || '' } catch { return '' }
+  })
   const [operationError, setOperationError] = useState('')
   const [pageBusy, setPageBusy] = useState(false)
   const [pageError, setPageError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [added, setAdded] = useState({ count: 0, last: '' })
-  const destinationQuery = useDataQuery(`list:${destinationId || selectedDestination || 'none'}`, (signal) => getList(destinationId || selectedDestination, { signal }), { enabled: active && Boolean(destinationId || selectedDestination) })
+  // A remembered list may have been deleted or finished since; only use it while it is still listed.
+  const listedDestination = !selectedDestination || !listsQuery.data || listsQuery.data.items.some((list) => String(list.tripId ?? list.id) === String(selectedDestination)) ? selectedDestination : ''
+  const destination = destinationId || listedDestination
+  const destinationQuery = useDataQuery(`list:${destination || 'none'}`, (signal) => getList(destination, { signal }), { enabled: active && Boolean(destination) })
   const mutationBusyRef = useRef(false)
   const addBusyRef = useRef(false)
   const pageBusyRef = useRef(false)
@@ -195,8 +202,8 @@ export default function Catalog({ onAdd, onAddPending, active = true, destinatio
     setAddingId(item.id)
     onAddPending(true)
     try {
-      if (!selectedDestination) { setOperationError('Choose a list before adding this item.'); return }
-      const result = await onAdd(item.id, selectedDestination)
+      if (!destination) { setOperationError('Choose a list before adding this item.'); return }
+      const result = await onAdd(item.id, destination)
       if (result?.created && mountedRef.current) setAdded((current) => ({ count: current.count + 1, last: item.name }))
     } catch (caught) {
       setOperationError(`We could not add ${item.name} to your shopping list. ${caught.message}`)
@@ -204,7 +211,6 @@ export default function Catalog({ onAdd, onAddPending, active = true, destinatio
   }
 
   const queryError = catalogQuery.error && 'We could not load your catalog. Check your connection and try again.'
-  const destination = destinationId || selectedDestination
   const destinationName = listsQuery.data?.items?.find((list) => String(list.tripId ?? list.id) === String(destination))?.name || 'your list'
   const onList = new Set((destinationQuery.data?.items || []).map((entry) => String(entry.productId)))
   const editing = editor?.mode === 'edit' ? items.find((item) => item.id === editor.id) : null
@@ -225,7 +231,7 @@ export default function Catalog({ onAdd, onAddPending, active = true, destinatio
       </form></section>
     </> : <>
       <div className="catalog-heading"><div><h1>Catalog</h1><p className="catalog-subtitle">Your reusable groceries. Catalog items never carry prices.</p></div><button className="catalog-button secondary" type="button" onClick={openCreate}>New item</button></div>
-      {destinationId ? <p className="catalog-notice catalog-destination">Adding to <strong>{destinationName}</strong></p> : <section className="catalog-panel catalog-tools catalog-destination-select"><label htmlFor="catalog-destination">Add items to</label>{listsQuery.data?.items?.length ? <><select id="catalog-destination" value={selectedDestination} onChange={(event) => { setSelectedDestination(event.target.value); setAdded({ count: 0, last: '' }) }}><option value="">Choose a list</option>{listsQuery.data.items.map((list) => <option key={list.tripId ?? list.id} value={list.tripId ?? list.id}>{list.name}</option>)}</select>{listsQuery.data?.nextCursor && <button className="catalog-button secondary" type="button" onClick={loadMoreLists} disabled={pageBusy}>{pageBusy ? 'Loading…' : 'Load more lists'}</button>}</> : <><p className="optional-help">Create a list before adding groceries.</p><button className="catalog-button secondary" type="button" onClick={onManageLists}>Go to My Lists</button></>}{pageError && <p className="alert" role="alert">{pageError}</p>}</section>}
+      {destinationId ? <p className="catalog-notice catalog-destination">Adding to <strong>{destinationName}</strong></p> : <section className="catalog-panel catalog-tools catalog-destination-select"><label htmlFor="catalog-destination">Add items to</label>{listsQuery.data?.items?.length ? <><select id="catalog-destination" value={listedDestination} onChange={(event) => { setSelectedDestination(event.target.value); setAdded({ count: 0, last: '' }); try { window.localStorage.setItem(DESTINATION_KEY, event.target.value) } catch { /* Storage is optional. */ } }}><option value="">Choose a list</option>{listsQuery.data.items.map((list) => <option key={list.tripId ?? list.id} value={list.tripId ?? list.id}>{list.name}</option>)}</select>{listsQuery.data?.nextCursor && <button className="catalog-button secondary" type="button" onClick={loadMoreLists} disabled={pageBusy}>{pageBusy ? 'Loading…' : 'Load more lists'}</button>}</> : <><p className="optional-help">Create a list before adding groceries.</p><button className="catalog-button secondary" type="button" onClick={onManageLists}>Go to My Lists</button></>}{pageError && <p className="alert" role="alert">{pageError}</p>}</section>}
       <section className="catalog-tools" aria-label="Search and filter catalog"><label htmlFor="catalog-search">Search catalog</label><input id="catalog-search" type="search" placeholder="Try milk, rice, or soap" value={search} onChange={(event) => setSearch(event.target.value)} maxLength={100} /><div className="catalog-filters" role="group" aria-label="Filter by category"><button type="button" className={!category ? 'selected' : ''} aria-pressed={!category} onClick={() => setCategory('')}>All</button>{CATEGORIES.map((value) => <button key={value} type="button" className={category === value ? 'selected' : ''} aria-pressed={category === value} onClick={() => setCategory(value)}>{CATEGORY_LABELS[value] || value}</button>)}</div></section>
       {notice && <p className="catalog-notice" role="status">{notice}</p>}
       {operationError && <p className="alert" role="alert">{operationError}</p>}

@@ -202,7 +202,7 @@ test('trip detail stays cached when closed and reopened', async () => {
   fireEvent.click(appNav('Trips'))
   fireEvent.click(await screen.findByRole('button', { name: 'View details' }))
   assert.ok((await screen.findAllByText('Milk')).length)
-  fireEvent.click(screen.getByRole('button', { name: 'Back to history' }))
+  fireEvent.click(screen.getByRole('button', { name: 'All trips' }))
   await screen.findByRole('button', { name: 'View details' })
   fireEvent.click(screen.getByRole('button', { name: 'View details' }))
   assert.ok((await screen.findAllByText('Milk')).length)
