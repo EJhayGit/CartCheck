@@ -154,3 +154,26 @@ export async function deleteListItem(pool, userId, listId, itemId) {
     return { list: await selectDetail(client, userId, listId) }
   })
 }
+
+// Starts a new active list from a completed trip's snapshot. Names, categories, quantities and
+// units carry over; prices and bought state do not, so the shopper starts with a clean checklist.
+export async function createListFromTrip(pool, userId, tripId, { items, name }) {
+  return transaction(pool, async (client) => {
+    const source = await client.query(`SELECT id, name FROM cartcheck.shopping_trips
+      WHERE id=$1 AND user_id=$2 AND status='completed' FOR SHARE`, [tripId, userId])
+    if (!source.rowCount) return null
+    const created = await client.query(
+      `INSERT INTO cartcheck.shopping_trips (user_id, name, status, currency, budget)
+       SELECT id, $2, 'active', preferred_currency, NULL FROM cartcheck.users WHERE id = $1
+       RETURNING ${LIST_FIELDS}`, [userId, name ?? source.rows[0].name ?? 'Shopping trip'])
+    const list = created.rows[0]
+    if (!list) return null
+    await client.query(
+      `INSERT INTO cartcheck.trip_items (user_id, trip_id, product_id, name, category, quantity, unit_label)
+       SELECT $1, $2, p.id, ti.name, ti.category, ti.quantity, ti.unit_label
+       FROM cartcheck.trip_items ti LEFT JOIN cartcheck.products p ON p.id = ti.product_id AND p.user_id = $1
+       WHERE ti.user_id = $1 AND ti.trip_id = $3${items === 'notBought' ? ' AND NOT ti.bought' : ''}
+       ORDER BY ti.created_at, ti.id`, [userId, list.id, tripId])
+    return selectDetail(client, userId, list.id)
+  })
+}

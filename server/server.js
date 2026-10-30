@@ -25,7 +25,7 @@ import {
   requiresEmailVerification,
   validatePassword,
 } from './authValidation.js'
-import { parseTripId, validateCorrection, validateHistoryQuery, validateRevision } from './tripValidation.js'
+import { parseTripId, validateCorrection, validateHistoryQuery, validateReuse, validateRevision } from './tripValidation.js'
 import {
   createAuthRateLimiter,
   createActionToken,
@@ -458,6 +458,18 @@ app.post('/api/trips/:id/finish', checkRequestOrigin, authenticate, async (reque
     if (result.error === 'stale') return response.status(409).json({ error: 'Trip changed; reload it before finishing' })
     if (result.error === 'empty') return response.status(400).json({ error: 'An empty trip cannot be finished' })
     response.json(result)
+  } catch (error) { next(error) }
+})
+
+app.post('/api/trips/:id/reuse', checkRequestOrigin, authenticate, async (request, response, next) => {
+  const id = parseTripId(request.params.id)
+  if (id === null) return response.status(400).json({ error: 'Invalid trip ID' })
+  const input = validateReuse(request.body)
+  if (input.error) return response.status(400).json({ error: input.error })
+  try {
+    const list = await listRepo.createListFromTrip(pool, request.user.id, id, input)
+    if (!list) return response.status(404).json({ error: 'Trip not found' })
+    response.status(201).json(list)
   } catch (error) { next(error) }
 })
 

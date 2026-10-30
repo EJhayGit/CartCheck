@@ -27,6 +27,13 @@ export default function Lists({ onOpenList, preferredCurrency = 'PHP', flash = n
   const [pageBusy, setPageBusy] = useState(false)
   const [pageError, setPageError] = useState('')
   const [deletingIds, setDeletingIds] = useState(() => new Set())
+  const [confirmingId, setConfirmingId] = useState(null)
+  // An element id to focus after the next render, for controls that replace one another.
+  const focusTarget = useRef(null)
+  useEffect(() => {
+    const target = focusTarget.current && document.getElementById(focusTarget.current)
+    if (target) { focusTarget.current = null; target.focus() }
+  })
   const dialogRef = useRef(null)
   const dialogTriggerRef = useRef(null)
   const mounted = useRef(false)
@@ -141,7 +148,9 @@ export default function Lists({ onOpenList, preferredCurrency = 'PHP', flash = n
 
   async function remove(list) {
     if (deletingIds.has(String(list.id))) return
-    if (!window.confirm(`Delete “${list.name}” and all its items? This cannot be undone. Trip history is unaffected.`)) return
+    setConfirmingId(null)
+    // The card disappears optimistically, so keep keyboard focus on the page.
+    focusTarget.current = 'create-list'
     const key = String(list.id)
     const previousEntry = query.data?.items.find((entry) => String(entry.id) === key)
     const previousIndex = query.data?.items.findIndex((entry) => String(entry.id) === key) ?? 0
@@ -180,7 +189,7 @@ export default function Lists({ onOpenList, preferredCurrency = 'PHP', flash = n
   }
 
   return <main className="shopping-main lists-screen">
-    <div className="shopping-heading"><div><h1>My Lists</h1><p className="catalog-subtitle">Keep each shop organized in its own list.</p></div><button className="catalog-button primary" type="button" onClick={openCreate}>Create list</button></div>
+    <div className="shopping-heading"><div><h1>My Lists</h1><p className="catalog-subtitle">Keep each shop organized in its own list.</p></div><button id="create-list" className="catalog-button primary" type="button" onClick={openCreate}>Create list</button></div>
     {flash && !notice && <p className="catalog-notice flash-notice" role="status"><span>{flash.notice}</span>{flash.tripId && <button className="text-button" type="button" onClick={() => onOpenList(flash.tripId)}>View trip</button>}</p>}
     {notice && <p className="catalog-notice" role="status">{notice}</p>}{error && !dialog && <p className="alert" role="alert">{error}</p>}
     {query.error && <section className="catalog-state" role="alert"><p>We could not load your lists. Check your connection and try again.</p><button className="catalog-button secondary" onClick={query.refresh}>Try again</button></section>}
@@ -201,7 +210,9 @@ export default function Lists({ onOpenList, preferredCurrency = 'PHP', flash = n
       ].filter(Boolean)
       return <article className="list-card" key={list.id}>
         <button className="list-card-open" type="button" onClick={() => onOpenList(list.id)}><strong>{list.name}</strong><span>{count ? `${bought} of ${count} bought` : 'No items yet'}</span><span className="progress-track" role="img" aria-label={`${progress}% bought`}><span style={{ width: `${progress}%` }} /></span>{money.length ? money.map((line) => <span className="list-card-budget" key={line}>{line}</span>) : count > 0 && <span className="list-card-budget">No prices entered</span>}<span className="list-card-updated">{list.currency} · Updated {dateLabel(list.updatedAt)}</span></button>
-        <div className="list-card-actions"><button className="catalog-button secondary" type="button" onClick={(event) => openEdit(list, event)}>Edit</button><button className="catalog-button secondary danger" type="button" onClick={() => remove(list)} disabled={deletingIds.has(String(list.id))}>{deletingIds.has(String(list.id)) ? 'Deleting…' : 'Delete'}</button></div>
+        <div className="list-card-actions"><button className="catalog-button secondary" type="button" onClick={(event) => openEdit(list, event)}>Edit</button>{confirmingId === String(list.id)
+          ? <p className="remove-confirm" role="group" aria-label={`Delete ${list.name}?`}><span>Delete “{list.name}” and its items? Trip history is unaffected.</span><button className="catalog-small-button" type="button" onClick={() => { setConfirmingId(null); focusTarget.current = `delete-list-${list.id}` }}>Keep</button><button className="catalog-small-button danger" type="button" onClick={() => remove(list)} autoFocus>Delete</button></p>
+          : <button id={`delete-list-${list.id}`} className="catalog-button secondary danger" type="button" onClick={() => setConfirmingId(String(list.id))} disabled={deletingIds.has(String(list.id))}>{deletingIds.has(String(list.id)) ? 'Deleting…' : 'Delete'}</button>}</div>
       </article>
     })}</div>
     {pageError && <p className="alert" role="alert">{pageError}</p>}{query.data?.nextCursor && <button className="catalog-button secondary" type="button" onClick={loadMore} disabled={pageBusy}>{pageBusy ? 'Loading…' : 'Load more lists'}</button>}

@@ -84,4 +84,5 @@ export const addListItem = (id, productId) => request(`/api/lists/${encodeURICom
 export const updateListItem = (id, itemId, input) => request(`/api/lists/${encodeURIComponent(id)}/items/${encodeURIComponent(itemId)}`, { method: 'PATCH', body: JSON.stringify(input) })
 export const deleteListItem = (id, itemId) => request(`/api/lists/${encodeURIComponent(id)}/items/${encodeURIComponent(itemId)}`, { method: 'DELETE' })
 export const getTrip = (id, { signal } = {}) => request(`/api/trips/${encodeURIComponent(id)}`, { signal })
+export const reuseTrip = (id, input) => request(`/api/trips/${encodeURIComponent(id)}/reuse`, { method: 'POST', body: JSON.stringify(input) })
 export const correctTrip = (id, input) => request(`/api/trips/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(input) })

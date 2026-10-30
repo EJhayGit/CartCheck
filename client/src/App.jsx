@@ -495,9 +495,9 @@ export default function App() {
       {privateReady ? <DataCacheProvider key={`${user.id}:${renderedGeneration}`} cache={dataCache} onRevalidate={validatePrivateSession}>
         {error && <p className="alert" role="alert">{error}</p>}
         {page === 'lists' && <Lists onOpenList={(id) => navigate('list', id)} preferredCurrency={preferredCurrency} flash={flash} />}
-        {page === 'list' && <ListRoute key={`${user.id}:${routeListId}`} listId={routeListId} editItem={requestedEdit} onEditHandled={() => setRequestedEdit(null)} onBrowseCatalog={() => browseCatalog(routeListId)} onQuickAdd={(productId) => addItem(productId, routeListId)} onBackToLists={(finished) => navigate('lists', null, { replace: true, flash: finished?.notice ? finished : null })} onMutationPending={reportCartPending} onReviewChange={setReviewOpen} />}
+        {page === 'list' && <ListRoute key={`${user.id}:${routeListId}`} listId={routeListId} editItem={requestedEdit} onEditHandled={() => setRequestedEdit(null)} onBrowseCatalog={() => browseCatalog(routeListId)} onQuickAdd={(productId) => addItem(productId, routeListId)} onBackToLists={(finished) => navigate('lists', null, { replace: true, flash: finished?.notice ? finished : null })} onOpenList={(id) => navigate('list', id)} onMutationPending={reportCartPending} onReviewChange={setReviewOpen} />}
         {catalogVisited && page === 'catalog' && <Catalog active destinationId={catalogDestinationId} onAdd={addItem} onAddPending={reportCatalogAddPending} onManageLists={() => navigate('lists')} onOpenList={(id) => navigate('list', id)} />}
-        {page === 'trips' && <Trips key={user.id} onReviewChange={setReviewOpen} />}
+        {page === 'trips' && <Trips key={user.id} onReviewChange={setReviewOpen} onOpenList={(id) => navigate('list', id)} />}
         {page === 'settings' && <main className="settings-main">
           <section className="catalog-panel" aria-labelledby="settings-heading">
             <h1 id="settings-heading">Settings</h1>

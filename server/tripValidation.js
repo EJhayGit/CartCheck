@@ -1,6 +1,7 @@
 import { quantity as normalizeQuantity } from './domain/values.js'
 import { parseCatalogId } from './catalogValidation.js'
 import { validateMoney } from './cartValidation.js'
+import { normalizeListName } from './listValidation.js'
 
 export function parseTripId(value) {
   return parseCatalogId(value)
@@ -75,4 +76,15 @@ export function validateHistoryQuery(query) {
     } catch { return { error: 'Invalid history cursor' } }
   }
   return { limit: Number(rawLimit), cursor: null }
+}
+
+export function validateReuse(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body) ||
+      Object.keys(body).some((key) => !['items', 'name'].includes(key)) || !['all', 'notBought'].includes(body.items)) {
+    return { error: 'Choose all items or only the items not bought' }
+  }
+  if (!Object.hasOwn(body, 'name')) return { items: body.items, name: null }
+  const name = normalizeListName(body.name)
+  if (name === null) return { error: 'Name must be 1 to 100 characters' }
+  return { items: body.items, name }
 }
