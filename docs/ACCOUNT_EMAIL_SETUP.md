@@ -1,5 +1,7 @@
 # Account email setup
 
+> Purpose: verification and password-recovery email configuration. · Read when: changing email delivery, auth emails, or `REQUIRE_VERIFIED_EMAIL`.
+
 CartCheck still owns authentication in Express. Supabase hosts the PostgreSQL tables; Supabase Auth and its mailer are not used. `server/emailService.js` is the delivery boundary, so a different provider can replace its implementation without changing token or session handling.
 
 ## Provider and sending domain

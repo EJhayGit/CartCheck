@@ -1,11 +1,8 @@
-# Only needed if you self-host. See page 11 of content/extending-your-app.
+# Optional Docker Compose self-hosting (Postgres 17 + API). Not used by the Render deployment.
 #
 #   cp .env.example .env      # then set POSTGRES_PASSWORD
 #   docker compose up -d
 #   docker compose logs -f api
-#
-# Nothing here is required for the GitHub Pages deployment, which builds the
-# client only and needs no server at all.
 
 services:
   db:

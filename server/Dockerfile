@@ -1,4 +1,4 @@
-# Only needed if you self-host with Docker Compose. See page 11.
+# Optional: only needed to self-host the API with Docker Compose (compose.yml).
 FROM node:20-alpine
 WORKDIR /app
 COPY package*.json ./

@@ -1,11 +1,8 @@
-# CartCheck technical system design
+# CartCheck architecture
 
-This document describes the CartCheck architecture, including multiple named lists. The [migration guide](../MIGRATIONS.md) covers upgrades for installations using an older schema.
+> Purpose: runtime, hosting, data model, API contract, and security boundaries. · Read when: touching the server, database, API, auth, or client data layer.
 
-## Basis and change from the earlier design
-
-Follow the [product requirements](../PRODUCT_REQUIREMENTS.md) and [design specification](../design/README.md). CartCheck is primarily a checklist. The previous unit-price model and per-product price-history queries are removed; estimated and actual **item totals** are independent, optional amounts. This trades automatic last-paid suggestions and unit-price comparisons for faster entry. Dated trip history and corrections remain.
-
+Product behavior lives in [PRODUCT.md](../PRODUCT.md) and visual rules in [DESIGN.md](../DESIGN.md); schema upgrades are in the [migration guide](MIGRATIONS.md). CartCheck is primarily a checklist: estimated and actual **item totals** are independent, optional amounts (the earlier unit-price model and per-product price history were removed).
 
 ## 1. Runtime architecture and hosting
 
@@ -35,13 +32,7 @@ CartCheck runs as **one Render web service** at [cartcheck.merzbuilds.dev](https
 
 If Render Free is chosen, it spins down after 15 minutes without traffic and can take about a minute to wake; on one service, the initial page and API may both wait. The free web service has an ephemeral filesystem, so keep sessions, tokens, and grocery data in PostgreSQL. Render says Free instances are for hobby/testing rather than dependable production service; choose the service tier deliberately before launch. [Render Free](https://render.com/docs/free). Keep `GET /healthz` and `GET /readyz`; readiness checks the database. The database connection string exists only on the server as `DATABASE_URL`; no database URL or secret key goes in a `VITE_` variable.
 
-### Historical alternative evaluated: Vercel frontend plus Render API
-
-The team evaluated hosting the static React build on Vercel with an `/api` rewrite to Render. That split would add a second deployment pipeline and require additional proxy-header, cookie, Origin, caching, and failure-path checks. The owner selected one Render service for CartCheck; the split is not in the release plan. [Vercel rewrites](https://vercel.com/docs/routing/rewrites).
-
-The evaluation identified a need to preserve the browser's `/api` path and host-only cookie behavior across a rewrite, verify `Cookie` and `Set-Cookie` forwarding, set the true browser origin in `CLIENT_ORIGIN` and the Origin allowlist, account for the extra proxy hop, and prevent caching of authenticated API responses. No Vercel rewrite is implemented for CartCheck. [Express proxy guidance](https://expressjs.com/en/guide/behind-proxies/).
-
-Render is a long-running Node backend while awake. It connects through Supabase's **session-mode pooler** with TLS verification using the configured CA secret file. The owner chose to reuse the existing Supabase project because of the free-project limit; a separate production project remains an isolation improvement for later. Keep `DATABASE_URL`, `SSL_CA_FILE`, and database credentials server-side, and cap the `pg` pool within the project's connection allowance. The server rejects URL query parameters, including `sslmode`; TLS is configured through server settings. Review connection count across deploy overlap and restarts; `/readyz` reports database failure. Local private data exports were created around the smoke test, but a full PostgreSQL restore has not been tested. Arrange a tested backup/restore plan or paid retention before relying on the free project for important shopper data. Never reset retained data. [Supabase connection modes](https://supabase.com/docs/guides/database/connecting-to-postgres), [pooling limits](https://supabase.com/docs/guides/database/connecting-to-postgres/pooling-and-limits), [pricing](https://supabase.com/pricing).
+Render is a long-running Node backend while awake. It connects through Supabase's **session-mode pooler** with TLS verification using the configured CA secret file. The owner chose to reuse the existing Supabase project because of the free-project limit; a separate production project remains an isolation improvement for later. Keep `DATABASE_URL`, `SSL_CA_FILE`, and database credentials server-side, and cap the `pg` pool within the project's connection allowance. The server rejects URL query parameters, including `sslmode`; TLS is configured through server settings. Review connection count across deploy overlap and restarts; `/readyz` reports database failure. Application-level export and isolated restore are covered in [backup and recovery](BACKUP_RECOVERY.md); provider-level disaster recovery remains open. Never reset retained data. [Supabase connection modes](https://supabase.com/docs/guides/database/connecting-to-postgres), [pooling limits](https://supabase.com/docs/guides/database/connecting-to-postgres/pooling-and-limits), [pricing](https://supabase.com/pricing).
 
 Supabase initially supplies PostgreSQL only. Keep all browser data access through Express and disable the Supabase Data API if it is unused. Put app tables in a non-exposed schema where practical, restrict database role privileges, and enforce ownership in server queries. If any table is later exposed through Supabase Data API, grant only intended access and enable matching row-level security before use. Do not expose a service-role or database credential in the client.
 
@@ -124,7 +115,7 @@ Search is escaped, case-insensitive, bounded, and paginated. Each cart/trip resp
 
 Keep the existing React/Vite package and API facade. A small app shell and feature modules need no state-management framework. The primary destinations are My Lists, Catalog, Trips, and Settings. Quick add and item editing should take fewer steps than optional money entry. A custom-item form asks for name and category, with optional image URL; do not create a price-history page. A finished trip detail includes a correction review.
 
-Use [DESIGN_SYSTEM.md](../design/DESIGN_SYSTEM.md): semantic controls, visible focus, loading/empty/error states, phone portrait and landscape, desktop, light/dark, 200% zoom, reduced motion, and dialog focus return. Prices and budgets should not occupy the primary list controls. Optional images fall back to a neutral placeholder.
+Use [DESIGN.md](../DESIGN.md): semantic controls, visible focus, loading/empty/error states, phone portrait and landscape, desktop, light/dark, 200% zoom, reduced motion, and dialog focus return. Prices and budgets should not occupy the primary list controls. Optional images fall back to a neutral placeholder.
 
 ### Client data ownership
 
@@ -146,7 +137,7 @@ Google Sign-In was evaluated during planning and cancelled by the owner. The exi
 
 The Express mail adapter calls Resend's HTTPS API. Configure `RESEND_API_KEY`, `EMAIL_FROM`, and `CLIENT_ORIGIN` on the server. Web routing and email DNS authentication are separate: use provider-supplied records for the selected sending domain and verify delivery before requiring confirmation.
 
-Test real inbox delivery, verification/reset links, token expiry and replay protection, rejection, and quota handling before enabling `REQUIRE_VERIFIED_EMAIL=true`. Existing accounts retain their legacy exemption. Follow the [account email setup guide](../ACCOUNT_EMAIL_SETUP.md).
+Test real inbox delivery, verification/reset links, token expiry and replay protection, rejection, and quota handling before enabling `REQUIRE_VERIFIED_EMAIL=true`. Existing accounts retain their legacy exemption. Follow the [account email setup guide](ACCOUNT_EMAIL_SETUP.md).
 
 ## 8. Verification and delivery
 
@@ -161,6 +152,6 @@ Provider details should be checked again at setup: [Supabase PostgreSQL connecti
 
 ## 9. Schema compatibility
 
-Multiple lists require migration 004 and the matching client/server. Old application writers must stop before the old unique index is removed. See the [migration guide](../MIGRATIONS.md) for preflight, backup, coordinated release, and rollback constraints.
+Multiple lists require migration 004 and the matching client/server. Old application writers must stop before the old unique index is removed. See the [migration guide](MIGRATIONS.md) for preflight, backup, coordinated release, and rollback constraints.
 
 Private catalog copies, historical item snapshots, optimistic revisions with transaction locks, explicit account/list ownership, and one production origin protect privacy, history accuracy, and duplicate Finish Trip behavior. Optional separate item totals, PHP/USD/EUR currency snapshots, and unchecked-as-not-bought completion remain approved requirements.

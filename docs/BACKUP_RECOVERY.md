@@ -1,5 +1,7 @@
 # Application backup and recovery
 
+> Purpose: private export scope and isolated restore verification. · Read when: exporting data, restoring a backup, or before any data update.
+
 Backups contain private account and shopping data. Keep them in `server/.test-runs/backups/` (ignored by Git and outside `client/dist/`) or a separately approved private destination. Never publish the export or log row contents. A local ignored copy alone is not a separate disaster-recovery backup; maintain an approved protected off-device copy.
 
 ## Export scope and approval
@@ -22,8 +24,8 @@ The runner accepts exports only inside the ignored backup directory, creates a n
 
 If the export predates a migration, this test verifies recovery of that older schema. It does not silently upgrade it. Any subsequent upgrade needs its own isolated migration validation and release review.
 
-## October 9 evidence
+## Last verified: 2026-10-09
 
-The October 5 private export was parsed and restored successfully into a disposable PostgreSQL 17 database. All exported rows matched across nine tables, its three migration checksums matched the unchanged repository files, constraints validated, and sequence positions were restored. The initial comparison failed because the local timezone formatted timestamps differently; rerunning with UTC normalization succeeded. That export predates migration 004 and the seventh account.
+A fresh read-only application export (taken before the production catalog update) restored into a new localhost PostgreSQL database: all nine tables and row values matched, all four migration checksums matched, constraints validated, and sequences were restored. Normalize timestamps to UTC when comparing.
 
-After owner approval, a fresh October 9 private read-only application export was created before the production catalog update and restored into another new localhost PostgreSQL database. All nine tables and exported row values matched; all four migration checksums matched, constraints validated, and sequences were restored. The private file was read back and its SHA-256 recorded locally. This verifies restoration of the current pre-update application snapshot. It does not verify provider roles, grants, extensions, infrastructure, or an independently stored disaster-recovery copy. Those limits remain open.
+**Open limits:** provider roles, grants, extensions, infrastructure, and an independently stored disaster-recovery copy are not verified.
