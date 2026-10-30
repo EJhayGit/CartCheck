@@ -31,6 +31,7 @@ These lean toward caution over speed; use judgment on trivial tasks.
 - Follow the established architecture. Don't introduce major architectural changes without documenting their justification in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - Avoid unrelated functionality and unnecessary dependencies.
 - Run the relevant tests after implementation (`npm test` in `server/` and/or `client/`, plus `npm run build` for client changes).
+- Name branches `<type>/<short-summary>` in kebab-case, where type is `feat`, `fix`, `docs`, `chore` or `refactor` (e.g. `docs/centralize-agent-docs`). Before the first push, rename any auto-generated branch (such as `claude/…-1a2b3c`) to describe what it changes.
 
 ### UI responsiveness
 
