@@ -1,12 +1,11 @@
 # CartCheck technical system design
 
-**Status:** Completed application (2026-10-06). This document describes the delivered architecture, including multiple named lists. The [migration guide](../MIGRATIONS.md) covers upgrades for installations using an older schema.
+This document describes the CartCheck architecture, including multiple named lists. The [migration guide](../MIGRATIONS.md) covers upgrades for installations using an older schema.
 
 ## Basis and change from the earlier design
 
 Follow the [product requirements](../PRODUCT_REQUIREMENTS.md) and [design specification](../design/README.md). CartCheck is primarily a checklist. The previous unit-price model and per-product price-history queries are removed; estimated and actual **item totals** are independent, optional amounts. This trades automatic last-paid suggestions and unit-price comparisons for faster entry. Dated trip history and corrections remain.
 
-The repository now implements CartCheck accounts, catalog, active list, and trip history on the React/Vite and Express/PostgreSQL package boundaries. The GitHub Pages starter workflow and browser-only sightings demo have been removed.
 
 ## 1. Runtime architecture and hosting
 
@@ -162,6 +161,6 @@ Provider details should be checked again at setup: [Supabase PostgreSQL connecti
 
 ## 9. Schema compatibility
 
-Multiple lists require migration 004 and the matching client/server. Old application writers must stop before the old unique index is removed. See the [migration guide](../MIGRATIONS.md) for preflight, backup, coordinated release, and rollback constraints. Keep dated provider status and production evidence in the local archive.
+Multiple lists require migration 004 and the matching client/server. Old application writers must stop before the old unique index is removed. See the [migration guide](../MIGRATIONS.md) for preflight, backup, coordinated release, and rollback constraints.
 
 Private catalog copies, historical item snapshots, optimistic revisions with transaction locks, explicit account/list ownership, and one production origin protect privacy, history accuracy, and duplicate Finish Trip behavior. Optional separate item totals, PHP/USD/EUR currency snapshots, and unchecked-as-not-bought completion remain approved requirements.
