@@ -37,7 +37,8 @@ test('Finish refreshes the selected revision, freezes review, removes active sum
     throw new Error(`Unexpected request ${url}`)
   }
   let returned = 0
-  render(React.createElement(DataCacheProvider, { cache }, React.createElement(ShoppingList, { listId: 'active', onBackToLists: () => { returned += 1 }, onEditHandled: () => {}, onBrowseCatalog: () => {}, onMutationPending: () => {}, onReviewChange: () => {} })))
+  let finished = null
+  render(React.createElement(DataCacheProvider, { cache }, React.createElement(ShoppingList, { listId: 'active', onBackToLists: (result) => { returned += 1; finished = result }, onEditHandled: () => {}, onBrowseCatalog: () => {}, onMutationPending: () => {}, onReviewChange: () => {} })))
   fireEvent.click(screen.getByRole('button', { name: 'Finish shopping' }))
   await screen.findByRole('heading', { name: 'Finish shopping?' })
   assert.equal(calls.filter(({ url }) => url === '/api/lists/active').length, 1)
@@ -46,6 +47,7 @@ test('Finish refreshes the selected revision, freezes review, removes active sum
   assert.equal(replaced, false, 'review blocks even a forced background replacement')
   fireEvent.click(screen.getByRole('button', { name: 'Confirm and finish' }))
   await waitFor(() => assert.equal(returned, 1))
+  assert.deepEqual(finished, { notice: 'Weekly Groceries is saved in Trips.', tripId: 'active' })
   assert.deepEqual(cache.get('lists').data.items.map((entry) => entry.id), ['other'])
   assert.deepEqual(calls.filter(({ options }) => options.method === 'POST').map(({ url }) => url), ['/api/trips/active/finish'])
   assert.deepEqual(JSON.parse(calls.find(({ url }) => url.endsWith('/finish')).options.body), { revision: 42 })

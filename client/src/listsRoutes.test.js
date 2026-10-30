@@ -42,8 +42,8 @@ test('active overview normalizes tripId and nested summary fields from fetched s
   render(React.createElement(App))
   await screen.findByRole('heading', { name: 'My Lists' })
   const card = await screen.findByRole('button', { name: /Summer groceries/ })
-  assert.match(card.textContent, /2 of 4 items purchased/)
-  assert.match(card.textContent, /No prices entered/)
+  assert.match(card.textContent, /2 of 4 bought/)
+  assert.doesNotMatch(card.textContent, /Estimated/)
   assert.match(card.textContent, /Actual spending ₱12\.00 · incomplete/)
 })
 

@@ -75,7 +75,6 @@ export default function AccountFlows({ view, token, email: initialEmail = '', in
 
   const requestVerification = view === 'pending' || view === 'verify'
   return <section className="auth-card">
-    <p className="eyebrow">ACCOUNT SECURITY</p>
     <h1>{view === 'forgot' ? 'Forgot password' : view === 'reset' ? 'Reset password' : verified ? 'Email verified' : view === 'verify' ? 'Verify your email' : 'Check your email'}</h1>
     {view === 'forgot' && <>
       <p className="intro">Enter your email address to request a password reset link.</p>
@@ -93,7 +92,7 @@ export default function AccountFlows({ view, token, email: initialEmail = '', in
         <button className="primary-button" disabled={busy || !token}>{busy ? 'Updating…' : 'Reset password'}</button>
       </form>
     </>)}
-    {view === 'pending' && <><div className="account-symbol" aria-hidden="true">✉</div><p className="intro">A verification email was requested for <strong className="verification-address">{initialEmail || 'your account'}</strong>. {onContinue ? 'Open the link to confirm your email address.' : 'Open the link to confirm your email before you start shopping.'}</p></>}
+    {view === 'pending' && <><svg className="account-symbol" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="m4 7 8 6 8-6" /></svg><p className="intro">A verification email was requested for <strong className="verification-address">{initialEmail || 'your account'}</strong>. {onContinue ? 'Open the link to confirm your email address.' : 'Open the link to confirm your email before you start shopping.'}</p></>}
     {view === 'verify' && <p className="intro">{busy ? 'Checking your link…' : verified ? 'Your email address is confirmed.' : 'You can request another link below.'}</p>}
     {requestVerification && !verified && <form onSubmit={requestEmail}>
       <label htmlFor="verification-email">Email address</label>

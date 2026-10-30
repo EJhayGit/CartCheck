@@ -7,6 +7,12 @@ export function getShoppingProgress(items, hidePurchased = false) {
   }
 }
 
+// The server stores quantities as fixed three-decimal strings; show 1.500 as 1.5 and 2.000 as 2.
+export function formatQuantity(item) {
+  const amount = String(item.quantity).replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1')
+  return item.unitLabel ? `${amount} ${item.unitLabel}` : amount
+}
+
 export function sortShoppingItems(items, mode = 'default') {
   const sorted = [...items]
   if (mode === 'az') sorted.sort((a, b) => a.name.localeCompare(b.name))

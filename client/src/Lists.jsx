@@ -14,7 +14,7 @@ function listAmount(list, kind) {
   return moneySummary(list.items || [])[kind]
 }
 
-export default function Lists({ onOpenList, preferredCurrency = 'PHP' }) {
+export default function Lists({ onOpenList, preferredCurrency = 'PHP', flash = null }) {
   const cache = useDataCache()
   const query = useDataQuery('lists', fetchLists)
   const [dialog, setDialog] = useState(null)
@@ -180,7 +180,8 @@ export default function Lists({ onOpenList, preferredCurrency = 'PHP' }) {
   }
 
   return <main className="shopping-main lists-screen">
-    <div className="shopping-heading"><div><p className="catalog-eyebrow">YOUR SHOPPING</p><h1>My Lists</h1><p className="catalog-subtitle">Keep each shop organized in its own list.</p></div><button className="catalog-button primary" type="button" onClick={openCreate}>＋ Create list</button></div>
+    <div className="shopping-heading"><div><h1>My Lists</h1><p className="catalog-subtitle">Keep each shop organized in its own list.</p></div><button className="catalog-button primary" type="button" onClick={openCreate}>Create list</button></div>
+    {flash && !notice && <p className="catalog-notice flash-notice" role="status"><span>{flash.notice}</span>{flash.tripId && <button className="text-button" type="button" onClick={() => onOpenList(flash.tripId)}>View trip</button>}</p>}
     {notice && <p className="catalog-notice" role="status">{notice}</p>}{error && !dialog && <p className="alert" role="alert">{error}</p>}
     {query.error && <section className="catalog-state" role="alert"><p>We could not load your lists. Check your connection and try again.</p><button className="catalog-button secondary" onClick={query.refresh}>Try again</button></section>}
     {query.loading && !lists.length && <section className="catalog-state" role="status">Loading your lists…</section>}
@@ -191,15 +192,19 @@ export default function Lists({ onOpenList, preferredCurrency = 'PHP' }) {
       const count = list.itemCount ?? 0
       const bought = list.boughtCount ?? 0
       const progress = count ? Math.round(bought / count * 100) : 0
-      const amount = estimated.knownCount ? formatMoney(estimated.total, list.currency) : 'No prices entered'
-      const recorded = actual.knownCount ? formatMoney(actual.total, list.currency) : 'No actual prices recorded'
       const budgetState = list.budget == null ? null : budgetProgress(list.budget, estimated)
+      // Money lines appear only once something is known; unknown is never shown as zero.
+      const money = [
+        estimated.knownCount ? `Estimated ${formatMoney(estimated.total, list.currency)}${estimated.missingCount > 0 ? ' (some prices missing)' : ''}` : '',
+        actual.knownCount ? `Actual spending ${formatMoney(actual.total, list.currency)}${actual.missingCount > 0 ? ' · incomplete' : ''}` : '',
+        list.budget == null ? '' : `Budget ${formatMoney(list.budget, list.currency)}${budgetState ? ` · ${budgetState.over ? 'over budget' : budgetState.reached ? 'reached' : `${formatMoney(budgetState.value, list.currency)} remaining`}` : ''}`,
+      ].filter(Boolean)
       return <article className="list-card" key={list.id}>
-        <button className="list-card-open" type="button" onClick={() => onOpenList(list.id)}><span className="catalog-eyebrow">{list.currency}</span><strong>{list.name}</strong><span>{bought} of {count} items purchased</span><span className="progress-track" role="img" aria-label={`${progress}% purchased`}><span style={{ width: `${progress}%` }} /></span><span className="list-card-budget">Estimated {amount}{estimated.missingCount > 0 ? ' · some prices missing' : ''}</span><span className="list-card-budget">Actual spending {recorded}{actual.missingCount > 0 ? ' · incomplete' : ''}</span><span className="list-card-budget">{list.budget == null ? 'No budget' : `Budget ${formatMoney(list.budget, list.currency)}${budgetState ? ` · ${budgetState.over ? 'over budget' : budgetState.reached ? 'reached' : `${formatMoney(budgetState.value, list.currency)} remaining`}` : ''}`}</span><span className="list-card-updated">Updated {dateLabel(list.updatedAt)}</span></button>
-        <div className="list-card-actions"><button className="catalog-button secondary" type="button" onClick={(event) => openEdit(list, event)}>Rename or edit budget</button><button className="catalog-button secondary" type="button" onClick={() => remove(list)} disabled={deletingIds.has(String(list.id))}>{deletingIds.has(String(list.id)) ? 'Deleting…' : 'Delete'}</button></div>
+        <button className="list-card-open" type="button" onClick={() => onOpenList(list.id)}><strong>{list.name}</strong><span>{count ? `${bought} of ${count} bought` : 'No items yet'}</span><span className="progress-track" role="img" aria-label={`${progress}% bought`}><span style={{ width: `${progress}%` }} /></span>{money.length ? money.map((line) => <span className="list-card-budget" key={line}>{line}</span>) : count > 0 && <span className="list-card-budget">No prices entered</span>}<span className="list-card-updated">{list.currency} · Updated {dateLabel(list.updatedAt)}</span></button>
+        <div className="list-card-actions"><button className="catalog-button secondary" type="button" onClick={(event) => openEdit(list, event)}>Edit</button><button className="catalog-button secondary danger" type="button" onClick={() => remove(list)} disabled={deletingIds.has(String(list.id))}>{deletingIds.has(String(list.id)) ? 'Deleting…' : 'Delete'}</button></div>
       </article>
     })}</div>
     {pageError && <p className="alert" role="alert">{pageError}</p>}{query.data?.nextCursor && <button className="catalog-button secondary" type="button" onClick={loadMore} disabled={pageBusy}>{pageBusy ? 'Loading…' : 'Load more lists'}</button>}
-    {dialog && createPortal(<div className="list-dialog-backdrop"><section ref={dialogRef} className="list-dialog catalog-panel" role="dialog" aria-modal="true" aria-labelledby="list-dialog-title"><form onSubmit={submit}><p className="catalog-eyebrow">MY LISTS</p><h2 id="list-dialog-title">{dialog.mode === 'create' ? 'Create a list' : 'Edit list'}</h2><label htmlFor="list-name">List name</label><input id="list-name" maxLength={200} value={name} onChange={(event) => setName(event.target.value)} required /><label htmlFor="list-budget">Budget (optional)</label><input id="list-budget" inputMode="decimal" placeholder="Leave blank for no budget" value={budget} onChange={(event) => setBudget(event.target.value)} /><label htmlFor="list-currency">Currency</label><select id="list-currency" value={currency} onChange={(event) => setCurrency(event.target.value)} disabled={dialog.mode === 'edit'}><option value="PHP">PHP — Philippine peso</option><option value="USD">USD — US dollar</option><option value="EUR">EUR — euro</option></select>{error && <p className="alert" role="alert">{error}</p>}<div className="catalog-form-actions"><button className="catalog-button secondary" type="button" onClick={closeDialog} disabled={busy}>Cancel</button><button className="catalog-button primary" type="submit" disabled={busy}>{busy ? 'Saving…' : dialog.mode === 'create' ? 'Create list' : 'Save changes'}</button></div></form></section></div>, document.body)}
+    {dialog && createPortal(<div className="list-dialog-backdrop"><section ref={dialogRef} className="list-dialog catalog-panel" role="dialog" aria-modal="true" aria-labelledby="list-dialog-title"><form onSubmit={submit}><h2 id="list-dialog-title">{dialog.mode === 'create' ? 'Create a list' : 'Edit list'}</h2><label htmlFor="list-name">List name</label><input id="list-name" maxLength={200} value={name} onChange={(event) => setName(event.target.value)} required /><label htmlFor="list-budget">Budget (optional)</label><input id="list-budget" inputMode="decimal" placeholder="Leave blank for no budget" value={budget} onChange={(event) => setBudget(event.target.value)} /><label htmlFor="list-currency">Currency</label><select id="list-currency" value={currency} onChange={(event) => setCurrency(event.target.value)} disabled={dialog.mode === 'edit'}><option value="PHP">PHP — Philippine peso</option><option value="USD">USD — US dollar</option><option value="EUR">EUR — euro</option></select>{error && <p className="alert" role="alert">{error}</p>}<div className="catalog-form-actions"><button className="catalog-button secondary" type="button" onClick={closeDialog} disabled={busy}>Cancel</button><button className="catalog-button primary" type="submit" disabled={busy}>{busy ? 'Saving…' : dialog.mode === 'create' ? 'Create list' : 'Save changes'}</button></div></form></section></div>, document.body)}
   </main>
 }

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { moneyDifference, moneySummary, normalizeMoney } from './money.js'
+import { formatMoney, moneyDifference, moneySummary, normalizeMoney } from './money.js'
 
 test('blank, explicit zero, and invalid amounts remain distinct', () => {
   assert.equal(normalizeMoney(''), null)
@@ -22,4 +22,11 @@ test('summaries use exact cents, count missing prices, and include actual only w
     actual: { total: '0.00', missingCount: 1, knownCount: 1 },
   })
   assert.deepEqual(moneyDifference('0.20', result.estimated.total), { over: true, value: '0.10' })
+})
+
+test('money formatting groups thousands without rounding the decimal string', () => {
+  assert.equal(formatMoney('12500.00', 'PHP'), '₱12,500.00')
+  assert.equal(formatMoney('1234567.05', 'USD'), '$1,234,567.05')
+  assert.equal(formatMoney('999.99', 'EUR'), '€999.99')
+  assert.equal(formatMoney('0.00', 'PHP'), '₱0.00')
 })

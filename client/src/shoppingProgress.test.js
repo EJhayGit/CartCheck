@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { getShoppingProgress } from './shoppingProgress.js'
+import { formatQuantity, getShoppingProgress } from './shoppingProgress.js'
 
 test('empty list has zero remaining and purchased items', () => {
   assert.deepEqual(getShoppingProgress([]), {
@@ -45,4 +45,11 @@ test('hide purchased filters the view without changing source items', () => {
   assert.equal(visible.purchasedCount, 1)
   assert.deepEqual(items, [{ id: 'a', bought: true }, { id: 'b', bought: false }])
   assert.deepEqual(getShoppingProgress(items, true).visibleItems, [items[1]])
+})
+
+test('quantities drop trailing zeros and keep the unit label', () => {
+  assert.equal(formatQuantity({ quantity: '2.000' }), '2')
+  assert.equal(formatQuantity({ quantity: '1.500', unitLabel: 'kg' }), '1.5 kg')
+  assert.equal(formatQuantity({ quantity: '0.125', unitLabel: null }), '0.125')
+  assert.equal(formatQuantity({ quantity: '10' }), '10')
 })

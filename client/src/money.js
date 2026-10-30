@@ -38,7 +38,8 @@ export function moneyDifference(left, right) {
 
 export function formatMoney(value, currency) {
   const symbol = { PHP: '₱', USD: '$', EUR: '€' }[currency] || currency
-  return `${symbol}${value}`
+  // Group on the decimal string itself so large totals never pass through floats.
+  return `${symbol}${String(value).replace(/^\d+/, (whole) => whole.replace(/\B(?=(\d{3})+$)/g, ','))}`
 }
 
 // Each comparison retains the existing estimate/actual semantics. There is no
