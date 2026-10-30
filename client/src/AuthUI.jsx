@@ -1,6 +1,6 @@
 import { lazy, Suspense, useRef, useState } from 'react'
 import { PASSWORD_HINT } from './passwordPolicy.js'
-import { Brand } from './Brand.jsx'
+import { Brand, Tick } from './Brand.jsx'
 
 const Strength = lazy(() => import('./PasswordStrength.jsx'))
 export function PasswordMeter(props) {
@@ -25,8 +25,8 @@ export function PasswordField({ id, label = 'Password', error = '', hint, ...pro
 export function AuthBrand({ onHome, disabled }) {
   return <aside className="auth-story">
     <Brand className="auth-logo" onHome={onHome} disabled={disabled} />
-    <div className="auth-story-copy"><p className="story-eyebrow">A LITTLE PLANNING. A BETTER SHOP.</p><h2>Less to remember.<br />More checked off.</h2><p>Keep your groceries in order, track your shopping, and make the next trip a little easier.</p></div>
-    <div className="checklist-preview" aria-hidden="true"><div className="preview-heading"><span>This week’s groceries</span><span className="preview-chip">3 of 5 checked</span></div><p className="preview-subtitle">The essentials, all in one place.</p>{[['✓','Fresh vegetables','Produce'],['✓','Milk','Dairy'],['✓','Rice','Pantry'],['','Eggs','Dairy'],['','Bread','Bakery']].map(([check,name,category]) => <div className={`preview-row ${check ? 'done' : ''}`} key={name}><span className="preview-check">{check}</span><span>{name}</span><small>{category}</small></div>)}<div className="preview-footer"><span>A little more organized.</span><strong>Every trip.</strong></div></div>
+    <div className="auth-story-copy"><p className="story-title">Less to remember.<br />More checked off.</p><p>Keep your groceries in order, track your shopping, and make the next trip a little easier.</p></div>
+    <div className="checklist-preview" aria-hidden="true"><div className="preview-heading"><span>This week’s groceries</span><span className="preview-chip">3 of 5 checked</span></div><p className="preview-subtitle">The essentials, all in one place.</p>{[[true,'Fresh vegetables','Produce'],[true,'Milk','Dairy'],[true,'Rice','Pantry'],[false,'Eggs','Dairy'],[false,'Bread','Bakery']].map(([done,name,category]) => <div className={`preview-row ${done ? 'done' : ''}`} key={name}><Tick /><span>{name}</span><small>{category}</small></div>)}<div className="preview-footer"><span>A little more organized.</span><strong>Every trip.</strong></div></div>
     <p className="story-footnote">Your list. Your pace. Your CartCheck.</p>
   </aside>
 }

@@ -1,24 +1,38 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { deleteListItem, finishTrip, getList, updateList, updateListItem } from './api/httpApi.js'
-import { getShoppingProgress, sortShoppingItems } from './shoppingProgress.js'
+import { deleteListItem, finishTrip, getCatalog, getList, updateList, updateListItem } from './api/httpApi.js'
+import { formatQuantity, getShoppingProgress, sortShoppingItems } from './shoppingProgress.js'
 import { budgetProgress, formatMoney, moneySummary, normalizeMoney } from './money.js'
 import { createPurchaseMutations, mergePendingListResponse } from './purchaseMutations.js'
 import { useDataCache, useDataQuery } from './dataCache.jsx'
 import { cacheCompletedTrip, removeListSummary, replaceListSummary } from './dataCache.js'
+import { Tick } from './Brand.jsx'
 
 const EMPTY_FORM = { name: '', quantity: '1', unitLabel: '', estimatedTotal: '', actualTotal: '' }
+const VIEW_KEY = 'cartcheck:list-view'
+const SORT_MODES = ['default', 'az', 'category']
 
 function formFor(item) {
-  return { name: item.name, quantity: String(item.quantity), unitLabel: item.unitLabel || '', estimatedTotal: item.estimatedTotal ?? '', actualTotal: item.actualTotal ?? '' }
+  return { name: item.name, quantity: formatQuantity({ quantity: item.quantity }), unitLabel: item.unitLabel || '', estimatedTotal: item.estimatedTotal ?? '', actualTotal: item.actualTotal ?? '' }
 }
 
-function displayQuantity(value) {
-  return String(value).replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1')
+// Sort and hide-bought are a per-browser convenience; the list works without storage.
+function readView() {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(VIEW_KEY)) || {}
+    return { sortMode: SORT_MODES.includes(saved.sortMode) ? saved.sortMode : 'default', hidePurchased: saved.hidePurchased === true }
+  } catch { return { sortMode: 'default', hidePurchased: false } }
+}
+
+function priceNote(item, currency) {
+  const parts = []
+  if (item.estimatedTotal != null) parts.push(`est. ${formatMoney(item.estimatedTotal, currency)}`)
+  if (item.actualTotal != null) parts.push(`paid ${formatMoney(item.actualTotal, currency)}`)
+  return parts.join(' · ')
 }
 
 function ReviewRows({ items, currency }) {
   if (!items.length) return <p className="optional-help">No items in this group.</p>
-  return <ul className="trip-review-list">{items.map((item) => <li key={item.id}><span><strong>{item.name}</strong><small>{displayQuantity(item.quantity)}{item.unitLabel ? ` ${item.unitLabel}` : ''} · Estimate: {item.estimatedTotal == null ? 'not recorded' : formatMoney(item.estimatedTotal, currency)} · Actual: {item.actualTotal == null ? 'not recorded' : formatMoney(item.actualTotal, currency)}</small></span><span className="trip-status">{item.bought ? 'BOUGHT' : 'NOT BOUGHT'}</span></li>)}</ul>
+  return <ul className="trip-review-list">{items.map((item) => <li key={item.id}><span><strong>{item.name}</strong><small>{formatQuantity(item)}{priceNote(item, currency) ? ` · ${priceNote(item, currency)}` : ''}</small></span></li>)}</ul>
 }
 
 function BudgetMeter({ budget, summary, currency, label }) {
@@ -33,13 +47,14 @@ function BudgetMeter({ budget, summary, currency, label }) {
   </div>
 }
 
-export default function ShoppingList({ listId, active = true, editItem, onEditHandled, onBrowseCatalog, onBackToLists, onMutationPending, onReviewChange }) {
+export default function ShoppingList({ listId, active = true, editItem, onEditHandled, onBrowseCatalog, onBackToLists, onQuickAdd, onMutationPending, onReviewChange }) {
   const cache = useDataCache()
   const cacheKey = `list:${listId}`
   const fetchList = (signal) => getList(listId, { signal })
   const [reviewing, setReviewing] = useState(false)
   const cartQuery = useDataQuery(cacheKey, fetchList, { enabled: active && !reviewing })
-  const { items = [], currency = 'PHP', tripId = listId, revision = null, budget = null, name = 'Shopping list' } = cartQuery.data || {}
+  const knownName = cache.get('lists').data?.items?.find((list) => String(list.id) === String(listId))?.name
+  const { items = [], currency = 'PHP', tripId = listId, revision = null, budget = null, name = knownName || 'Your list' } = cartQuery.data || {}
   const loading = cartQuery.loading
   const error = cartQuery.error ? 'We could not refresh your shopping list. Check your connection and try again.' : ''
   const hasCart = cartQuery.data !== undefined
@@ -51,7 +66,6 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
   const [finishBusy, setFinishBusy] = useState(false)
   const [reviewBusy, setReviewBusy] = useState(false)
   const [finishError, setFinishError] = useState('')
-  const [finished, setFinished] = useState(false)
   const reviewRef = useRef(null)
   const reviewSurfaceRef = useRef(null)
   const finishTriggerRef = useRef(null)
@@ -60,27 +74,46 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
   const [budgetEditing, setBudgetEditing] = useState(false)
   const [budgetError, setBudgetError] = useState('')
   const [notice, setNotice] = useState('')
+  const [announcement, setAnnouncement] = useState('')
   const [actionError, setActionError] = useState('')
   const [editor, setEditor] = useState(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [formError, setFormError] = useState('')
+  const [confirmRemove, setConfirmRemove] = useState(false)
   const [busy, setBusy] = useState(false)
   const [busyItemId, setBusyItemId] = useState(null)
   const [busyAction, setBusyAction] = useState('')
-  const [hidePurchased, setHidePurchased] = useState(false)
-  const [sortMode, setSortMode] = useState('default')
+  const [view, setView] = useState(readView)
+  const { sortMode, hidePurchased } = view
+  const [query, setQuery] = useState('')
+  const [addingProductId, setAddingProductId] = useState(null)
   const [purchasePending, setPurchasePending] = useState(0)
+  const catalogQuery = useDataQuery('catalog', (signal) => getCatalog({ signal }), { staleTime: Infinity, enabled: active && query.trim() !== '' })
   const purchases = useMemo(() => createPurchaseMutations(cache, (itemId, input) => updateListItem(listId, itemId, input), {
     onPending: (count) => { setPurchasePending(count); onMutationPending(Boolean(count || pendingMutation.current)) }, onError: setActionError, listId,
   }), [cache, listId])
   useEffect(() => purchases.subscribe(), [purchases])
   const pendingMutation = useRef(false)
   const editorVersion = useRef(0)
+  // An element id to focus after the next render, used when an element moves or disappears.
+  const focusTarget = useRef(null)
+  useEffect(() => {
+    if (!focusTarget.current) return
+    const target = document.getElementById(focusTarget.current)
+    if (target) { focusTarget.current = null; target.focus() }
+  })
   useEffect(() => {
     mounted.current = true
     return () => { mounted.current = false }
   }, [])
   function reportPending() { onMutationPending(Boolean(pendingMutation.current || purchases.size)) }
+  function updateView(changes) {
+    setView((current) => {
+      const next = { ...current, ...changes }
+      try { window.localStorage.setItem(VIEW_KEY, JSON.stringify(next)) } catch { /* Storage is optional. */ }
+      return next
+    })
+  }
 
   useEffect(() => { onReviewChange(reviewing) }, [reviewing, onReviewChange])
   useEffect(() => () => { onReviewChange(false); onMutationPending(false) }, [])
@@ -91,9 +124,13 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
     setItems((current) => current.some((item) => item.id === editItem.id)
       ? current.map((item) => item.id === editItem.id ? editItem : item)
       : [...current, editItem])
+    // An item re-added from the catalog may be hidden by the current filters.
+    setQuery('')
+    if (editItem.bought) updateView({ hidePurchased: false })
     setEditor({ id: editItem.id })
     setForm(formFor(editItem))
     setFormError('')
+    setConfirmRemove(false)
     setActionError('')
     onEditHandled()
   }, [editItem, onEditHandled])
@@ -139,11 +176,9 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
       cacheCompletedTrip(cache, completedTrip)
       if (!mounted.current) return
       setEditor(null)
-      setHidePurchased(false)
       setReviewing(false)
-      setFinished(true)
-      setNotice('Your list was saved to history.')
-      onBackToLists?.()
+      // This screen unmounts on navigation, so My Lists shows the confirmation.
+      onBackToLists?.({ notice: `${name} is saved in Trips.`, tripId: completedTrip?.id ?? tripId })
     } catch (caught) {
       setFinishError(caught.status === 409
         ? 'This trip changed since you opened the review. Return to your list and review it again.'
@@ -173,18 +208,22 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
   }
 
   function openEdit(item) {
+    if (editor?.id === item.id) { closeEditor(); return }
     editorVersion.current += 1
     setEditor({ id: item.id })
     setForm(formFor(item))
     setFormError('')
+    setConfirmRemove(false)
     setActionError('')
     setNotice('')
   }
 
   function closeEditor() {
     if (busy) return
+    if (editor) focusTarget.current = `edit-${editor.id}`
     setEditor(null)
     setFormError('')
+    setConfirmRemove(false)
   }
 
   async function save(event) {
@@ -216,6 +255,7 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
     setItems((current) => current.map((item) => item.id === itemId
       ? { ...item, name: trimmedName, quantity: rawQuantity, unitLabel: form.unitLabel.trim() || null, estimatedTotal, actualTotal }
       : item))
+    focusTarget.current = `edit-${itemId}`
     setEditor(null)
     try {
       const result = await updateListItem(listId, itemId, {
@@ -228,7 +268,7 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
       const serverList = mergePendingListResponse(cache, listId, result.list)
       cache.set(cacheKey, serverList)
       replaceListSummary(cache, serverList)
-      setNotice('Shopping list item saved.')
+      setNotice(`${trimmedName} saved.`)
     } catch (caught) {
       setItems((current) => current.map((item) => item.id === itemId ? previous : item))
       cache.invalidate(cacheKey)
@@ -274,8 +314,8 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
 
   async function remove(item) {
     if (pendingMutation.current || purchases.has(item.id)) return
-    if (!window.confirm(`Remove “${item.name}” from your shopping list?`)) return
     const previousIndex = items.findIndex((entry) => entry.id === item.id)
+    const neighbor = rowOrder.at(rowOrder.findIndex((entry) => entry.id === item.id) + 1) || rowOrder.at(-2)
     pendingMutation.current = true
     const release = cache.beginMutation(cacheKey)
     reportPending()
@@ -285,13 +325,15 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
     setActionError('')
     setNotice('')
     setItems((current) => current.filter((entry) => entry.id !== item.id))
+    setEditor(null)
+    setConfirmRemove(false)
+    focusTarget.current = neighbor && neighbor.id !== item.id ? `edit-${neighbor.id}` : 'find-item'
     try {
       const result = await deleteListItem(listId, item.id)
       const serverList = mergePendingListResponse(cache, listId, result.list)
       cache.set(cacheKey, serverList)
       replaceListSummary(cache, serverList)
-      if (editor?.id === item.id) setEditor(null)
-      setNotice(`${item.name} removed from your shopping list.`)
+      setNotice(`${item.name} removed.`)
     } catch (caught) {
       setItems((current) => {
         if (current.some((entry) => entry.id === item.id)) return current
@@ -304,89 +346,142 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
     } finally { release(); pendingMutation.current = false; reportPending(); setBusy(false); setBusyItemId(null); setBusyAction('') }
   }
 
-  function setBought(item, bought) {
+  function setBought(item, bought, event) {
     if (pendingMutation.current || reviewBusy) return
     setActionError('')
     setNotice('')
+    // In the grouped view the row moves to the other section; keep keyboard focus on the list.
+    if (sortMode === 'default' && document.activeElement === event?.target) {
+      const position = remainingItems.findIndex((entry) => entry.id === item.id)
+      const next = bought ? remainingItems[position + 1] || remainingItems[position - 1] : item
+      focusTarget.current = next ? `check-${next.id}` : 'finish-from-list'
+    }
+    const left = remainingCount + (bought ? -1 : 1)
+    setAnnouncement(`${item.name} ${bought ? 'bought' : 'moved back to To buy'}. ${left} left.`)
     purchases.set(item.id, bought)
   }
 
-  const { purchasedCount, remainingCount, visibleItems } = getShoppingProgress(items, hidePurchased)
+  async function quickAdd(product) {
+    if (addingProductId || !onQuickAdd) return
+    setAddingProductId(product.id)
+    setActionError('')
+    setNotice('')
+    try {
+      await onQuickAdd(product.id)
+      setQuery('')
+      setAnnouncement(`${product.name} added.`)
+      focusTarget.current = 'find-item'
+    } catch (caught) { setActionError(`We could not add ${product.name}. ${caught.message || 'Please try again.'}`) }
+    finally { setAddingProductId(null) }
+  }
+
+  const { purchasedCount, remainingCount, visibleItems: unfilteredVisible } = getShoppingProgress(items, hidePurchased)
+  const term = query.trim().toLocaleLowerCase()
+  const visibleItems = term ? unfilteredVisible.filter((item) => item.name.toLocaleLowerCase().includes(term)) : unfilteredVisible
   const sortedItems = sortShoppingItems(visibleItems, sortMode)
   const remainingItems = visibleItems.filter((item) => item.bought !== true)
   const purchasedItems = visibleItems.filter((item) => item.bought === true)
+  const rowOrder = sortMode === 'default' ? [...remainingItems, ...purchasedItems] : sortedItems
   const progressPercent = items.length ? (purchasedCount / items.length) * 100 : 0
   const spending = moneySummary(items)
+  const onList = new Set(items.map((item) => String(item.productId)))
+  const catalogItems = Array.isArray(catalogQuery.data) ? catalogQuery.data : catalogQuery.data?.items || []
+  const suggestions = term ? catalogItems.filter((product) => !onList.has(String(product.id)) && product.name.toLocaleLowerCase().includes(term)).slice(0, 5) : []
 
   if (reviewing) return <main className="shopping-main trip-screen" aria-labelledby="finish-title" ref={reviewSurfaceRef}>
-    <div className="shopping-heading"><div><p className="catalog-eyebrow">REVIEW YOUR LIST</p><h1 id="finish-title" ref={reviewRef} tabIndex="-1">Finish shopping?</h1><p className="catalog-subtitle">Check “{name}” before saving it to history.</p></div><span className="currency-label">{currency}</span></div>
-    <section className="progress-card" aria-label="Shopping progress"><div className="progress-copy"><span className="progress-icon" aria-hidden="true">✓</span><div><p className="progress-kicker">SHOPPING PROGRESS</p><p className="progress-title">{purchasedCount} of {items.length} items bought</p></div></div><div className="progress-number"><strong>{purchasedCount} <span>/ {items.length}</span></strong><small>items picked up</small></div><div className="progress-track"><span style={{ width: `${progressPercent}%` }} /></div></section>
-    <div className="trip-review-grid"><section className="catalog-panel"><h2>Bought <span className="count-badge">{purchasedCount}</span></h2><ReviewRows items={items.filter((item) => item.bought)} currency={currency} /><h2>Not bought <span className="count-badge">{remainingCount}</span></h2><ReviewRows items={items.filter((item) => !item.bought)} currency={currency} /></section>
-      <aside className="catalog-panel"><p className="catalog-eyebrow">OPTIONAL SPENDING</p><h2>{spending.actual.knownCount ? formatMoney(spending.actual.total, currency) : 'No actual prices recorded'}</h2><p className="optional-help">{spending.actual.missingCount ? `${spending.actual.missingCount} bought item${spending.actual.missingCount === 1 ? ' has' : 's have'} no actual price. Recorded spending is incomplete.` : spending.actual.knownCount ? 'Recorded spending includes all bought items.' : 'You can finish without recording prices.'}</p><p className="optional-help">{remainingCount} unchecked item{remainingCount === 1 ? '' : 's'} will be saved as not bought. Other active lists remain available.</p>{budget !== null && <p className="optional-help">Budget: {formatMoney(budget, currency)}. Going over budget does not prevent finishing.</p>}{finishError && <p className="alert" role="alert">{finishError}</p>}<div className="trip-actions"><button className="catalog-button secondary" type="button" onClick={() => { setReviewing(false); setFinishError(''); if (finishError) cache.invalidate(cacheKey); requestAnimationFrame(() => finishTriggerRef.current?.focus()) }} disabled={finishBusy}>Keep shopping</button><button className="catalog-button primary" type="button" onClick={confirmFinish} disabled={finishBusy}>{finishBusy ? 'Saving trip…' : 'Confirm and finish'}</button></div></aside></div>
+    <div className="shopping-heading"><div><h1 id="finish-title" ref={reviewRef} tabIndex="-1">Finish shopping?</h1><p className="catalog-subtitle">Check “{name}” before saving it to Trips.</p></div><span className="currency-label">{currency}</span></div>
+    <div className="list-progress review-progress"><p className="list-progress-line"><strong>{purchasedCount} of {items.length}</strong> bought</p><div className="progress-track" role="img" aria-label={`${purchasedCount} of ${items.length} items bought`}><span style={{ width: `${progressPercent}%` }} /></div></div>
+    <div className="trip-review-grid"><section className="catalog-panel"><h2>Bought <span className="section-count">{purchasedCount}</span></h2><ReviewRows items={items.filter((item) => item.bought)} currency={currency} /><h2>Not bought <span className="section-count">{remainingCount}</span></h2><ReviewRows items={items.filter((item) => !item.bought)} currency={currency} /></section>
+      <aside className="catalog-panel"><h2>Recorded spending</h2><p className="review-amount">{spending.actual.knownCount ? formatMoney(spending.actual.total, currency) : 'No actual prices recorded'}</p><p className="optional-help">{spending.actual.missingCount ? `${spending.actual.missingCount} bought item${spending.actual.missingCount === 1 ? ' has' : 's have'} no actual price. Recorded spending is incomplete.` : spending.actual.knownCount ? 'Recorded spending includes all bought items.' : 'You can finish without recording prices.'}</p><p className="optional-help">{remainingCount} unchecked item{remainingCount === 1 ? '' : 's'} will be saved as not bought. Other active lists remain available.</p>{budget !== null && <p className="optional-help">Budget: {formatMoney(budget, currency)}. Going over budget does not prevent finishing.</p>}{finishError && <p className="alert" role="alert">{finishError}</p>}<div className="trip-actions"><button className="catalog-button secondary" type="button" onClick={() => { setReviewing(false); setFinishError(''); if (finishError) cache.invalidate(cacheKey); requestAnimationFrame(() => finishTriggerRef.current?.focus()) }} disabled={finishBusy}>Keep shopping</button><button className="catalog-button primary" type="button" onClick={confirmFinish} disabled={finishBusy}>{finishBusy ? 'Saving trip…' : 'Confirm and finish'}</button></div></aside></div>
   </main>
 
-  function renderItems(entries, label) {
-    if (!entries.length) return <p className="list-empty-message" role="status">{label === 'Items still to buy' ? 'Everything on your list has been purchased.' : hidePurchased ? 'Purchased items are hidden.' : 'No items purchased yet.'}</p>
-    return <ul className="shopping-items" aria-label={label}>{entries.map((item) => <li className={`shopping-item${item.bought ? ' is-purchased' : ''}`} key={item.id}>
-      <label className="purchased-control"><input type="checkbox" checked={item.bought === true} onChange={(event) => setBought(item, event.target.checked)} disabled={busy || reviewBusy} aria-label={item.bought ? `Mark ${item.name} as unpurchased` : `Mark ${item.name} as purchased`} /><span className="purchased-checkmark" aria-hidden="true" /> <span className="visually-hidden">Purchased</span></label>
-      <span className="shopping-item-info"><strong>{item.name}</strong><small>{item.category || 'Grocery'}</small><small className="item-price">Estimate: {item.estimatedTotal === null || item.estimatedTotal === undefined ? 'Not recorded' : formatMoney(item.estimatedTotal, currency)} · Actual: {item.actualTotal === null || item.actualTotal === undefined ? 'Not recorded' : formatMoney(item.actualTotal, currency)}</small></span>
-      <span className="shopping-item-quantity">{displayQuantity(item.quantity)}{item.unitLabel ? ` ${item.unitLabel}` : ''}</span>
-      <span className="shopping-item-actions"><button className="catalog-small-button" type="button" onClick={() => openEdit(item)} disabled={busy}>Edit</button><button className="catalog-small-button remove-button" type="button" onClick={() => remove(item)} disabled={busy}>{busy && busyItemId === item.id && busyAction === 'remove' ? 'Removing…' : 'Remove'}</button></span>
-    </li>)}</ul>
+  function renderEditor(item) {
+    const removing = busy && busyItemId === item.id && busyAction === 'remove'
+    return <form className="row-editor catalog-form" onSubmit={save} aria-label={`Edit ${item.name}`} onKeyDown={(event) => { if (event.key === 'Escape') { event.preventDefault(); closeEditor() } }}>
+      <div className="quantity-fields"><div><label htmlFor="list-item-quantity">Quantity</label><input id="list-item-quantity" inputMode="decimal" value={form.quantity} onChange={(event) => setForm({ ...form, quantity: event.target.value })} onFocus={(event) => event.target.select()} maxLength={20} required autoFocus /></div><div><label htmlFor="list-item-unit">Unit (optional)</label><input id="list-item-unit" value={form.unitLabel} onChange={(event) => setForm({ ...form, unitLabel: event.target.value })} maxLength={24} placeholder="kg, L, packs" /></div></div>
+      <label htmlFor="list-item-name">Name on this list</label><input id="list-item-name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} maxLength={120} required />
+      <div className="quantity-fields"><div><label htmlFor="list-item-estimate">Estimated total ({currency}, optional)</label><input id="list-item-estimate" inputMode="decimal" value={form.estimatedTotal} onChange={(event) => setForm({ ...form, estimatedTotal: event.target.value })} placeholder="Unknown" aria-describedby="item-price-help" /></div><div><label htmlFor="list-item-actual">Actual total ({currency}, optional)</label><input id="list-item-actual" inputMode="decimal" value={form.actualTotal} onChange={(event) => setForm({ ...form, actualTotal: event.target.value })} placeholder="Unknown" aria-describedby="item-price-help" /></div></div>
+      <p id="item-price-help" className="optional-help">Leave blank if unknown; enter 0 for a free item. Quantity does not multiply these amounts.</p>
+      {formError && <p className="alert" role="alert">{formError}</p>}
+      <div className="row-editor-actions">
+        {confirmRemove
+          ? <p className="remove-confirm" role="group" aria-label={`Remove ${item.name}?`}><span>Remove from this list?</span><button className="catalog-small-button" type="button" onClick={() => { setConfirmRemove(false); focusTarget.current = 'remove-item' }} disabled={busy}>Keep</button><button id="confirm-remove" className="catalog-small-button danger" type="button" onClick={() => remove(item)} disabled={busy} autoFocus>{removing ? 'Removing…' : 'Remove'}</button></p>
+          : <button id="remove-item" className="text-button danger" type="button" onClick={() => setConfirmRemove(true)} disabled={busy}>Remove item</button>}
+        <span className="row-editor-save"><button className="catalog-button secondary" type="button" onClick={closeEditor} disabled={busy}>Cancel</button><button className="catalog-button primary" type="submit" disabled={busy}>{busy && busyAction === 'save' ? 'Saving…' : 'Save'}</button></span>
+      </div>
+    </form>
   }
 
+  function renderItems(entries, label) {
+    if (!entries.length) return <p className="list-empty-message">{term ? `Nothing here matches “${query.trim()}”.` : label === 'To buy' ? 'Nothing left to buy.' : 'Nothing bought yet.'}</p>
+    return <ul className="shopping-items" aria-label={label}>{entries.map((item) => {
+      const editing = editor?.id === item.id
+      const note = priceNote(item, currency)
+      return <li className={`shopping-item${item.bought ? ' is-purchased' : ''}${editing ? ' is-editing' : ''}`} key={item.id}>
+        <label className="purchased-control"><input id={`check-${item.id}`} type="checkbox" checked={item.bought === true} onChange={(event) => setBought(item, event.target.checked, event)} disabled={busy || reviewBusy} aria-label={item.name} /><Tick /></label>
+        <button id={`edit-${item.id}`} className="row-edit" type="button" onClick={() => openEdit(item)} disabled={busy} aria-expanded={editing}>
+          <span className="visually-hidden">Edit </span><span className="shopping-item-info"><strong>{item.name}</strong><small>{item.category || 'Grocery'}{note ? ` · ${note}` : ''}</small></span>
+          <span className="shopping-item-quantity">{formatQuantity(item)}</span>
+        </button>
+        {editing && renderEditor(item)}
+      </li>
+    })}</ul>
+  }
+
+  function renderCategoryGroups(entries) {
+    const groups = new Map()
+    for (const item of entries) groups.set(item.category || 'Grocery', [...(groups.get(item.category || 'Grocery') || []), item])
+    return [...groups].map(([category, groupItems]) => <section className="list-group" key={category} aria-label={category}><div className="section-heading"><h3>{category}</h3><span className="section-count">{groupItems.length}</span></div>{renderItems(groupItems, category)}</section>)
+  }
+
+  const findField = <div className="find-item">
+    <label htmlFor="find-item">Find or add an item</label>
+    <input id="find-item" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Try eggs, rice, soap" maxLength={100} autoComplete="off" aria-describedby={term ? 'find-results' : undefined} />
+    {term && <div id="find-results" className="find-results">
+      {suggestions.length > 0 && <ul aria-label="Add from your catalog">{suggestions.map((product) => <li key={product.id}><span><strong>{product.name}</strong><small>{product.category}</small></span><button className="catalog-small-button" type="button" onClick={() => quickAdd(product)} disabled={addingProductId !== null} aria-label={addingProductId === product.id ? undefined : `Add ${product.name}`}>{addingProductId === product.id ? 'Adding…' : 'Add'}</button></li>)}</ul>}
+      {!suggestions.length && !catalogQuery.loading && <p className="optional-help">No catalog item to add for “{query.trim()}”. <button className="text-button" type="button" onClick={onBrowseCatalog}>Open the catalog</button> to create one.</p>}
+    </div>}
+  </div>
+
   return <main className="shopping-main">
-    <div className="shopping-heading">
-      <div><p className="catalog-eyebrow">{loading ? 'SHOPPING LIST' : name}</p><h1>{name}</h1><p className="catalog-subtitle">{loading ? 'Loading your list.' : items.length ? 'Everything you need, in one easy list.' : 'Add groceries when you are ready.'}</p></div>
-      <div className="trip-actions"><button className="catalog-button secondary" type="button" onClick={onBackToLists}>My Lists</button><button className="catalog-button secondary" type="button" onClick={cartQuery.refresh} disabled={busy || reviewBusy || cartQuery.fetching}>Refresh list</button><button className="catalog-button primary" type="button" onClick={onBrowseCatalog} disabled={busy || reviewBusy}>＋ Add Item</button>{items.length > 0 && <button ref={finishTriggerRef} className="catalog-button secondary" type="button" onClick={openReview} disabled={busy || loading || reviewBusy || purchasePending > 0}>{reviewBusy ? 'Preparing review…' : 'Finish shopping'}</button>}</div>
+    <div className="list-header">
+      <div className="list-title"><h1>{name}</h1>{loading ? <p className="catalog-subtitle" role="status">Loading items…</p> : items.length > 0 && <p className="list-progress-line"><strong>{purchasedCount} of {items.length}</strong> bought{purchasePending > 0 ? <span className="saving-note"> · Saving…</span> : ''}</p>}</div>
+      <div className="trip-actions"><button className="catalog-button secondary" type="button" onClick={onBrowseCatalog} disabled={busy || reviewBusy}>Browse catalog</button>{items.length > 0 && <button ref={finishTriggerRef} className="catalog-button secondary" type="button" onClick={openReview} disabled={busy || loading || reviewBusy || purchasePending > 0}>{reviewBusy ? 'Preparing review…' : 'Finish shopping'}</button>}</div>
+      {!loading && items.length > 0 && <div className="progress-track" role="img" aria-label={`${purchasedCount} of ${items.length} items bought`}><span style={{ width: `${progressPercent}%` }} /></div>}
     </div>
     {notice && <p className="catalog-notice" role="status">{notice}</p>}
-    {finished && <p className="catalog-notice" role="status">Your completed list is available in History.</p>}
     {actionError && <p className="alert" role="alert">{actionError}</p>}
     {error && <div className="catalog-state" role="alert"><p>{error}</p><button className="catalog-button secondary" type="button" onClick={cartQuery.refresh}>Try again</button></div>}
-    {loading && <div className="catalog-state" role="status"><p>Loading your shopping list…</p></div>}
-    {!loading && (hasCart || !error) && editor && <section className="catalog-panel list-editor" aria-labelledby="list-editor-title">
-      <div className="editor-heading"><div><p className="catalog-eyebrow">SHOPPING LIST</p><h2 id="list-editor-title">Edit item</h2></div><button className="catalog-small-button" type="button" onClick={closeEditor} disabled={busy}>Cancel</button></div>
-      <form className="catalog-form" onSubmit={save}>
-        <label htmlFor="list-item-name">Item name</label><input id="list-item-name" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} maxLength={120} required autoFocus />
-        <div className="quantity-fields"><div><label htmlFor="list-item-quantity">Quantity</label><input id="list-item-quantity" inputMode="decimal" value={form.quantity} onChange={(event) => setForm({ ...form, quantity: event.target.value })} maxLength={20} required /></div><div><label htmlFor="list-item-unit">Unit (optional)</label><input id="list-item-unit" value={form.unitLabel} onChange={(event) => setForm({ ...form, unitLabel: event.target.value })} maxLength={24} placeholder="kg, L, packs" /></div></div>
-        <p className="optional-help">Optional totals for this list entry in {currency}. Leave blank if unknown; enter 0 for a free item. Quantity does not multiply these amounts.</p>
-        <div className="quantity-fields"><div><label htmlFor="list-item-estimate">Estimated total (optional)</label><input id="list-item-estimate" inputMode="decimal" value={form.estimatedTotal} onChange={(event) => setForm({ ...form, estimatedTotal: event.target.value })} placeholder="0.00" aria-describedby="item-price-help" /></div><div><label htmlFor="list-item-actual">Actual total (optional)</label><input id="list-item-actual" inputMode="decimal" value={form.actualTotal} onChange={(event) => setForm({ ...form, actualTotal: event.target.value })} placeholder="0.00" aria-describedby="item-price-help" /></div></div>
-        <span id="item-price-help" className="visually-hidden">Blank means no price recorded. Zero is a recorded amount.</span>
-        {formError && <p className="alert" role="alert">{formError}</p>}
-        <div className="catalog-form-actions"><button className="catalog-button secondary" type="button" onClick={closeEditor} disabled={busy}>Cancel</button><button className="catalog-button primary" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button></div>
-      </form>
-    </section>}
-    {!loading && (hasCart || !error) && <div className="shopping-content"><div className="shopping-primary">{items.length === 0 ? <section className="catalog-state empty-list"><span className="empty-list-icon" aria-hidden="true">▣</span><h2>Your list is empty</h2><p>Add groceries when you're ready. Your reusable catalog is just a tap away.</p><button className="catalog-button primary" type="button" onClick={onBrowseCatalog} disabled={busy}>＋ Add Item</button></section> : <>
-      <section className="progress-card" aria-label="Shopping progress">
-        <div className="progress-copy"><span className="progress-icon" aria-hidden="true">✓</span><div><p className="progress-kicker">SHOPPING PROGRESS</p><p className="progress-title">{remainingCount === 0 ? 'All items picked up' : purchasedCount === 0 ? 'Ready to get started' : "You're making good progress"}</p><p className="progress-summary" aria-live="polite">{remainingCount} remaining / {purchasedCount} purchased</p></div></div>
-        <div className="progress-number" aria-live="polite"><strong>{purchasedCount} <span>/ {items.length}</span></strong><small>items picked up</small></div>
-        <div className="progress-track" role="img" aria-label={`${purchasedCount} of ${items.length} items purchased`}><span style={{ width: `${progressPercent}%` }} /></div>
-      </section>
-      <div className="list-tools"><label htmlFor="list-sort">Sort</label><select id="list-sort" value={sortMode} onChange={(event) => setSortMode(event.target.value)}><option value="default">Default</option><option value="az">A–Z</option><option value="category">Category</option><option value="unpurchased">Unpurchased First</option><option value="purchased">Purchased First</option></select><button className="hide-purchased-button" type="button" onClick={() => setHidePurchased((hidden) => !hidden)} aria-pressed={hidePurchased}>{hidePurchased ? 'Show purchased' : 'Hide purchased'}</button></div>
+    {!loading && (hasCart || !error) && <div className="shopping-content"><div className="shopping-primary">
+      {findField}
+      {items.length === 0 ? <section className="list-empty"><h2>Nothing on this list yet</h2><p>Type an item above to add it, or browse the catalog for ideas.</p></section> : <>
+      <div className="list-tools"><label htmlFor="list-sort">Sort</label><select id="list-sort" value={sortMode} onChange={(event) => updateView({ sortMode: event.target.value })}><option value="default">To buy first</option><option value="az">A–Z</option><option value="category">By category</option></select><button className="hide-purchased-button" type="button" onClick={() => updateView({ hidePurchased: !hidePurchased })} aria-pressed={hidePurchased}>{hidePurchased ? 'Show bought' : 'Hide bought'}</button></div>
       <section className="list-surface" aria-label="Grocery items">
-        {sortMode !== 'default' ? <section className="list-group"><div className="section-heading"><h2>Shopping items</h2><span className="count-badge">{sortedItems.length} items</span></div>{sortedItems.length ? renderItems(sortedItems, 'Sorted shopping items') : <p className="list-empty-message" role="status">Purchased items are hidden.</p>}</section> : <>
+        {sortMode === 'category' ? (sortedItems.length ? renderCategoryGroups(sortedItems) : <p className="list-empty-message">{term ? `Nothing here matches “${query.trim()}”.` : 'Bought items are hidden.'}</p>)
+          : sortMode !== 'default' ? <section className="list-group"><div className="section-heading"><h2>Items</h2><span className="section-count">{sortedItems.length}</span></div>{renderItems(sortedItems, 'Sorted shopping items')}</section> : <>
         <section className="list-group" aria-labelledby="remaining-heading">
-          <div className="section-heading"><div><h2 id="remaining-heading">Still to buy</h2><span className="count-badge">{remainingCount} {remainingCount === 1 ? 'item' : 'items'}</span></div><span className="section-hint">Tap a circle as you shop</span></div>
-          {renderItems(remainingItems, 'Items still to buy')}
+          <div className="section-heading"><h2 id="remaining-heading">To buy</h2><span className="section-count">{remainingCount}</span>{purchasedCount === 0 && <span className="section-hint">Tap a circle as you shop</span>}</div>
+          {renderItems(remainingItems, 'To buy')}
         </section>
         <section className="list-group purchased-group" aria-labelledby="purchased-heading">
-          <div className="section-heading purchased-heading"><div><h2 id="purchased-heading">Purchased</h2><span className="count-badge purchased-count">{purchasedCount} {purchasedCount === 1 ? 'item' : 'items'}</span></div></div>
-          {!hidePurchased ? renderItems(purchasedItems, 'Purchased items') : visibleItems.length === 0 ? <div className="hidden-empty-state" role="status"><p>There are no visible items because all purchased items are hidden.</p><button className="hide-purchased-button" type="button" onClick={() => setHidePurchased(false)}>Show purchased</button></div> : null}
+          <div className="section-heading"><h2 id="purchased-heading">Bought</h2><span className="section-count">{purchasedCount}</span></div>
+          {!hidePurchased ? renderItems(purchasedItems, 'Bought') : <div className="hidden-empty-state"><p>{purchasedCount} bought {purchasedCount === 1 ? 'item is' : 'items are'} hidden.</p><button className="hide-purchased-button" type="button" onClick={() => updateView({ hidePurchased: false })}>Show bought</button></div>}
         </section>
       </>}</section>
-    </>}</div>
+      {remainingCount === 0 && <div className="list-complete"><p><strong>Everything’s checked off.</strong> Finish to save this shop in Trips.</p><button id="finish-from-list" className="catalog-button primary" type="button" onClick={openReview} disabled={busy || reviewBusy || purchasePending > 0}>{reviewBusy ? 'Preparing review…' : 'Review and finish'}</button></div>}
+      </>}</div>
     <section className="budget-panel" aria-labelledby="budget-heading">
-      <div className="budget-panel-heading"><div><p className="catalog-eyebrow">OPTIONAL</p><h2 id="budget-heading">Budget and spending</h2></div><span className="currency-label">{currency}</span></div>
+      <div className="budget-panel-heading"><h2 id="budget-heading">Budget and spending</h2><span className="currency-label">{currency}</span></div>
       <p className="optional-help">Your checklist works without prices or a budget.</p>
       <div className="budget-stat"><span>Budget</span><strong>{budget === null ? 'Not set' : formatMoney(budget, currency)}</strong></div>
       <div className="budget-stat"><span>Known estimated total</span><strong>{spending.estimated.knownCount ? formatMoney(spending.estimated.total, currency) : 'No prices entered'}</strong></div>
       {spending.estimated.missingCount > 0 && <p className="incomplete-note">{spending.estimated.missingCount} {spending.estimated.missingCount === 1 ? 'item has' : 'items have'} no estimated price. Estimate is incomplete.</p>}
       <div className="budget-stat"><span>Known actual spending</span><strong>{spending.actual.knownCount ? formatMoney(spending.actual.total, currency) : 'No prices entered'}</strong></div>
-      {spending.actual.missingCount > 0 && <p className="incomplete-note">{spending.actual.missingCount} purchased {spending.actual.missingCount === 1 ? 'item has' : 'items have'} no actual price. Spending is incomplete.</p>}
+      {spending.actual.missingCount > 0 && <p className="incomplete-note">{spending.actual.missingCount} bought {spending.actual.missingCount === 1 ? 'item has' : 'items have'} no actual price. Spending is incomplete.</p>}
       <BudgetMeter budget={budget} summary={spending.estimated} currency={currency} label="Known estimates against budget" /><BudgetMeter budget={budget} summary={spending.actual} currency={currency} label="Known spending against budget" />
       {budgetError && <p className="alert" role="alert">{budgetError}</p>}
       {budgetEditing ? <form className="budget-form" onSubmit={saveBudget}><label htmlFor="trip-budget">Trip budget (optional, {currency})</label><input id="trip-budget" inputMode="decimal" value={budgetDraft} onChange={(event) => setBudgetDraft(event.target.value)} placeholder="Leave blank to remove" autoFocus /><div className="catalog-form-actions"><button className="catalog-button secondary" type="button" onClick={() => { setBudgetDraft(budget ?? ''); setBudgetEditing(false); setBudgetError('') }} disabled={busy}>Cancel</button><button className="catalog-button secondary" type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save budget'}</button></div></form> : <button className="budget-edit-button" type="button" onClick={() => { setBudgetDraft(budget ?? ''); setBudgetEditing(true); setBudgetError(''); setNotice('') }} disabled={busy}>{budget === null ? 'Add a budget' : 'Edit or remove budget'}</button>}
     </section></div>}
+    <p className="visually-hidden" role="status" aria-live="polite">{announcement}</p>
   </main>
 }

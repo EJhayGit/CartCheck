@@ -6,6 +6,10 @@ export function Brand({ onHome, disabled, className = 'brand' }) {
 export function Footer() {
   return <footer className="site-footer">© {new Date().getFullYear()} CartCheck <span aria-hidden="true">·</span> <a href="https://merzbuilds.dev">Built by Mer</a></footer>
 }
+// The bought mark: a ruled circle that a pencil-style tick is drawn into.
+export function Tick() {
+  return <svg className="purchased-checkmark" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="12" /><path d="M8.5 14.5 12.2 18 19.5 10" /></svg>
+}
 export function NavIcon({ destination }) {
   const paths = {
     cart: <><rect x="4" y="3" width="16" height="18" rx="3" /><path d="m7 8 1 1 2-2m-3 7 1 1 2-2m3-5h4m-4 6h4" /></>,

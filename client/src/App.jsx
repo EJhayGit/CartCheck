@@ -59,6 +59,7 @@ export default function App() {
   const [catalogDestinationId, setCatalogDestinationId] = useState(null)
   const [catalogVisited, setCatalogVisited] = useState(route.page === 'catalog')
   const [requestedEdit, setRequestedEdit] = useState(null)
+  const [flash, setFlash] = useState(null)
   const [cartPending, setCartPending] = useState(false)
   const [catalogAddPending, setCatalogAddPending] = useState(false)
   const [reviewOpen, setReviewOpen] = useState(false)
@@ -75,7 +76,8 @@ export default function App() {
   const privateReady = status === 'ready' && user && !user.verification_required && !accountView
   const dataCache = useMemo(() => createDataCache(), [user?.id, renderedGeneration, Boolean(privateReady)])
 
-  function navigate(nextPage, id = null, { replace = false } = {}) {
+  function navigate(nextPage, id = null, { replace = false, flash: nextFlash = null } = {}) {
+    setFlash(nextFlash)
     const path = nextPage === 'list' ? `/lists/${encodeURIComponent(id)}` : ({ lists: '/lists', catalog: '/catalog', trips: '/trips', settings: '/settings' }[nextPage] || '/lists')
     window.history[replace ? 'replaceState' : 'pushState']({ page: nextPage, listId: id }, '', path)
     setRoute({ page: nextPage, listId: id })
@@ -327,8 +329,12 @@ export default function App() {
       result.list = mergePendingListResponse(dataCache, destinationId, result.list)
       dataCache.set(key, result.list)
       replaceListSummary(dataCache, result.list)
-      setRequestedEdit(result.item)
-      navigate('list', destinationId)
+      // A new entry keeps the shopper where they are; an existing one opens for editing,
+      // because adding it again means setting its desired values.
+      if (!result.created) {
+        setRequestedEdit(result.item)
+        navigate('list', destinationId)
+      }
       return result
     } catch (caught) {
       dataCache.invalidate(key)
@@ -488,13 +494,13 @@ export default function App() {
       <header className="site-header"><div className="header-inner"><Brand onHome={goHome} disabled={busy || settingsBusy || cartPending || catalogAddPending || reviewOpen || status !== 'ready'} />{status === 'ready' && user && !user.verification_required && !accountView && <nav className="catalog-nav" aria-label="Main navigation">{navigation()}</nav>}</div></header>
       {privateReady ? <DataCacheProvider key={`${user.id}:${renderedGeneration}`} cache={dataCache} onRevalidate={validatePrivateSession}>
         {error && <p className="alert" role="alert">{error}</p>}
-        {page === 'lists' && <Lists onOpenList={(id) => navigate('list', id)} preferredCurrency={preferredCurrency} />}
-        {page === 'list' && <ListRoute key={`${user.id}:${routeListId}`} listId={routeListId} editItem={requestedEdit} onEditHandled={() => setRequestedEdit(null)} onBrowseCatalog={() => browseCatalog(routeListId)} onBackToLists={() => navigate('lists', null, { replace: true })} onMutationPending={reportCartPending} onReviewChange={setReviewOpen} />}
-        {catalogVisited && page === 'catalog' && <Catalog active destinationId={catalogDestinationId} onAdd={addItem} onAddPending={reportCatalogAddPending} onManageLists={() => navigate('lists')} />}
+        {page === 'lists' && <Lists onOpenList={(id) => navigate('list', id)} preferredCurrency={preferredCurrency} flash={flash} />}
+        {page === 'list' && <ListRoute key={`${user.id}:${routeListId}`} listId={routeListId} editItem={requestedEdit} onEditHandled={() => setRequestedEdit(null)} onBrowseCatalog={() => browseCatalog(routeListId)} onQuickAdd={(productId) => addItem(productId, routeListId)} onBackToLists={(finished) => navigate('lists', null, { replace: true, flash: finished?.notice ? finished : null })} onMutationPending={reportCartPending} onReviewChange={setReviewOpen} />}
+        {catalogVisited && page === 'catalog' && <Catalog active destinationId={catalogDestinationId} onAdd={addItem} onAddPending={reportCatalogAddPending} onManageLists={() => navigate('lists')} onOpenList={(id) => navigate('list', id)} />}
         {page === 'trips' && <Trips key={user.id} onReviewChange={setReviewOpen} />}
         {page === 'settings' && <main className="settings-main">
           <section className="catalog-panel" aria-labelledby="settings-heading">
-            <p className="catalog-eyebrow">ACCOUNT</p><h1 id="settings-heading">Settings</h1>
+            <h1 id="settings-heading">Settings</h1>
             <p className="optional-help">Each list keeps its currency. This preference is used when you create a new list.</p>
             <form onSubmit={saveSettings}>
               <label htmlFor="preferred-currency">Preferred currency for new lists</label>
@@ -509,11 +515,10 @@ export default function App() {
           <ChangePassword onChanged={clearRevokedSession} />
         </main>}
       </DataCacheProvider> : <main className="auth-main"><AuthBrand onHome={goHome} disabled={busy || accountBusy || status !== 'ready' || user?.verification_required} /><div className="auth-form-area">
-        {status === 'loading' && <section className="auth-card" role="status"><p className="eyebrow">CARTCHECK</p><h1>Restoring your session</h1><p>Checking your account…</p></section>}
+        {status === 'loading' && <section className="auth-card" role="status"><h1>Restoring your session</h1><p>Checking your account…</p></section>}
         {status === 'error' && <section className="auth-card"><h1>Could not connect</h1><p className="alert" role="alert">{error}</p><button className="primary-button" onClick={retryRestore}>Try again</button></section>}
         {status === 'ready' && accountView && <AccountFlows onBusyChange={setAccountBusy} key={`${accountView}:${accountEmail}`} view={accountView} token={linkToken} email={accountEmail} initialCooldownUntil={emailCooldownUntil} onBack={user?.verification_required ? signOut : returnToSignIn} onContinue={user && !user.verification_required ? () => setAccountView('') : null} onVerified={(verifiedUser) => { if (verifiedUser && user?.id === verifiedUser.id) setUser(verifiedUser) }} onReset={finishPasswordReset} />}
         {status === 'ready' && !user && !accountView && <section className="auth-card">
-          <p className="eyebrow">{mode === 'login' ? 'WELCOME BACK' : 'GET STARTED'}</p>
           <h1>{mode === 'login' ? 'Sign in' : 'Create your account'}</h1>
           <p className="intro">{mode === 'login' ? 'Your shopping list, catalog, and trip history are ready.' : 'Keep your catalog, active list, and shopping history together.'}</p>
           <form onSubmit={submit} noValidate={mode === 'register'}>

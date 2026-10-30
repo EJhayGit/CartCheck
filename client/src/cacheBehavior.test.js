@@ -292,7 +292,7 @@ test('catalog edit is optimistic and rolls back to the prior value after a rejec
   })
   await openApp(calls)
   fireEvent.click(appNav('Catalog'))
-  fireEvent.click(await screen.findByRole('button', { name: 'Edit' }))
+  fireEvent.click(await screen.findByRole('button', { name: /^Edit / }))
   const name = screen.getByLabelText('Grocery name')
   fireEvent.change(name, { target: { value: 'Rolled Oats' } })
   fireEvent.submit(screen.getByRole('button', { name: 'Save catalog item' }).closest('form'))
@@ -300,7 +300,7 @@ test('catalog edit is optimistic and rolls back to the prior value after a rejec
   save.resolve(json({ error: 'write failed' }, 503))
   await screen.findByRole('alert')
   fireEvent.click(screen.getAllByRole('button', { name: 'Cancel' }).at(-1))
-  fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
+  fireEvent.click(screen.getByRole('button', { name: /^Edit / }))
   assert.equal(screen.getByLabelText('Grocery name').value, 'Local Oats')
 })
 
@@ -315,12 +315,12 @@ test('cart purchase toggle updates immediately and restores its old value after 
     throw new Error(`Unexpected request: ${url}`)
   })
   await openApp(calls)
-  const checkbox = await screen.findByRole('checkbox', { name: 'Mark Milk as purchased' })
+  const checkbox = await screen.findByRole('checkbox', { name: 'Milk' })
   fireEvent.click(checkbox)
-  await waitFor(() => assert.ok(screen.getByRole('checkbox', { name: 'Mark Milk as unpurchased' }).checked))
+  await waitFor(() => assert.ok(screen.getByRole('checkbox', { name: 'Milk' }).checked))
   save.resolve(json({ error: 'write failed' }, 503))
   await screen.findByRole('alert')
-  assert.equal(screen.getByRole('checkbox', { name: 'Mark Milk as purchased' }).checked, false)
+  assert.equal(screen.getByRole('checkbox', { name: 'Milk' }).checked, false)
 })
 
 test('logout and signing back into the same account starts a fresh private cache', async () => {

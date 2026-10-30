@@ -14,8 +14,9 @@ colors:
   text: "#172b26"
   muted-text: "#42584e"
   border: "#d7e2d9"
-  border-hover: "#a0b6a8"
-  control-border: "#8a998b"
+  border-hover: "#6f8273"
+  control-border: "#7f8f81"
+  margin-rule: "#c9dccd"
   error: "#9c3737"
   error-surface: "#fff5f5"
   warning: "#8b4b36"
@@ -56,11 +57,13 @@ typography:
     fontFamily: "system-ui, -apple-system, 'Segoe UI', Arial, sans-serif"
     fontSize: "13px"
     fontWeight: 700
-  eyebrow:
+  item:
     fontFamily: "system-ui, -apple-system, 'Segoe UI', Arial, sans-serif"
-    fontSize: "11px"
-    fontWeight: 800
-    letterSpacing: "0.07em"
+    fontSize: "16px"
+    fontWeight: 650
+  meta:
+    fontFamily: "system-ui, -apple-system, 'Segoe UI', Arial, sans-serif"
+    fontSize: "13px"
 rounded:
   control: "12px"
   card: "18px"
@@ -120,6 +123,8 @@ components:
 
 CartCheck is a pocket notebook carried down the aisle: practical, legible with one hand, and calm enough to trust while you shop. The checklist does the talking. Prices, budgets and totals sit nearby but quieter, because a shopper must be able to finish a trip without them.
 
+The notebook is literal on the list screen: the list is a ruled page with a thin vertical margin line, item names sit in the text column to its right, and checking an item draws a tick into its circle like a pencil mark and strikes the name through.
+
 The surfaces are paper-like neutrals with one deep green accent, a dark brand-green header, and mint as a small highlight. Forms are soft and steady, with rounded controls and cards, thin borders, a faint ambient shadow and generous touch targets. Built with React, semantic HTML and CSS custom properties; no UI component package.
 
 **Key Characteristics:**
@@ -133,19 +138,20 @@ The surfaces are paper-like neutrals with one deep green accent, a dark brand-gr
 A quiet, green-tinted neutral palette with a single working accent and a dark brand header.
 
 ### Primary
-- **Market Green** (`primary`): actions, selected controls, focus rings, progress fill, eyebrow labels. In dark mode it becomes **Soft Mint Green** (`primary-dark`) on a deep-green text color (`on-primary-dark`).
+- **Market Green** (`primary`): actions, selected controls, focus rings, progress fill. In dark mode it becomes **Soft Mint Green** (`primary-dark`) on a deep-green text color (`on-primary-dark`).
 - **Pressed Green** (`primary-hover`): hover state of primary actions.
 
 ### Secondary
 - **Notebook Cover Green** (`brand-header`): the top header in light mode and the desktop auth story panel in both themes, which blends with the official wordmark background.
-- **Mint Tab** (`mint`): the active item in the header navigation and focus outlines on dark green.
+- **Mint Tab** (`mint`): the active item in the header and phone navigation, text selection, and focus outlines on dark green.
 
 ### Neutral
 - **Paper Canvas** (`canvas` / `canvas-dark`): page background.
 - **Page White** (`surface` / `surface-dark`): cards, dialogs, inputs.
 - **Faint Wash** (`surface-muted`, `surface-hover` and their dark pairs): muted fields, hover rows, elevated dark surfaces.
 - **Ink** (`text` / `text-dark`) and **Pencil** (`muted-text` / `muted-text-dark`): primary and secondary copy.
-- **Ruled Line** (`border` / `border-dark`, `border-hover`, `control-border`): dividers, field strokes, unchecked checkmarks.
+- **Ruled Line** (`border` / `border-dark`, `border-hover`, `control-border`): dividers, list rules, field strokes (`control-border` keeps at least 3:1 against `surface`), unchecked circles.
+- **Margin Line** (`margin-rule`): the single vertical margin line on the list page. Decorative; never carries meaning.
 - **Status** (`error`, `warning`, `success` and dark pairs): always paired with text.
 
 ### Named Rules
@@ -161,10 +167,13 @@ A quiet, green-tinted neutral palette with a single working accent and a dark br
 ### Hierarchy
 - **Display** (`display`): the desktop auth story headline only.
 - **Headline** (`headline`): page titles; 28–30px on phones.
-- **Title** (`title`): section and panel headings (18–22px depending on context).
-- **Body** (`body`): copy and controls; helper text at 14px.
+- **Title** (`title`): section and panel headings (18–22px depending on context); list section headings (To buy, Bought) at 16px.
+- **Body** (`body`): copy and controls; helper text at 13–14px.
 - **Label** (`label`): field labels above controls, buttons, navigation.
-- **Eyebrow** (`eyebrow`): small kicker above titles, written in capitals in markup, in the primary color.
+- **Item** (`item`): list and catalog item names, readable at arm's length.
+- **Meta** (`meta`): category, quantity notes and recorded prices under an item.
+
+No text is smaller than 12px. There are no kicker or eyebrow labels above headings: a heading carries its own weight.
 
 ### Named Rules
 **The Ledger Numbers Rule.** Every amount, total and count uses `font-variant-numeric: tabular-nums`.
@@ -173,7 +182,7 @@ A quiet, green-tinted neutral palette with a single working accent and a dark br
 
 The spacing rhythm is 4, 8, 12, 16, 24 and 32px. Breakpoints are layout guides, not device names; test content fit and zoom before fixing exact values.
 
-- **Phone portrait (≤700px):** one column with labeled bottom navigation, stacked list controls and full-width actions, 16px gutters.
+- **Phone portrait (≤700px):** one column with labeled bottom navigation and 16px gutters. On the list screen the title, progress and two equal actions (Browse catalog, Finish shopping) sit above the find field, so the first item shows in the first screen.
 - **Tablet (701–959px):** a compact dark top header, with two columns only where each stays readable.
 - **Desktop (≥960px):** a dark top header with a wider list/summary arrangement.
 - **Shell:** a centered 1600px shell (including padding) for the header, Shopping List and Catalog, with fluid 24–32px desktop gutters (`clamp(24px, 2vw, 32px)`).
@@ -187,31 +196,32 @@ The spacing rhythm is 4, 8, 12, 16, 24 and 32px. Breakpoints are layout guides, 
 A nearly flat system with tonal layering. Cards, panels, list surfaces and the auth card share one faint ambient shadow; everything else is flat and separated by thin borders. In dark mode, depth comes from lighter surface steps (`surface-muted-dark`, `surface-hover-dark`) rather than heavier shadows.
 
 ### Shadow Vocabulary
-- **Ambient card** (`box-shadow: 0 8px 28px rgb(23 43 38 / 4%)`; dark: `rgb(0 0 0 / 22%)`): panels, budget panel, trip cards, list editor and surfaces, auth card.
+- **Ambient card** (`box-shadow: 0 8px 28px rgb(23 43 38 / 4%)`; dark: `rgb(0 0 0 / 22%)`): panels, budget panel, list cards, trip cards, list surfaces, the catalog added bar and the auth card.
 
 ### Named Rules
 **The Paper Stack Rule.** One shadow level only. Hierarchy comes from borders and surface tone, not stacked elevation.
 
 ## Shapes
 
-Soft, consistent rounding with thin 1px borders. Controls (buttons, inputs, selects, nav items) use `control`. Cards and panels use `card`. The auth card uses `auth` (20px on phones). Progress bars and the bought checkmark are fully round.
+Soft, consistent rounding with thin 1px borders. Controls (buttons, inputs, selects, nav items, notices, alerts) use `control`. Cards and panels use `card`. The auth card uses `auth` (20px on phones). Progress bars, filter chips and the bought checkmark are fully round.
 
 ## Components
 
 ### Buttons
-- **Shape:** gently rounded (`control`), at least 48px tall (44px minimum touch height everywhere).
-- **Primary:** Market Green fill with white label, 13–14px bold. Use one dominant action per area, such as **Add to cart** or **Finish Trip**.
+- **Shape:** gently rounded (`control`), at least 48px tall; small buttons and text buttons 44px.
+- **Primary:** Market Green fill with white label, 14px bold. Use one dominant action per area, such as **Create list** or **Review and finish** once everything is checked off.
 - **Secondary:** a white surface with a ruled border; hover tints to `surface-hover`. Use it for edit, cancel, filters and low-emphasis actions.
 - **Text button:** a green bold label with no chrome; underline on hover.
 - **Focus / Disabled:** a 3px primary outline offset 3px (mint on dark green surfaces); disabled at 65% opacity. Busy states keep the label readable.
-- **Destructive:** a clearly labeled action, with confirmation when data would be lost.
+- **Destructive:** a clearly labeled action in the error color. Removing a list item or deleting a custom catalog item asks inline ("Remove from this list?" with Keep and Remove), not in a browser dialog. Deleting a whole list keeps its native confirmation.
 
 ### Cards / Containers
 - **Corner Style:** `card`.
 - **Background:** `surface`, with a 1px `border` and the ambient card shadow.
 - **Internal Padding:** 22px (18px on phones; 16px on trip screens).
-- **Product row:** a card with an optional small image, the name and category, and an Add action. No brand, variant or price is required, and the placeholder stays useful without an image.
-- **List row:** comfortable padding, a large round bought checkmark (26px), editable displayed name and quantity, category, and labeled edit/remove controls. Optional prices are secondary. Checked rows stay readable; hover tints the row.
+- **Product row:** a card with the name and category, a quiet Edit or Customize link and an Add action outlined in Market Green. An item already on the destination list reads "on this list" and its action becomes Change, which opens that entry for editing. No brand, variant or price is required.
+- **List row:** a 44px check target holding a 28px drawn circle, then one row-wide button with the item name, category, any recorded price ("est. ₱90.00 · paid ₱85.00") and the quantity at the right. Nothing is printed for unknown prices. Tapping the row opens an inline editor directly under it (quantity first, then name, unit and both item totals), which also holds Remove. Bought rows stay readable with a struck-through name.
+- **Find or add:** one search field above the list. Typing filters the list and offers up to five catalog matches not yet on it, each with Add. With no match it points to the catalog.
 
 ### Inputs / Fields
 - **Style:** 46px tall, 1px `border`, `control` radius, `surface` fill (`surface-muted` in dark mode). The label sits above the control.
@@ -226,17 +236,20 @@ Soft, consistent rounding with thin 1px borders. Controls (buttons, inputs, sele
 - **Logo:** the clickable logo keeps a keyboard focus outline but has no hover effect.
 
 ### Progress
-- A 6px pill track (`progress-track`) with a primary fill that animates its width at 0.2s. Animation is off under reduced motion.
+- "3 of 10 bought" under the list title, with a 6px pill track (`progress-track`) whose primary fill animates its width at 0.2s.
+- When nothing is left to buy, a completion panel ("Everything’s checked off.") offers the primary Review and finish.
+- The tick draws in about 0.3s with an exponential ease-out. All animation is off under reduced motion.
 
 ### Feedback & States
 - **Budget summary:** the optional budget, known estimated and actual subtotals, missing-price counts, and remaining or over amount where meaningful. Incomplete amounts are labeled; currencies are never combined.
-- **Feedback:** inline field errors, page-level retry on load failure, polite status on save, a clear next action on empty states, and confirmation before Finish Trip or a past-trip correction.
+- **Feedback:** inline field errors, page-level retry on load failure, polite status on save, a clear next action on empty states, and confirmation before Finish Trip or a past-trip correction. Each check is announced once ("Bananas bought. 6 left."), and keyboard focus moves to the next item to buy. After finishing, My Lists shows "<list> is saved in Trips" with View trip.
+- **Catalog adds:** adding a new item keeps the shopper in the catalog; a sticky bar counts the adds and offers Back to list.
 - **Dialog / review:** focus moves into the review, stays trapped while it's open, and returns to its trigger on close. Escape closes without committing.
 - **Loading:** visible text and stable placeholder geometry; no misleading zero totals.
 - **Empty states:**
   - **No lists:** offer Create list.
-  - **Empty selected list:** link to Catalog with its destination retained.
-  - **No catalog results:** show the searched term and Register product, keeping the term.
+  - **Empty selected list:** the find-or-add field plus Browse catalog, with the destination retained.
+  - **No catalog results:** show the searched term and offer to create it as a new item, keeping the term.
   - **No history:** explain that finished trips appear here after Finish Trip.
 - **Error / offline:** keep entered data when possible, say what failed, and offer retry.
 - **Over budget / unknown price:** a text message next to the affected amount. Missing amounts never appear as zero.
@@ -250,9 +263,11 @@ Soft, consistent rounding with thin 1px borders. Controls (buttons, inputs, sele
 - **Do** keep the official wordmark assets in `client/public/`.
 - **Do** honor `prefers-reduced-motion`; transitions stay short (0.16–0.2s ease).
 - **Do** keep every interactive target at least 44px tall, with a visible focus outline.
+- **Do** show a price only when one is recorded; the budget panel carries the incomplete counts.
 
 ### Don't:
 - **Don't** add a second accent hue or a UI component library.
+- **Don't** put kicker or eyebrow labels above headings, or use Unicode glyphs as icons; icons are drawn SVG.
 - **Don't** signal state by color alone.
 - **Don't** show an unknown amount as `0.00`.
 - **Don't** stack shadows or add elevation levels beyond the single ambient card shadow.
