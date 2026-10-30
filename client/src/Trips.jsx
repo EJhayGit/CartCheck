@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { correctTrip, getTrip, getTrips } from './api/httpApi.js'
+import { correctTrip, getTrip, getTrips, reuseTrip } from './api/httpApi.js'
 import { useDataCache, useDataQuery } from './dataCache.jsx'
-import { mergeHistoryPage } from './dataCache.js'
+import { mergeHistoryPage, replaceListSummary } from './dataCache.js'
 import { formatMoney, moneySummary } from './money.js'
 import { prepareCorrectionItems } from './tripCorrections.js'
 import { formatQuantity } from './shoppingProgress.js'
@@ -21,7 +21,7 @@ function TripRows({ items, currency }) {
   return <ul className="trip-review-list">{items.map((item, index) => <li key={item.id ?? `new-${index}`}><span><strong>{item.name}</strong><small>{item.category} · {formatQuantity(item)} · Estimate: {amount(item.estimatedTotal === '' ? null : item.estimatedTotal, currency)} · Actual: {amount(item.actualTotal === '' ? null : item.actualTotal, currency)}</small></span></li>)}</ul>
 }
 
-export default function Trips({ onReviewChange, initialTripId = null, onExit }) {
+export default function Trips({ onReviewChange, initialTripId = null, onExit, onOpenList }) {
   const cache = useDataCache()
   const tripsQuery = useDataQuery('trips', async (signal) => {
     const fresh = await getTrips(null, { signal })
@@ -39,6 +39,9 @@ export default function Trips({ onReviewChange, initialTripId = null, onExit }) 
   const [formError, setFormError] = useState('')
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState('')
+  const [reuse, setReuse] = useState(null)
+  const [reuseBusy, setReuseBusy] = useState(false)
+  const [reuseError, setReuseError] = useState('')
   const headingRef = useRef(null)
   const reviewSurfaceRef = useRef(null)
   const reviewTriggerRef = useRef(null)
@@ -104,6 +107,31 @@ export default function Trips({ onReviewChange, initialTripId = null, onExit }) 
     setSelectedId(id)
     setNotice('')
     setMode('details')
+  }
+
+  function openReuse() {
+    setReuse({ items: 'all', name: selected.name || 'Shopping trip' })
+    setReuseError('')
+  }
+
+  async function shopAgain(event) {
+    event.preventDefault()
+    if (reuseBusy || !selected) return
+    const name = reuse.name.trim()
+    if (!name || Array.from(name).length > 100) { setReuseError('Enter a name with 1 to 100 characters.'); return }
+    setReuseBusy(true)
+    setReuseError('')
+    try {
+      // The server creates the list and its items, so the new identity comes from its response.
+      const list = await reuseTrip(selected.id, { items: reuse.items, name })
+      if (!cache.alive) return
+      cache.set(`list:${list.tripId}`, list)
+      replaceListSummary(cache, list)
+      if (mountedRef.current) setReuse(null)
+      onOpenList?.(list.tripId)
+    } catch (caught) {
+      if (mountedRef.current) setReuseError(caught.message || 'We could not start a new list. Please try again.')
+    } finally { if (mountedRef.current) setReuseBusy(false) }
   }
 
   function beginCorrection() {
@@ -191,7 +219,10 @@ export default function Trips({ onReviewChange, initialTripId = null, onExit }) 
 
   if (!selected) return <main className="shopping-main trip-screen"><div className="shopping-heading"><div><h1 ref={headingRef} tabIndex="-1">Saved trip</h1><p className="catalog-subtitle">{detailError ? (detailError.message || 'Could not load this trip.') : 'Loading saved trip details…'}</p></div><button type="button" className="catalog-button secondary" onClick={() => initialTripId ? onExit?.() : (viewRevision.current += 1, setMode('history'), setSelectedId(null))}>{initialTripId ? 'My Lists' : 'Back to history'}</button></div>{detailError && <section className="catalog-state" role="alert"><p>{detailError.message || 'Could not load this trip.'}</p><button className="catalog-button secondary" type="button" onClick={detailQuery.refresh}>Try again</button></section>}</main>
   const date = dateLabel(selected.completedAt)
-  if (mode === 'details') return <main className="shopping-main trip-screen"><div className="shopping-heading"><div><h1 ref={headingRef} tabIndex="-1">{selected.name || 'Shopping trip'}</h1><p className="catalog-subtitle">Original finish date: {date} · {selected.currency}</p></div><button type="button" className="catalog-button secondary" onClick={() => initialTripId ? onExit?.() : (viewRevision.current += 1, setMode('history'), setSelectedId(null))} disabled={detailReloading}>{initialTripId ? 'My Lists' : 'Back to history'}</button></div>{notice && <p role="status" className="catalog-notice">{notice}</p>}{detailError && <p role="alert" className="alert">Could not refresh this trip. Showing the saved details. {detailError.message} <button type="button" className="catalog-button secondary" onClick={detailQuery.refresh}>Try again</button></p>}<section className="catalog-panel"><div className="trip-panel-heading"><div><h2>Trip items</h2><p>{selected.items.filter((item) => item.bought).length} bought · {selected.items.filter((item) => !item.bought).length} not bought</p></div><button type="button" className="catalog-button primary" onClick={beginCorrection}>Correct trip</button></div><h3>Bought</h3><TripRows items={selected.items.filter((item) => item.bought)} currency={selected.currency} /><h3>Not bought</h3><TripRows items={selected.items.filter((item) => !item.bought)} currency={selected.currency} /></section><section className="catalog-panel trip-totals"><h2>Trip totals · {selected.currency}</h2><Summary trip={selected} /></section></main>
+  if (mode === 'details') return <main className="shopping-main trip-screen"><div className="shopping-heading"><div><h1 ref={headingRef} tabIndex="-1">{selected.name || 'Shopping trip'}</h1><p className="catalog-subtitle">Original finish date: {date} · {selected.currency}</p></div><button type="button" className="catalog-button secondary" onClick={() => initialTripId ? onExit?.() : (viewRevision.current += 1, setMode('history'), setSelectedId(null))} disabled={detailReloading}>{initialTripId ? 'My Lists' : 'Back to history'}</button></div>{notice && <p role="status" className="catalog-notice">{notice}</p>}{detailError && <p role="alert" className="alert">Could not refresh this trip. Showing the saved details. {detailError.message} <button type="button" className="catalog-button secondary" onClick={detailQuery.refresh}>Try again</button></p>}<section className="catalog-panel"><div className="trip-panel-heading"><div><h2>Trip items</h2><p>{selected.items.filter((item) => item.bought).length} bought · {selected.items.filter((item) => !item.bought).length} not bought</p></div><div className="trip-actions"><button type="button" className="catalog-button secondary" onClick={beginCorrection}>Correct trip</button>{onOpenList && <button type="button" className="catalog-button primary" onClick={openReuse} disabled={reuseBusy} aria-expanded={Boolean(reuse)}>Shop again</button>}</div></div>{reuse && (() => {
+        const notBought = selected.items.filter((item) => !item.bought).length
+        return <form className="shop-again" onSubmit={shopAgain} aria-labelledby="shop-again-title"><h3 id="shop-again-title">Start a new list from this trip</h3><fieldset><legend className="visually-hidden">Items to include</legend><label className="trip-check"><input type="radio" name="reuse-items" value="all" checked={reuse.items === 'all'} onChange={() => setReuse({ ...reuse, items: 'all' })} /> All {selected.items.length} {selected.items.length === 1 ? 'item' : 'items'}</label>{notBought > 0 && <label className="trip-check"><input type="radio" name="reuse-items" value="notBought" checked={reuse.items === 'notBought'} onChange={() => setReuse({ ...reuse, items: 'notBought' })} /> Only the {notBought} not bought</label>}</fieldset><label htmlFor="shop-again-name">List name</label><input id="shop-again-name" value={reuse.name} onChange={(event) => setReuse({ ...reuse, name: event.target.value })} maxLength={200} required /><p className="optional-help">Names, quantities and units carry over. Prices and checkmarks start fresh.</p>{reuseError && <p className="alert" role="alert">{reuseError}</p>}<div className="trip-actions"><button type="button" className="catalog-button secondary" onClick={() => setReuse(null)} disabled={reuseBusy}>Cancel</button><button type="submit" className="catalog-button primary" disabled={reuseBusy}>{reuseBusy ? 'Creating list…' : 'Create list'}</button></div></form>
+      })()}<h3>Bought</h3><TripRows items={selected.items.filter((item) => item.bought)} currency={selected.currency} /><h3>Not bought</h3><TripRows items={selected.items.filter((item) => !item.bought)} currency={selected.currency} /></section><section className="catalog-panel trip-totals"><h2>Trip totals · {selected.currency}</h2><Summary trip={selected} /></section></main>
 
   if (mode === 'edit') return <main className="shopping-main trip-screen"><div className="shopping-heading"><div><h1 ref={headingRef} tabIndex="-1">Correct trip</h1><p className="catalog-subtitle">Edit the saved snapshot. Its original date stays {date}.</p></div><span className="currency-label">{selected.currency}</span></div><form className="catalog-panel" onSubmit={reviewCorrection}><h2>Trip details</h2><p className="optional-help">Open an item to correct it, or add one you forgot. Your reusable catalog stays the same.</p>{draft.map((item, index) => <details className="trip-edit-item" key={item.id ?? `new-${index}`} open={!item.id || undefined}><summary><strong>{item.name || 'New item'}</strong><small>{formatQuantity(item)} · {item.bought ? 'Bought' : 'Not bought'}</small></summary><fieldset><legend className="visually-hidden">{item.name || 'New item'}</legend><label>Item name<input value={item.name} onChange={(event) => change(index, 'name', event.target.value)} maxLength={120} required /></label><label>Category<input value={item.category} onChange={(event) => change(index, 'category', event.target.value)} maxLength={80} required /></label><div className="quantity-fields"><label>Quantity<input inputMode="decimal" value={item.quantity} onChange={(event) => change(index, 'quantity', event.target.value)} required /></label><label>Unit (optional)<input value={item.unitLabel} onChange={(event) => change(index, 'unitLabel', event.target.value)} maxLength={24} /></label></div><div className="quantity-fields"><label>Estimated item total (optional)<input inputMode="decimal" placeholder="Unknown" value={item.estimatedTotal ?? ''} onChange={(event) => change(index, 'estimatedTotal', event.target.value)} /></label><label>Actual item total (optional)<input inputMode="decimal" placeholder="Unknown" value={item.actualTotal ?? ''} onChange={(event) => change(index, 'actualTotal', event.target.value)} /></label></div><label className="trip-check"><input type="checkbox" checked={item.bought} onChange={(event) => change(index, 'bought', event.target.checked)} /> Mark as bought</label><button className="catalog-button secondary" type="button" onClick={() => setDraft((current) => current.filter((_, position) => position !== index))}>Remove {item.name || 'item'}</button></fieldset></details>)}<p className="optional-help">Blank prices remain unknown. Enter 0 to record a free item.</p><button className="catalog-button secondary" type="button" onClick={() => setDraft((current) => [...current, blankItem()])}>Add missing item</button>{formError && <p className="alert" role="alert">{formError}</p>}<div className="trip-actions"><button className="catalog-button secondary" type="button" onClick={() => setMode('details')}>Cancel</button><button ref={reviewTriggerRef} className="catalog-button primary" type="submit">Review corrections</button></div></form></main>
 

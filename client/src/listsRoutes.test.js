@@ -10,7 +10,7 @@ globalThis.Node = dom.window.Node
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 
 const React = await import('react')
-const { cleanup, render, screen } = await import('@testing-library/react')
+const { cleanup, fireEvent, render, screen, waitFor } = await import('@testing-library/react')
 const { createServer } = await import('vite')
 const vite = await createServer({ configFile: 'vite.config.js', server: { middlewareMode: true, hmr: false }, appType: 'custom' })
 const { default: App } = await vite.ssrLoadModule('/src/App.jsx')
@@ -65,4 +65,46 @@ test('malformed percent escapes in a bookmarked list route render an owner-safe 
   render(React.createElement(App))
   await screen.findByRole('alert')
   assert.ok(calls.some((call) => call.path.endsWith('/api/lists/%25')))
+})
+
+test('shop again starts a new list from the not-bought items of a finished trip', async () => {
+  const completed = { id: 'trip-88', name: 'Holiday run', status: 'completed', currency: 'PHP', completedAt: '2026-09-21T00:00:00Z', revision: 3, items: [{ id: 's1', name: 'Oats', category: 'Pantry', quantity: '1.000', bought: true, estimatedTotal: null, actualTotal: '5.00' }, { id: 's2', name: 'Milk', category: 'Dairy', quantity: '2.000', unitLabel: 'L', bought: false, estimatedTotal: null, actualTotal: null }], summary: { actualTotal: '5.00', actualMissingCount: 0, estimatedTotal: null, estimatedMissingCount: 2 } }
+  const fresh = { tripId: 'list-90', name: 'Next run', status: 'active', currency: 'PHP', budget: null, revision: 1, items: [{ id: 'n1', productId: null, name: 'Milk', category: 'Dairy', quantity: '2.000', unitLabel: 'L', bought: false, estimatedTotal: null, actualTotal: null }] }
+  const calls = []
+  globalThis.fetch = async (url, options = {}) => {
+    const path = String(url)
+    calls.push({ path, options })
+    if (path.endsWith('/api/auth/me')) return json({ user })
+    if (path.endsWith('/api/lists')) return json({ items: [], nextCursor: null })
+    if (path.endsWith('/api/lists/trip-88')) return json({ completedTrip: completed })
+    if (path.endsWith('/api/lists/list-90')) return json(fresh)
+    if (path.endsWith('/api/catalog')) return json({ items: [] })
+    if (path.endsWith('/api/trips')) return json({ items: [], nextCursor: null })
+    if (path.endsWith('/api/trips/trip-88')) return json({ trip: completed })
+    if (path.endsWith('/api/trips/trip-88/reuse')) return json(fresh, 201)
+    throw new Error(`Unexpected request: ${path}`)
+  }
+  window.history.replaceState(null, '', '/lists/trip-88')
+  render(React.createElement(App))
+  fireEvent.click(await screen.findByRole('button', { name: 'Shop again' }))
+  fireEvent.click(screen.getByRole('radio', { name: 'Only the 1 not bought' }))
+  fireEvent.change(screen.getByLabelText('List name'), { target: { value: ' Next run ' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Create list' }))
+  await screen.findByRole('heading', { name: 'Next run' })
+  const post = calls.find((call) => call.path.endsWith('/reuse'))
+  assert.deepEqual(JSON.parse(post.options.body), { items: 'notBought', name: 'Next run' })
+  assert.equal(window.location.pathname, '/lists/list-90')
+  assert.equal(screen.getByRole('checkbox', { name: 'Milk' }).checked, false)
+})
+
+test('deleting a list asks inline and Keep leaves it in place', async () => {
+  const calls = mockAppFetch({ listPage: { items: [{ tripId: 'grocery-1', name: 'Summer groceries', currency: 'PHP', budget: null, itemCount: 0, boughtCount: 0, notBoughtCount: 0, updatedAt: '2026-08-01T00:00:00Z', summary: {} }], nextCursor: null } })
+  render(React.createElement(App))
+  fireEvent.click(await screen.findByRole('button', { name: 'Delete' }))
+  const prompt = screen.getByRole('group', { name: 'Delete Summer groceries?' })
+  assert.match(prompt.textContent, /Trip history is unaffected/)
+  fireEvent.click(screen.getByRole('button', { name: 'Keep' }))
+  assert.ok(screen.getByRole('button', { name: /Summer groceries/ }))
+  await waitFor(() => assert.equal(document.activeElement, screen.getByRole('button', { name: 'Delete' })))
+  assert.equal(calls.some((call) => call.options.method === 'DELETE'), false)
 })

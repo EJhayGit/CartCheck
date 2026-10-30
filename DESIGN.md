@@ -213,7 +213,7 @@ Soft, consistent rounding with thin 1px borders. Controls (buttons, inputs, sele
 - **Secondary:** a white surface with a ruled border; hover tints to `surface-hover`. Use it for edit, cancel, filters and low-emphasis actions.
 - **Text button:** a green bold label with no chrome; underline on hover.
 - **Focus / Disabled:** a 3px primary outline offset 3px (mint on dark green surfaces); disabled at 65% opacity. Busy states keep the label readable.
-- **Destructive:** a clearly labeled action in the error color. Removing a list item or deleting a custom catalog item asks inline ("Remove from this list?" with Keep and Remove), not in a browser dialog. Deleting a whole list keeps its native confirmation.
+- **Destructive:** a clearly labeled action in the error color. Removing a list item or deleting a custom catalog item asks inline ("Remove from this list?" with Keep and Remove), not in a browser dialog. Deleting a whole list confirms the same way on its card.
 
 ### Cards / Containers
 - **Corner Style:** `card`.
@@ -243,6 +243,7 @@ Soft, consistent rounding with thin 1px borders. Controls (buttons, inputs, sele
 ### Feedback & States
 - **Budget summary:** the optional budget, known estimated and actual subtotals, missing-price counts, and remaining or over amount where meaningful. Incomplete amounts are labeled; currencies are never combined.
 - **Feedback:** inline field errors, page-level retry on load failure, polite status on save, a clear next action on empty states, and confirmation before Finish Trip or a past-trip correction. Each check is announced once ("Bananas bought. 6 left."), and keyboard focus moves to the next item to buy. After finishing, My Lists shows "<list> is saved in Trips" with View trip.
+- **Shop again:** trip details offer Shop again as the primary action; it opens an inline panel (all items or only the not bought, plus a list name) and then opens the new list.
 - **Catalog adds:** adding a new item keeps the shopper in the catalog; a sticky bar counts the adds and offers Back to list.
 - **Dialog / review:** focus moves into the review, stays trapped while it's open, and returns to its trigger on close. Escape closes without committing.
 - **Loading:** visible text and stable placeholder geometry; no misleading zero totals.

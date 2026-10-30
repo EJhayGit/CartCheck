@@ -278,6 +278,12 @@ input:focus, select:focus { border-color: var(--primary); }
 .trip-panel-heading { display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: 12px; }
 .trip-panel-heading p { margin: 0 0 20px; color: var(--muted-text); }
 .trip-totals { margin-top: 18px; }
+.shop-again { display: grid; gap: 4px; margin: 0 0 22px; padding: 18px; border-radius: var(--radius-card); background: var(--surface-muted); border: 1px solid var(--border); }
+.shop-again h3 { margin: 0 0 4px; font-size: 16px; }
+.shop-again fieldset { display: grid; margin: 0 0 8px; padding: 0; border: 0; }
+.shop-again .trip-check { display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 0; font-size: 15px; font-weight: 600; }
+.shop-again .trip-check input { width: 20px; height: 20px; min-height: 20px; margin: 0; accent-color: var(--primary); }
+.shop-again #shop-again-name { margin: 0 0 4px; }
 .trip-summary { display: flex; flex-wrap: wrap; gap: 32px; }
 .trip-edit-item { margin: 10px 0; border: 1px solid var(--border); border-radius: var(--radius-control); }
 .trip-edit-item summary { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; min-height: 52px; padding: 14px 16px; cursor: pointer; }

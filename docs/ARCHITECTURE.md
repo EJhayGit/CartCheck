@@ -105,6 +105,7 @@ All domain routes are JSON under `/api`. Private mutations require a session, or
 | `POST` | `/api/lists/:id/items` | Add a product to the selected list; duplicate selection is handled by the client edit flow. |
 | `PATCH`, `DELETE` | `/api/lists/:id/items/:itemId` | Edit displayed name, category, quantity, unit label, amounts or bought state; remove. |
 | `POST` | `/api/trips/:id/finish` | Confirm this exact trip using its revision; idempotent retry. |
+| `POST` | `/api/trips/:id/reuse` | Shop again: create a new active list from a completed trip (`items`: `all` or `notBought`, optional `name`). Copies names, categories, quantities and units; no prices or bought state. 404 for another account's trip. |
 | `GET` | `/api/trips`, `/api/trips/:id` | Paginated history and itemized detail. |
 | `PUT` | `/api/trips/:id` | Confirm a full correction set using expected revision. |
 | `GET` | `/healthz`, `/readyz` | Process and database readiness. |
