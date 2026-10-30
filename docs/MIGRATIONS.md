@@ -1,6 +1,6 @@
 # Database migrations and multiple-list upgrade
 
-Use the [database setup guide](MILESTONE_1_SETUP.md) for a disposable local database. The migration runner in `server/db/run.js` records checksums; do not edit migrations that have already been applied.
+Use the [local setup steps](../README.md#run-locally) for a disposable local database. The migration runner in `server/db/run.js` records checksums; do not edit migrations that have already been applied.
 
 Migration `004_multiple_named_lists.sql` adds required list names and update timestamps to `shopping_trips`, backfills legacy names, and replaces the one-active-trip-per-account index with an owner/update-time index. It preserves ownership, item snapshots, budgets, currencies, and completion dates. The existing table continues to represent active lists and completed trips.
 
@@ -15,4 +15,4 @@ Before an approved release to a retained database:
 
 Once an account has multiple active lists, restoring the old unique index is unsafe. Prefer a forward fix with compatible server code. Never delete or merge lists to make an old-code rollback succeed. A database restore requires its own approval.
 
-Local setup instructions do not authorize production changes. Keep provider state, backup locations, row counts, and dated release evidence in the local archive or ignored work log. They are historical records rather than public deployment status.
+Local setup instructions do not authorize production changes.

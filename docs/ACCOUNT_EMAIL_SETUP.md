@@ -17,7 +17,7 @@ The CartCheck web origin is `https://cartcheck.merzbuilds.dev`; `mail.merzbuilds
 
 If `RESEND_API_KEY` or `EMAIL_FROM` is missing outside production, the development sink discards message contents and prints only the message type. It does **not** send mail or expose token links. In production, missing delivery configuration causes an email-send failure. The API retains generic responses to prevent email lookup; check private server logs and provider dashboard when diagnosing delivery.
 
-The `003_account_enhancements.sql` migration preserves users and sessions. Existing users remain `email_verified=false` unless they actually follow a verification link, but have `legacy_verification_exempt=true`. New users are not exempt. Action token hashes, expiry, and email cooldowns live in separate account tables. Never reset the database to apply this migration. Use the existing migration runner only after reviewing the target and the [database setup guide](MILESTONE_1_SETUP.md).
+The `003_account_enhancements.sql` migration preserves users and sessions. Existing users remain `email_verified=false` unless they actually follow a verification link, but have `legacy_verification_exempt=true`. New users are not exempt. Action token hashes, expiry, and email cooldowns live in separate account tables. Never reset the database to apply this migration. Use the existing migration runner only after reviewing the target and the [local setup steps](../README.md#run-locally).
 
 ## Delivery checks before enforcement
 
