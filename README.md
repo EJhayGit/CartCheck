@@ -15,11 +15,11 @@ CartCheck is a private grocery checklist for planning a shop and keeping a recor
 - Keeps shopper data behind authenticated Express routes with account ownership checks.
 - Supports email verification, password reset links, and password changes through configurable transactional email.
 
-The [documentation index](docs/README.md) links the requirements, architecture, design, and operations guides.
+Product behavior is in [PRODUCT.md](PRODUCT.md), the visual system in [DESIGN.md](DESIGN.md), and the [documentation index](docs/README.md) links the architecture and operations guides.
 
 ## Architecture
 
-Express serves the Vite build and `/api` from a single HTTPS origin, with PostgreSQL behind the API. Database credentials stay on the server. Email delivery and verification policy are configured through server environment variables. See the [system design](docs/architecture/SYSTEM_DESIGN.md) and [migration guide](docs/MIGRATIONS.md) before releasing schema changes.
+Express serves the Vite build and `/api` from a single HTTPS origin, with PostgreSQL behind the API. Database credentials stay on the server. Email delivery and verification policy are configured through server environment variables. See the [architecture](docs/ARCHITECTURE.md) and [migration guide](docs/MIGRATIONS.md) before releasing schema changes.
 
 ## Run locally
 
@@ -62,7 +62,7 @@ npm run build
 
 The database integration suites use a separate guarded runner (`server/testIntegrationDev.js`) and are skipped by the ordinary server test command.
 
-[GitHub Actions CI](.github/workflows/ci.yml) installs both lockfiles, runs unit/client tests, and builds the client on Node.js 24. It uses no database or email credentials and does not deploy. See [backup and recovery](docs/BACKUP_RECOVERY.md) for the private export and isolated restoration procedure.
+[GitHub Actions CI](.github/workflows/ci.yml) is temporarily manual-only (run it from the Actions tab). It installs both lockfiles, runs unit/client tests, and builds the client on Node.js 24. It uses no database or email credentials and does not deploy. See [backup and recovery](docs/BACKUP_RECOVERY.md) for the private export and isolated restoration procedure.
 
 ## Project layout
 
@@ -70,7 +70,10 @@ The database integration suites use a separate guarded runner (`server/testInteg
 | --- | --- |
 | [client](client) | React screens, styles, API client, and frontend tests |
 | [server](server) | Express routes, account-scoped PostgreSQL queries, migrations, and tests |
-| [docs](docs) | Requirements, architecture, design, and operations guides |
+| [PRODUCT.md](PRODUCT.md) | Product behavior and acceptance criteria |
+| [DESIGN.md](DESIGN.md) | Visual design system |
+| [AGENTS.md](AGENTS.md) | Rules for coding agents |
+| [docs](docs) | Architecture and operations guides |
 
 ## License
 

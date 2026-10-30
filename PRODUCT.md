@@ -1,12 +1,35 @@
-# CartCheck product requirements
+# Product
 
-**Status:** Completed application, confirmed by the project owner on 2026-10-06. These requirements document the delivered shopping, account, and interface behavior.
+<!-- impeccable:product-schema 1 -->
 
-**Catalog deployment note (October 9):** The approved additive seed and existing-account backfill were applied and verified in production: 160 shared templates and all missing private starter copies, with existing customizations and shopping snapshots preserved.
+> Purpose: approved product behavior and acceptance criteria for CartCheck. · Read when: changing any user-facing behavior, flow, or screen.
 
-## Objective
+## Platform
 
-Help an individual shopper, including a student or family member, prepare a reusable grocery checklist, track shopping progress, and review finished trips. Budget tracking is optional. A shopper must be able to complete the checklist flow without entering a price or budget.
+web
+
+## Users
+
+Individual shoppers, including students and family members, planning a grocery shop on a phone or desktop and checking items off in the store.
+
+## Product Purpose
+
+Help a shopper prepare a reusable grocery checklist, track shopping progress, and review finished trips. Budget tracking is optional: a shopper must be able to complete the checklist flow without entering a price or budget. Live at [cartcheck.merzbuilds.dev](https://cartcheck.merzbuilds.dev).
+
+## Capabilities and Constraints
+
+React + Vite client and Express API served from one Render origin; PostgreSQL hosted by Supabase (see [ARCHITECTURE](docs/ARCHITECTURE.md)). Currencies: PHP (default), USD, EUR. A starter catalog of 160 groceries ships without prices. The full behavior is listed under *Delivered application behavior* below.
+
+## Product Principles
+
+1. **Checklist first.** Checking items off is the primary action; prices and budget stay secondary and optional.
+2. **Unknown is not zero.** A missing price is shown as incomplete; `0.00` is a known free item.
+3. **Private by default.** Every account's data is reachable only through authenticated, ownership-checked Express routes.
+4. **History is honest.** Finished trips keep their snapshot and original date; corrections update totals without rewriting the date, and catalog edits never touch past trips.
+
+## Accessibility & Inclusion
+
+Responsive phone portrait, phone landscape, and desktop layouts; light and dark themes; keyboard-visible focus; WCAG AA text contrast; warnings and errors communicated with text, not color alone; reduced-motion support.
 
 ## Delivered application behavior
 

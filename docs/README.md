@@ -1,10 +1,14 @@
 # CartCheck documentation
 
-| Document | Purpose |
-| --- | --- |
-| [Product requirements](PRODUCT_REQUIREMENTS.md) | Approved behavior and acceptance criteria |
-| [System design](architecture/SYSTEM_DESIGN.md) | Architecture, data model, API, and security boundaries |
-| [Design system](design/README.md) | Interface tokens, components, and responsive behavior |
-| [Migration guide](MIGRATIONS.md) | Multiple-list upgrade and coordinated release constraints |
-| [Backup and recovery](BACKUP_RECOVERY.md) | Private export scope and isolated restore verification |
-| [Account email setup](ACCOUNT_EMAIL_SETUP.md) | Verification and password-recovery configuration |
+> Purpose: index of every project doc. · Read when: starting any task; open the doc that matches it.
+
+| Document | Purpose | Read when |
+| --- | --- | --- |
+| [PRODUCT.md](../PRODUCT.md) | Approved behavior, principles, acceptance criteria | Changing user-facing behavior or flows |
+| [DESIGN.md](../DESIGN.md) | Visual tokens, components, responsive rules (sidecar: `.impeccable/design.json`) | Building or changing any UI |
+| [Architecture](ARCHITECTURE.md) | Runtime, data model, API, security boundaries | Touching server, database, API, auth, or client data layer |
+| [Migrations](MIGRATIONS.md) | Migration rules and the 004 multiple-list upgrade | Adding or releasing a schema change |
+| [Backup and recovery](BACKUP_RECOVERY.md) | Private export and isolated restore verification | Exporting, restoring, or before a data update |
+| [Account email setup](ACCOUNT_EMAIL_SETUP.md) | Verification and password-recovery email | Changing email delivery or verification policy |
+
+Agent rules are in [AGENTS.md](../AGENTS.md); local setup is in the [README](../README.md).

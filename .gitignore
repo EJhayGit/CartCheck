@@ -21,11 +21,8 @@ backup*.sql
 # Logs
 *.log
 npm-debug.log*
-log.md
 server/.test-runs/
 
-# Local documentation archive and generated review evidence
-/archive/
+# Generated review evidence (server/db/testMultipleListsLocal.js)
 /docs/design/*-preview/
 /docs/design/*-review/
-/docs/assets/mockups/

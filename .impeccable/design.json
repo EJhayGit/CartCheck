@@ -1,0 +1,364 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-30T08:37:26.193Z",
+  "title": "Design System: CartCheck",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Market Green",
+        "canonical": "#176b45",
+        "oklch": "oklch(46.9% 0.099 158.4)",
+        "tonalRamp": [
+          "#001104",
+          "#003016",
+          "#00502e",
+          "#21724b",
+          "#4b946d",
+          "#79b592",
+          "#acd5bc",
+          "#e5f3ea"
+        ]
+      },
+      "primary-hover": {
+        "role": "primary",
+        "displayName": "Pressed Green",
+        "canonical": "#125537",
+        "oklch": "oklch(40.0% 0.083 159.0)",
+        "tonalRamp": [
+          "#001005",
+          "#002e19",
+          "#104e32",
+          "#316f50",
+          "#569171",
+          "#81b296",
+          "#b1d3bf",
+          "#e6f2eb"
+        ]
+      },
+      "primary-dark": {
+        "role": "primary",
+        "displayName": "Soft Mint Green",
+        "canonical": "#9cd8ad",
+        "oklch": "oklch(83.0% 0.086 153.1)",
+        "tonalRamp": [
+          "#001003",
+          "#012e14",
+          "#174e2d",
+          "#366f49",
+          "#5a916b",
+          "#84b291",
+          "#b3d3bb",
+          "#e7f2e9"
+        ]
+      },
+      "brand-header": {
+        "role": "secondary",
+        "displayName": "Notebook Cover Green",
+        "canonical": "#0a3125",
+        "oklch": "oklch(28.2% 0.049 168.6)",
+        "tonalRamp": [
+          "#020e09",
+          "#102b22",
+          "#284a3e",
+          "#456a5c",
+          "#678c7d",
+          "#8eada1",
+          "#b9cfc6",
+          "#e9f1ed"
+        ]
+      },
+      "mint": {
+        "role": "secondary",
+        "displayName": "Mint Tab",
+        "canonical": "#b2e7bc",
+        "oklch": "oklch(88.0% 0.080 150.2)",
+        "tonalRamp": [
+          "#001003",
+          "#082d14",
+          "#204d2c",
+          "#3d6e49",
+          "#60906a",
+          "#88b190",
+          "#b6d2ba",
+          "#e8f2e9"
+        ]
+      },
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Paper Canvas",
+        "canonical": "#f4f7f4",
+        "oklch": "oklch(97.3% 0.005 145.5)",
+        "tonalRamp": [
+          "#0a0b0a",
+          "#242624",
+          "#404340",
+          "#5f625f",
+          "#808380",
+          "#a3a6a3",
+          "#c8c9c8",
+          "#eeeeee"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Page White",
+        "canonical": "#ffffff",
+        "oklch": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "text": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#172b26",
+        "oklch": "oklch(27.0% 0.028 176.4)",
+        "tonalRamp": [
+          "#050d0b",
+          "#1a2925",
+          "#334741",
+          "#516761",
+          "#728882",
+          "#97aaa4",
+          "#bfcdc9",
+          "#ebf0ee"
+        ]
+      },
+      "muted-text": {
+        "role": "neutral",
+        "displayName": "Pencil",
+        "canonical": "#42584e",
+        "oklch": "oklch(43.9% 0.032 165.4)",
+        "tonalRamp": [
+          "#050d09",
+          "#192922",
+          "#33473e",
+          "#51675d",
+          "#72887e",
+          "#97aaa1",
+          "#bfcdc6",
+          "#ebf0ed"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Ruled Line",
+        "canonical": "#d7e2d9",
+        "oklch": "oklch(90.2% 0.017 151.1)",
+        "tonalRamp": [
+          "#090c09",
+          "#212722",
+          "#3c453e",
+          "#5b645c",
+          "#7c857d",
+          "#9fa8a1",
+          "#c5cbc6",
+          "#edefed"
+        ]
+      },
+      "error": {
+        "role": "error",
+        "displayName": "Error Red",
+        "canonical": "#9c3737",
+        "oklch": "oklch(48.2% 0.135 23.7)",
+        "tonalRamp": [
+          "#210001",
+          "#4c0109",
+          "#771a1e",
+          "#a03a3a",
+          "#c4605c",
+          "#e18984",
+          "#f6b7b2",
+          "#ffe8e6"
+        ]
+      },
+      "warning": {
+        "role": "warning",
+        "displayName": "Warning Rust",
+        "canonical": "#8b4b36",
+        "oklch": "oklch(48.5% 0.093 38.8)",
+        "tonalRamp": [
+          "#1b0300",
+          "#411507",
+          "#682f1c",
+          "#8d4d38",
+          "#b06f5a",
+          "#cf9583",
+          "#e8bfb1",
+          "#faebe6"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Desktop auth story headline only."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page titles; 28–30px on phones."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Section and panel headings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Copy and controls; helper text at 14px."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Field labels, buttons, navigation."
+      },
+      "eyebrow": {
+        "displayName": "Eyebrow",
+        "purpose": "Capitalized kicker above titles, in primary green."
+      }
+    },
+    "shadows": [
+      {
+        "name": "ambient-card",
+        "value": "0 8px 28px rgb(23 43 38 / 4%)",
+        "purpose": "Panels, cards, list surfaces, auth card. Dark mode uses rgb(0 0 0 / 22%)."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-change",
+        "value": ".16s ease",
+        "purpose": "Background, border and shadow changes on controls and rows."
+      },
+      {
+        "name": "progress",
+        "value": "width .2s ease",
+        "purpose": "Progress fill. Disabled under prefers-reduced-motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "phone",
+        "value": "700px",
+        "purpose": "At or below: one column, bottom navigation."
+      },
+      {
+        "name": "auth-stack",
+        "value": "760px",
+        "purpose": "At or below: auth story collapses."
+      },
+      {
+        "name": "desktop",
+        "value": "960px",
+        "purpose": "At or above: list/summary 3:1 split."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one dominant action per area, e.g. Finish Trip.",
+      "html": "<button class=\"ds-btn-primary\">Finish Trip</button>",
+      "css": ".ds-btn-primary { min-height: 48px; padding: 10px 20px; border-radius: var(--radius-control, 12px); font: 700 13px system-ui, -apple-system, \"Segoe UI\", Arial, sans-serif; cursor: pointer; transition: background-color .16s ease, border-color .16s ease; border: 1px solid var(--primary, #176b45); background: var(--primary, #176b45); color: var(--on-primary, #fff); } .ds-btn-primary:hover { background: var(--primary-hover, #125537); } .ds-btn-primary:focus-visible { outline: 3px solid var(--primary, #176b45); outline-offset: 3px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Edit, cancel, filters and low-emphasis actions.",
+      "html": "<button class=\"ds-btn-secondary\">Edit list</button>",
+      "css": ".ds-btn-secondary { min-height: 48px; padding: 10px 20px; border-radius: var(--radius-control, 12px); font: 700 13px system-ui, -apple-system, \"Segoe UI\", Arial, sans-serif; cursor: pointer; transition: background-color .16s ease, border-color .16s ease; border: 1px solid var(--border, #d7e2d9); background: var(--surface, #fff); color: var(--text, #172b26); } .ds-btn-secondary:hover { background: var(--surface-hover, #eef4ef); } .ds-btn-secondary:focus-visible { outline: 3px solid var(--primary, #176b45); outline-offset: 3px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Label above, 46px control, primary border on focus.",
+      "html": "<label class=\"ds-field\"><span>Item name</span><input class=\"ds-input\" placeholder=\"e.g. Rice\"></label>",
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 7px; font: 700 13px system-ui, sans-serif; color: var(--text, #172b26); } .ds-input { min-height: 46px; padding: 10px 13px; border: 1px solid var(--border, #d7e2d9); border-radius: var(--radius-control, 12px); background: var(--surface, #fff); color: var(--text, #172b26); font: 400 16px system-ui, sans-serif; transition: border-color .16s ease; } .ds-input:hover { border-color: var(--border-hover, #a0b6a8); } .ds-input:focus { border-color: var(--primary, #176b45); } .ds-input:focus-visible { outline: 3px solid var(--primary, #176b45); outline-offset: 3px; }"
+    },
+    {
+      "name": "Header Navigation",
+      "kind": "nav",
+      "refersTo": "nav-header",
+      "description": "Dark brand header with Mint Tab active item (desktop/tablet).",
+      "html": "<nav class=\"ds-nav\"><button class=\"ds-nav-item ds-active\" aria-current=\"page\">My Lists</button><button class=\"ds-nav-item\">Catalog</button><button class=\"ds-nav-item\">Trips</button><button class=\"ds-nav-item\">Settings</button></nav>",
+      "css": ".ds-nav { display: flex; gap: 12px; align-items: center; height: 76px; padding: 0 24px; background: var(--header-background, #0a3125); } .ds-nav-item { min-height: 44px; padding: 10px 14px; border: 0; border-radius: var(--radius-control, 12px); background: transparent; color: var(--on-brand, #fff); font: 700 13px system-ui, sans-serif; cursor: pointer; } .ds-nav-item.ds-active { background: var(--mint, #b2e7bc); color: var(--brand, #0a3125); } .ds-nav-item:focus-visible { outline: 3px solid var(--mint, #b2e7bc); outline-offset: 3px; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Panels and list surfaces: 18px radius, thin border, single ambient shadow.",
+      "html": "<section class=\"ds-card\"><p class=\"ds-eyebrow\">WEEKLY SHOP</p><h2 class=\"ds-card-title\">Groceries</h2><p class=\"ds-card-meta\">4 of 9 bought · ₱1,240.00 est.</p></section>",
+      "css": ".ds-card { padding: 22px; border: 1px solid var(--border, #d7e2d9); border-radius: var(--radius-card, 18px); background: var(--surface, #fff); box-shadow: 0 8px 28px rgb(23 43 38 / 4%); color: var(--text, #172b26); font-family: system-ui, sans-serif; } .ds-eyebrow { margin: 0 0 12px; color: var(--primary, #176b45); font-size: 11px; font-weight: 800; letter-spacing: .07em; } .ds-card-title { margin: 0 0 3px; font-size: 20px; } .ds-card-meta { margin: 0; color: var(--muted-text, #42584e); font-size: 14px; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "List Row with Checkmark",
+      "kind": "custom",
+      "description": "Signature checklist row: large round bought checkmark, name, quantity.",
+      "html": "<label class=\"ds-row\"><input type=\"checkbox\" class=\"ds-check\" checked><span class=\"ds-row-name\">Brown rice <small>2 kg · Grains</small></span></label>",
+      "css": ".ds-row { display: flex; align-items: center; gap: 13px; min-height: 76px; padding: 14px; border: 1px solid var(--border, #d7e2d9); border-radius: var(--radius-card, 18px); background: var(--surface, #fff); color: var(--text, #172b26); font: 700 16px system-ui, sans-serif; transition: background-color .16s ease; cursor: pointer; } .ds-row:hover { background: var(--surface-hover, #eef4ef); } .ds-row small { display: block; color: var(--muted-text, #42584e); font-size: 13px; font-weight: 400; } .ds-check { appearance: none; display: grid; place-items: center; width: 26px; height: 26px; margin: 0; border: 2px solid var(--control-border, #8a998b); border-radius: 50%; } .ds-check:checked { border-color: var(--primary, #176b45); background: var(--primary, #176b45); } .ds-check:checked::after { content: \"✓\"; color: var(--on-primary, #fff); font-size: 16px; line-height: 1; } .ds-check:focus-visible { outline: 3px solid var(--primary, #176b45); outline-offset: 3px; }"
+    },
+    {
+      "name": "Progress Track",
+      "kind": "custom",
+      "description": "Shopping progress: 6px pill track with primary fill.",
+      "html": "<div class=\"ds-progress\" role=\"progressbar\" aria-valuenow=\"44\" aria-valuemin=\"0\" aria-valuemax=\"100\"><span style=\"width:44%\"></span></div>",
+      "css": ".ds-progress { width: 240px; height: 6px; overflow: hidden; border-radius: 99px; background: var(--progress-track, #cbd8ca); } .ds-progress span { display: block; height: 100%; border-radius: inherit; background: var(--primary, #176b45); transition: width .2s ease; } @media (prefers-reduced-motion: reduce) { .ds-progress span { transition: none; } }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Market Notebook",
+    "overview": "CartCheck is a pocket notebook carried down the aisle: practical, legible with one hand, and calm enough to trust while you shop. The checklist does the talking. Prices, budgets and totals sit nearby but quieter, because a shopper must be able to finish a trip without them.\n\nThe surfaces are paper-like neutrals with one deep green accent, a dark brand-green header, and mint as a small highlight. Forms are soft and steady, with rounded controls and cards, thin borders, a faint ambient shadow and generous touch targets. Built with React, semantic HTML and CSS custom properties; no UI component package.",
+    "keyCharacteristics": [
+      "One accent (deep green, mint in dark mode); everything else is neutral.",
+      "Soft and steady forms: 12px controls, 18px cards, 48px touch targets.",
+      "Light, Dark and System appearance, chosen in Settings and stored in the browser; System follows the device.",
+      "Money and totals in tabular numerals; unknown amounts read as incomplete, never as zero."
+    ],
+    "rules": [
+      {
+        "name": "The One Ink Rule",
+        "body": "Green is the only accent. Mint stays a small highlight; never add a second hue for emphasis.",
+        "section": "colors"
+      },
+      {
+        "name": "The Words-Not-Color Rule",
+        "body": "Warnings, errors, over-budget and unknown-price states always carry text. Color is never the only signal. Check every text/background pair against WCAG AA.",
+        "section": "colors"
+      },
+      {
+        "name": "The Ledger Numbers Rule",
+        "body": "Every amount, total and count uses `font-variant-numeric: tabular-nums`.",
+        "section": "typography"
+      },
+      {
+        "name": "The Paper Stack Rule",
+        "body": "One shadow level only. Hierarchy comes from borders and surface tone, not stacked elevation.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do keep checklist actions primary and prices and budget visually secondary.",
+      "Do use the CSS custom properties in `client/src/styles.css`. Never hard-code a hex value in a component.",
+      "Do keep the official wordmark assets in `client/public/`.",
+      "Do honor `prefers-reduced-motion`; transitions stay short (0.16–0.2s ease).",
+      "Do keep every interactive target at least 44px tall, with a visible focus outline."
+    ],
+    "donts": [
+      "Don't add a second accent hue or a UI component library.",
+      "Don't signal state by color alone.",
+      "Don't show an unknown amount as `0.00`.",
+      "Don't stack shadows or add elevation levels beyond the single ambient card shadow."
+    ]
+  }
+}
