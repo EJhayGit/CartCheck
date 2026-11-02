@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { deleteListItem, finishTrip, getCatalog, getList, getTrip, getTrips, updateList, updateListItem } from './api/httpApi.js'
+import { createCatalogItem, deleteListItem, finishTrip, getCatalog, getList, getTrip, getTrips, updateList, updateListItem } from './api/httpApi.js'
 import { formatQuantity, getShoppingProgress, sortShoppingItems } from './shoppingProgress.js'
 import { rankSuggestions } from './findSuggestions.js'
 import { budgetProgress, formatMoney, moneySummary, normalizeMoney } from './money.js'
@@ -7,10 +7,12 @@ import { createPurchaseMutations, mergePendingListResponse } from './purchaseMut
 import { useDataCache, useDataQuery } from './dataCache.jsx'
 import { cacheCompletedTrip, removeListSummary, replaceListSummary } from './dataCache.js'
 import { Tick } from './Brand.jsx'
+import { sortItems } from './Catalog.jsx'
 
 const EMPTY_FORM = { name: '', quantity: '1', unitLabel: '', estimatedTotal: '', actualTotal: '' }
 const VIEW_KEY = 'cartcheck:list-view'
 const SORT_MODES = ['default', 'az', 'category']
+const NEW_PRODUCT = 'new'
 
 function formFor(item) {
   return { name: item.name, quantity: formatQuantity({ quantity: item.quantity }), unitLabel: item.unitLabel || '', estimatedTotal: item.estimatedTotal ?? '', actualTotal: item.actualTotal ?? '' }
@@ -416,6 +418,29 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
     finally { setAddingProductId(null) }
   }
 
+  async function addTyped(name) {
+    if (addingProductId || !onQuickAdd) return
+    setAddingProductId(NEW_PRODUCT)
+    setActionError('')
+    setNotice('')
+    const release = cache.beginMutation('catalog')
+    let created
+    try {
+      created = (await createCatalogItem({ name, category: 'Other' })).item
+      // Once cached, a failed add below leaves a normal suggestion to retry, not a second create.
+      cache.set('catalog', (current) => ({ ...(Array.isArray(current) ? {} : current), items: sortItems([...(Array.isArray(current) ? current : current?.items || []), created]) }))
+    } catch (caught) {
+      cache.invalidate('catalog')
+      // The tapped row was disabled while saving, so give focus a stable place.
+      focusTarget.current = 'find-item'
+      setActionError(`We could not create ${name}. ${caught.message || 'Please try again.'}`)
+      setAddingProductId(null)
+      return
+    } finally { release() }
+    setAddingProductId(null)
+    await quickAdd(created)
+  }
+
   const { purchasedCount, remainingCount, visibleItems: unfilteredVisible } = getShoppingProgress(items, hidePurchased)
   const term = query.trim().toLocaleLowerCase()
   const visibleItems = term ? unfilteredVisible.filter((item) => item.name.toLocaleLowerCase().includes(term)) : unfilteredVisible
@@ -435,7 +460,10 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
   const onList = new Set(items.map((item) => String(item.productId)))
   const catalogItems = Array.isArray(catalogQuery.data) ? catalogQuery.data : catalogQuery.data?.items || []
   const boughtBefore = new Set((lastTripQuery.data?.trip?.items || []).map((entry) => String(entry.productId)))
-  const suggestions = rankSuggestions(catalogItems.filter((product) => !onList.has(String(product.id))), term, boughtBefore).slice(0, 5)
+  const catalogMatches = rankSuggestions(catalogItems, term, boughtBefore)
+  const suggestions = catalogMatches.filter((product) => !onList.has(String(product.id))).slice(0, 5)
+  // Only a loaded catalog with no match at all can offer a create, so an item is never duplicated.
+  const canCreate = term !== '' && catalogQuery.data !== undefined && !catalogMatches.length
 
   if (reviewing) return <main className="shopping-main trip-screen" aria-labelledby="finish-title" ref={reviewSurfaceRef}>
     <div className="shopping-heading"><div><h1 id="finish-title" ref={reviewRef} tabIndex="-1">Finish shopping?</h1><p className="catalog-subtitle">Check “{name}” before saving it to Trips. The menu is paused until you keep shopping or confirm.</p></div><span className="currency-label">{currency}</span></div>
@@ -500,10 +528,11 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
 
   const findField = <div className="find-item">
     <label htmlFor="find-item">Find or add an item</label>
-    <input id="find-item" type="search" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.nativeEvent.isComposing && suggestions[0]) quickAdd(suggestions[0]) }} placeholder="Try eggs, rice, soap" maxLength={100} autoComplete="off" aria-describedby={term ? 'find-results' : undefined} />
+    <input id="find-item" type="search" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key !== 'Enter' || event.nativeEvent.isComposing) return; if (suggestions[0]) quickAdd(suggestions[0]); else if (canCreate) addTyped(query.trim()) }} placeholder="Try eggs, rice, soap" maxLength={100} autoComplete="off" aria-describedby={term ? 'find-results' : undefined} />
     {term && <div id="find-results" className="find-results">
       {suggestions.length > 0 && <ul aria-label="Add from your catalog">{suggestions.map((product) => <li key={product.id}><span><strong>{product.name}</strong><small>{product.category}{boughtBefore.has(String(product.id)) ? ' · on your last trip' : ''}</small></span><button className="catalog-small-button" type="button" onClick={() => quickAdd(product)} disabled={addingProductId !== null} aria-label={addingProductId === product.id ? undefined : `Add ${product.name}`}>{addingProductId === product.id ? 'Adding…' : 'Add'}</button></li>)}</ul>}
-      {!suggestions.length && !catalogQuery.loading && <div className="find-empty"><p className="optional-help">No catalog item matches “{query.trim()}”.</p><button className="catalog-small-button" type="button" onClick={() => onBrowseCatalog(query.trim())}>Find or create it in the catalog</button></div>}
+      {canCreate && <button className="find-new" type="button" onClick={() => addTyped(query.trim())} disabled={addingProductId !== null}><strong>{addingProductId === NEW_PRODUCT ? 'Adding…' : `Add “${query.trim()}”`}</strong><small>New item in your catalog, under Other</small></button>}
+      {!suggestions.length && !catalogQuery.loading && <div className="find-empty">{!canCreate && <p className="optional-help">{catalogMatches.length ? 'Already on this list.' : 'We could not load your catalog.'}</p>}<button className="find-catalog-link" type="button" onClick={() => onBrowseCatalog(query.trim())}>Find or create it in the catalog</button></div>}
     </div>}
   </div>
 
