@@ -152,6 +152,9 @@ input:focus, select:focus { border-color: var(--primary); }
 .find-results .optional-help { margin: 10px 0; }
 .find-empty { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; padding: 6px 0; }
 .find-empty .optional-help { margin: 0; }
+.find-new { display: grid; justify-items: start; gap: 2px; width: 100%; min-height: 56px; padding: 6px 0; border: 0; border-bottom: 1px solid var(--border-subtle); background: none; color: var(--primary); text-align: left; text-underline-offset: 3px; }
+.find-new:hover:not(:disabled) strong { text-decoration: underline; }
+.find-catalog-link { min-height: 44px; padding: 0; border: 0; background: none; color: var(--muted-text); font-size: 13px; font-weight: 650; text-decoration: underline; text-underline-offset: 3px; }
 .list-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 0 12px; }
 .list-tools label { margin: 0; }
 .list-tools select { width: auto; max-width: 100%; min-height: 44px; margin: 0; padding: 8px 12px; }

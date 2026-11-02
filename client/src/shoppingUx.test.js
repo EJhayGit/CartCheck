@@ -345,20 +345,116 @@ test('Enter in the find field adds the top suggestion', async () => {
   await waitFor(() => assert.equal(field.value, ''))
 })
 
-test('Enter in the find field with no suggestion adds nothing', async () => {
+function typedItemFixture({ catalog = [], items = [], catalogResponse, createResponse, onQuickAdd }) {
+  const calls = mockFetch((url, options) => {
+    if (url.endsWith('/api/lists/trip-1') && !options.method) return json(seed(items))
+    if (url.endsWith('/api/catalog') && options.method === 'POST') return createResponse ? createResponse(JSON.parse(options.body)) : json({ item: { id: 'new-1', ...JSON.parse(options.body), source: 'custom' } }, 201)
+    if (url.endsWith('/api/catalog')) return catalogResponse ? catalogResponse() : json({ items: catalog })
+    if (url.endsWith('/api/trips')) return json(emptyTrips)
+    throw new Error(`Unexpected request: ${url}`)
+  })
+  render(React.createElement(DataCacheProvider, null,
+    React.createElement(ShoppingList, { listId: 'trip-1', active: true, onBrowseCatalog: noop, onQuickAdd, onMutationPending: noop, onReviewChange: noop })))
+  return () => calls.filter((call) => call.options.method === 'POST')
+}
+async function typeInFind(value) {
+  const field = await screen.findByLabelText('Find or add an item')
+  fireEvent.change(field, { target: { value } })
+  return field
+}
+
+test('tapping the Add row creates a private Other item and adds it to this list', async () => {
+  const added = []
+  const posts = []
+  typedItemFixture({ onQuickAdd: async (id) => { added.push(id) }, createResponse: (body) => { posts.push(body); return json({ item: { id: 'new-1', ...body, source: 'custom' } }, 201) } })
+  const field = await typeInFind('  Ube jam ')
+  fireEvent.click(await screen.findByRole('button', { name: /^Add “Ube jam”/ }))
+  await waitFor(() => assert.deepEqual(added, ['new-1']))
+  assert.deepEqual(posts, [{ name: 'Ube jam', category: 'Other' }])
+  await waitFor(() => assert.equal(field.value, ''))
+  assert.ok(screen.getByText('Ube jam added.'))
+  await waitFor(() => assert.equal(document.activeElement, field))
+})
+
+test('Enter with no catalog match creates the item once and adds it', async () => {
+  const added = []
+  const posts = []
+  typedItemFixture({ onQuickAdd: async (id) => { added.push(id) }, createResponse: (body) => { posts.push(body); return json({ item: { id: 'new-1', ...body } }, 201) } })
+  const field = await typeInFind('Ube jam')
+  await screen.findByRole('button', { name: /^Add “Ube jam”/ })
+  fireEvent.keyDown(field, { key: 'Enter' })
+  fireEvent.keyDown(field, { key: 'Enter' })
+  await waitFor(() => assert.deepEqual(added, ['new-1']))
+  assert.equal(posts.length, 1)
+})
+
+test('the catalog link stays available beside the Add row and keeps the term', async () => {
+  const browsed = []
   mockFetch((url, options) => {
     if (url.endsWith('/api/lists/trip-1') && !options.method) return json(seed([]))
     if (url.endsWith('/api/catalog')) return json({ items: [] })
     if (url.endsWith('/api/trips')) return json(emptyTrips)
     throw new Error(`Unexpected request: ${url}`)
   })
-  const added = []
   render(React.createElement(DataCacheProvider, null,
-    React.createElement(ShoppingList, { listId: 'trip-1', active: true, onBrowseCatalog: noop, onQuickAdd: async (id) => { added.push(id) }, onMutationPending: noop, onReviewChange: noop })))
-  const field = await screen.findByLabelText('Find or add an item')
-  fireEvent.change(field, { target: { value: 'zzz' } })
-  await screen.findByText(/No catalog item matches/)
+    React.createElement(ShoppingList, { listId: 'trip-1', active: true, onBrowseCatalog: (term) => browsed.push(term), onQuickAdd: noop, onMutationPending: noop, onReviewChange: noop })))
+  await typeInFind('Ube jam')
+  fireEvent.click(await screen.findByRole('button', { name: 'Find or create it in the catalog' }))
+  assert.deepEqual(browsed, ['Ube jam'])
+})
+
+test('no Add row when the only match is already on this list', async () => {
+  const product = { id: 'p-1', name: 'Milk', category: 'Dairy & eggs' }
+  const added = []
+  const calls = typedItemFixture({ catalog: [product], items: [{ ...cartItem, productId: 'p-1' }], onQuickAdd: async (id) => { added.push(id) } })
+  const field = await typeInFind('milk')
+  await screen.findByText('Already on this list.')
+  assert.equal(screen.queryByRole('button', { name: /^Add “/ }), null)
   fireEvent.keyDown(field, { key: 'Enter' })
   assert.deepEqual(added, [])
-  assert.equal(field.value, 'zzz')
+  assert.equal(calls().length, 0)
+})
+
+test('no Add row when a suggestion matches', async () => {
+  typedItemFixture({ catalog: [{ id: 'p-1', name: 'Dinorado rice', category: 'Pantry' }], onQuickAdd: noop })
+  await typeInFind('rice')
+  await screen.findByRole('button', { name: 'Add Dinorado rice' })
+  assert.equal(screen.queryByRole('button', { name: /^Add “/ }), null)
+})
+
+test('a failed catalog load offers no Add row and Enter creates nothing', async () => {
+  const calls = typedItemFixture({ catalogResponse: () => json({ error: 'nope' }, 500), onQuickAdd: noop })
+  const field = await typeInFind('Ube jam')
+  await screen.findByText('We could not load your catalog.')
+  assert.equal(screen.queryByRole('button', { name: /^Add “/ }), null)
+  fireEvent.keyDown(field, { key: 'Enter' })
+  assert.equal(calls().length, 0)
+})
+
+test('a failed create keeps the term and shows an error without adding', async () => {
+  const added = []
+  typedItemFixture({ onQuickAdd: async (id) => { added.push(id) }, createResponse: () => json({ error: 'Name must be 1 to 120 characters' }, 400) })
+  const field = await typeInFind('Ube jam')
+  fireEvent.click(await screen.findByRole('button', { name: /^Add “Ube jam”/ }))
+  assert.match((await screen.findByRole('alert')).textContent, /We could not create Ube jam/)
+  assert.equal(field.value, 'Ube jam')
+  assert.deepEqual(added, [])
+  assert.ok(screen.getByRole('button', { name: /^Add “Ube jam”/ }))
+})
+
+test('a failed add after create retries the same catalog item instead of a duplicate', async () => {
+  const attempts = []
+  const posts = []
+  typedItemFixture({
+    onQuickAdd: async (id) => { attempts.push(id); if (attempts.length === 1) throw new Error('Offline') },
+    createResponse: (body) => { posts.push(body); return json({ item: { id: 'new-1', ...body } }, 201) },
+  })
+  const field = await typeInFind('Ube jam')
+  fireEvent.click(await screen.findByRole('button', { name: /^Add “Ube jam”/ }))
+  assert.match((await screen.findByRole('alert')).textContent, /We could not add Ube jam/)
+  assert.equal(field.value, 'Ube jam')
+  assert.equal(screen.queryByRole('button', { name: /^Add “/ }), null)
+  fireEvent.keyDown(field, { key: 'Enter' })
+  await waitFor(() => assert.deepEqual(attempts, ['new-1', 'new-1']))
+  assert.equal(posts.length, 1)
 })

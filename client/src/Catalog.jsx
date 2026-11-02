@@ -7,7 +7,7 @@ const CATEGORIES = ['Produce', 'Dairy & eggs', 'Meat & seafood', 'Bakery', 'Pant
 const CATEGORY_LABELS = { 'Dairy & eggs': 'Dairy', 'Meat & seafood': 'Meat & seafood' }
 const EMPTY_ITEM = { name: '', category: 'Produce' }
 const DESTINATION_KEY = 'cartcheck:catalog-destination'
-const sortItems = (items) => [...items].sort((a, b) =>
+export const sortItems = (items) => [...items].sort((a, b) =>
   a.name.toLocaleLowerCase().localeCompare(b.name.toLocaleLowerCase()) || Number(a.id) - Number(b.id))
 const catalogItems = (data) => Array.isArray(data) ? data : data?.items || []
 
