@@ -437,6 +437,7 @@ test('a failed create keeps the term and shows an error without adding', async (
   const field = await typeInFind('Ube jam')
   fireEvent.click(await screen.findByRole('button', { name: /^Add “Ube jam”/ }))
   assert.match((await screen.findByRole('alert')).textContent, /We could not create Ube jam/)
+  await waitFor(() => assert.equal(document.activeElement, field))
   assert.equal(field.value, 'Ube jam')
   assert.deepEqual(added, [])
   assert.ok(screen.getByRole('button', { name: /^Add “Ube jam”/ }))

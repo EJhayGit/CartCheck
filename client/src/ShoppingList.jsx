@@ -431,6 +431,8 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
       cache.set('catalog', (current) => ({ ...(Array.isArray(current) ? {} : current), items: sortItems([...(Array.isArray(current) ? current : current?.items || []), created]) }))
     } catch (caught) {
       cache.invalidate('catalog')
+      // The tapped row was disabled while saving, so give focus a stable place.
+      focusTarget.current = 'find-item'
       setActionError(`We could not create ${name}. ${caught.message || 'Please try again.'}`)
       setAddingProductId(null)
       return
