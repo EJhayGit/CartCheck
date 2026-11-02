@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createCatalogItem, deleteListItem, finishTrip, getCatalog, getList, getTrip, getTrips, updateList, updateListItem } from './api/httpApi.js'
 import { formatQuantity, getShoppingProgress, sortShoppingItems } from './shoppingProgress.js'
-import { rankSuggestions } from './findSuggestions.js'
+import { matchTier, rankSuggestions } from './findSuggestions.js'
 import { budgetProgress, formatMoney, moneySummary, normalizeMoney } from './money.js'
 import { createPurchaseMutations, mergePendingListResponse } from './purchaseMutations.js'
 import { useDataCache, useDataQuery } from './dataCache.jsx'
@@ -462,8 +462,10 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
   const boughtBefore = new Set((lastTripQuery.data?.trip?.items || []).map((entry) => String(entry.productId)))
   const catalogMatches = rankSuggestions(catalogItems, term, boughtBefore)
   const suggestions = catalogMatches.filter((product) => !onList.has(String(product.id))).slice(0, 5)
-  // Only a loaded catalog with no match at all can offer a create, so an item is never duplicated.
-  const canCreate = term !== '' && catalogQuery.data !== undefined && !catalogMatches.length
+  // A loaded catalog with no exact match can offer a create, so an item is never duplicated.
+  const canCreate = term !== '' && catalogQuery.data !== undefined && !catalogMatches.some((product) => matchTier(product.name, term) === 0)
+  // A mid-word hit ("ham" in Shampoo) stays listed, but Enter must not add it by surprise.
+  const enterSuggestion = suggestions[0] && matchTier(suggestions[0].name, term) <= 2 ? suggestions[0] : null
 
   if (reviewing) return <main className="shopping-main trip-screen" aria-labelledby="finish-title" ref={reviewSurfaceRef}>
     <div className="shopping-heading"><div><h1 id="finish-title" ref={reviewRef} tabIndex="-1">Finish shopping?</h1><p className="catalog-subtitle">Check “{name}” before saving it to Trips. The menu is paused until you keep shopping or confirm.</p></div><span className="currency-label">{currency}</span></div>
@@ -528,7 +530,7 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
 
   const findField = <div className="find-item">
     <label htmlFor="find-item">Find or add an item</label>
-    <input id="find-item" type="search" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key !== 'Enter' || event.nativeEvent.isComposing) return; if (suggestions[0]) quickAdd(suggestions[0]); else if (canCreate) addTyped(query.trim()) }} placeholder="Try eggs, rice, soap" maxLength={100} autoComplete="off" aria-describedby={term ? 'find-results' : undefined} />
+    <input id="find-item" type="search" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key !== 'Enter' || event.nativeEvent.isComposing) return; if (enterSuggestion) quickAdd(enterSuggestion); else if (canCreate) addTyped(query.trim()) }} placeholder="Try eggs, rice, soap" maxLength={100} autoComplete="off" aria-describedby={term ? 'find-results' : undefined} />
     {term && <div id="find-results" className="find-results">
       {suggestions.length > 0 && <ul aria-label="Add from your catalog">{suggestions.map((product) => <li key={product.id}><span><strong>{product.name}</strong><small>{product.category}{boughtBefore.has(String(product.id)) ? ' · on your last trip' : ''}</small></span><button className="catalog-small-button" type="button" onClick={() => quickAdd(product)} disabled={addingProductId !== null} aria-label={addingProductId === product.id ? undefined : `Add ${product.name}`}>{addingProductId === product.id ? 'Adding…' : 'Add'}</button></li>)}</ul>}
       {canCreate && <button className="find-new" type="button" onClick={() => addTyped(query.trim())} disabled={addingProductId !== null}><strong>{addingProductId === NEW_PRODUCT ? 'Adding…' : `Add “${query.trim()}”`}</strong><small>New item in your catalog, under Other</small></button>}

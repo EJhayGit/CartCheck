@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { rankSuggestions } from './findSuggestions.js'
+import { matchTier, rankSuggestions } from './findSuggestions.js'
 
 const products = (...names) => names.map((name, index) => ({ id: index + 1, name }))
 const ranked = (names, term, lastTrip = []) => {
@@ -49,4 +49,15 @@ test('a blank term suggests nothing and the input stays unsorted', () => {
   assert.deepEqual(rankSuggestions(items, '   '), [])
   assert.deepEqual(rankSuggestions(items, 'rice').map((item) => item.name), ['Rice', 'Rice cakes'])
   assert.deepEqual(items.map((item) => item.name), ['Rice cakes', 'Rice'])
+})
+
+test('matchTier names exact, name start, word start, substring and no match', () => {
+  assert.equal(matchTier('Rice', ' rICE '), 0)
+  assert.equal(matchTier('Bananas', 'banana'), 0)
+  assert.equal(matchTier('Tomatoes', 'tomato'), 0)
+  assert.equal(matchTier('Rice cakes', 'rice'), 1)
+  assert.equal(matchTier('Dinorado rice', 'rice'), 2)
+  assert.equal(matchTier('Shampoo', 'ham'), 3)
+  assert.equal(matchTier('Orange juice', 'ice'), 3)
+  assert.equal(matchTier('Eggs', 'milk'), -1)
 })
