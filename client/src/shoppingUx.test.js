@@ -325,3 +325,40 @@ test('find-or-add suggests items from the last trip first', async () => {
   fireEvent.change(await screen.findByLabelText('Find or add an item'), { target: { value: 'milk' } })
   await waitFor(() => assert.match(screen.getByRole('list', { name: 'Add from your catalog' }).textContent, /^Fresh milk.*on your last trip.*Almond milk/))
 })
+
+test('Enter in the find field adds the top suggestion', async () => {
+  const catalog = [{ id: 'p-1', name: 'Dinorado rice', category: 'Pantry', source: 'starter' }, { id: 'p-2', name: 'Rice', category: 'Pantry', source: 'starter' }]
+  mockFetch((url, options) => {
+    if (url.endsWith('/api/lists/trip-1') && !options.method) return json(seed([]))
+    if (url.endsWith('/api/catalog')) return json({ items: catalog })
+    if (url.endsWith('/api/trips')) return json(emptyTrips)
+    throw new Error(`Unexpected request: ${url}`)
+  })
+  const added = []
+  render(React.createElement(DataCacheProvider, null,
+    React.createElement(ShoppingList, { listId: 'trip-1', active: true, onBrowseCatalog: noop, onQuickAdd: async (id) => { added.push(id) }, onMutationPending: noop, onReviewChange: noop })))
+  const field = await screen.findByLabelText('Find or add an item')
+  fireEvent.change(field, { target: { value: 'rice' } })
+  await screen.findByRole('button', { name: 'Add Rice' })
+  fireEvent.keyDown(field, { key: 'Enter' })
+  await waitFor(() => assert.deepEqual(added, ['p-2']))
+  await waitFor(() => assert.equal(field.value, ''))
+})
+
+test('Enter in the find field with no suggestion adds nothing', async () => {
+  mockFetch((url, options) => {
+    if (url.endsWith('/api/lists/trip-1') && !options.method) return json(seed([]))
+    if (url.endsWith('/api/catalog')) return json({ items: [] })
+    if (url.endsWith('/api/trips')) return json(emptyTrips)
+    throw new Error(`Unexpected request: ${url}`)
+  })
+  const added = []
+  render(React.createElement(DataCacheProvider, null,
+    React.createElement(ShoppingList, { listId: 'trip-1', active: true, onBrowseCatalog: noop, onQuickAdd: async (id) => { added.push(id) }, onMutationPending: noop, onReviewChange: noop })))
+  const field = await screen.findByLabelText('Find or add an item')
+  fireEvent.change(field, { target: { value: 'zzz' } })
+  await screen.findByText(/No catalog item matches/)
+  fireEvent.keyDown(field, { key: 'Enter' })
+  assert.deepEqual(added, [])
+  assert.equal(field.value, 'zzz')
+})

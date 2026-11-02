@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { deleteListItem, finishTrip, getCatalog, getList, getTrip, getTrips, updateList, updateListItem } from './api/httpApi.js'
 import { formatQuantity, getShoppingProgress, sortShoppingItems } from './shoppingProgress.js'
+import { rankSuggestions } from './findSuggestions.js'
 import { budgetProgress, formatMoney, moneySummary, normalizeMoney } from './money.js'
 import { createPurchaseMutations, mergePendingListResponse } from './purchaseMutations.js'
 import { useDataCache, useDataQuery } from './dataCache.jsx'
@@ -434,8 +435,7 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
   const onList = new Set(items.map((item) => String(item.productId)))
   const catalogItems = Array.isArray(catalogQuery.data) ? catalogQuery.data : catalogQuery.data?.items || []
   const boughtBefore = new Set((lastTripQuery.data?.trip?.items || []).map((entry) => String(entry.productId)))
-  const suggestions = term ? catalogItems.filter((product) => !onList.has(String(product.id)) && product.name.toLocaleLowerCase().includes(term))
-    .sort((a, b) => Number(boughtBefore.has(String(b.id))) - Number(boughtBefore.has(String(a.id)))).slice(0, 5) : []
+  const suggestions = rankSuggestions(catalogItems.filter((product) => !onList.has(String(product.id))), term, boughtBefore).slice(0, 5)
 
   if (reviewing) return <main className="shopping-main trip-screen" aria-labelledby="finish-title" ref={reviewSurfaceRef}>
     <div className="shopping-heading"><div><h1 id="finish-title" ref={reviewRef} tabIndex="-1">Finish shopping?</h1><p className="catalog-subtitle">Check “{name}” before saving it to Trips. The menu is paused until you keep shopping or confirm.</p></div><span className="currency-label">{currency}</span></div>
@@ -500,7 +500,7 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
 
   const findField = <div className="find-item">
     <label htmlFor="find-item">Find or add an item</label>
-    <input id="find-item" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Try eggs, rice, soap" maxLength={100} autoComplete="off" aria-describedby={term ? 'find-results' : undefined} />
+    <input id="find-item" type="search" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.nativeEvent.isComposing && suggestions[0]) quickAdd(suggestions[0]) }} placeholder="Try eggs, rice, soap" maxLength={100} autoComplete="off" aria-describedby={term ? 'find-results' : undefined} />
     {term && <div id="find-results" className="find-results">
       {suggestions.length > 0 && <ul aria-label="Add from your catalog">{suggestions.map((product) => <li key={product.id}><span><strong>{product.name}</strong><small>{product.category}{boughtBefore.has(String(product.id)) ? ' · on your last trip' : ''}</small></span><button className="catalog-small-button" type="button" onClick={() => quickAdd(product)} disabled={addingProductId !== null} aria-label={addingProductId === product.id ? undefined : `Add ${product.name}`}>{addingProductId === product.id ? 'Adding…' : 'Add'}</button></li>)}</ul>}
       {!suggestions.length && !catalogQuery.loading && <div className="find-empty"><p className="optional-help">No catalog item matches “{query.trim()}”.</p><button className="catalog-small-button" type="button" onClick={() => onBrowseCatalog(query.trim())}>Find or create it in the catalog</button></div>}
