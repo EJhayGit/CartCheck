@@ -221,7 +221,7 @@ Soft, consistent rounding with thin 1px borders. Controls (buttons, inputs, sele
 - **Internal Padding:** 22px (18px on phones; 16px on trip screens).
 - **Product row:** a card with the name and category, a quiet Edit or Customize link and an Add action outlined in Market Green. An item already on the destination list reads "on this list" and its action becomes Change, which opens that entry for editing. No brand, variant or price is required.
 - **List row:** a 44px check target holding a 28px drawn circle, then one row-wide button with the item name, category, any recorded price ("est. ₱90.00 · paid ₱85.00") and the quantity at the right. Nothing is printed for unknown prices. Tapping the row opens an inline editor directly under it (quantity first, then name, unit and both item totals), which also holds Remove. For a bought row the editor opens on the paid amount alone, with More details for the rest. Bought rows stay readable with a struck-through name.
-- **Find or add:** one search field above the list. Typing filters the list and offers up to five catalog matches not yet on it, each with Add. With no match it points to the catalog.
+- **Find or add:** one search field above the list. Typing filters the list and offers up to five catalog matches not yet on it, best match first, each with Add; Enter adds the top one. With no match it points to the catalog.
 
 ### Inputs / Fields
 - **Style:** 46px tall, 1px `border`, `control` radius, `surface` fill (`surface-muted` in dark mode). The label sits above the control.
