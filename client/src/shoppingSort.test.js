@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { getShoppingProgress, sortShoppingItems } from './shoppingProgress.js'
+import { getShoppingProgress, listRowQuantity, sortShoppingItems, stepQuantity } from './shoppingProgress.js'
 
 test('all sorts preserve stored order, stable ties, and work after purchased filtering', () => {
   const items = Object.freeze([
@@ -22,4 +22,19 @@ test('all sorts preserve stored order, stable ties, and work after purchased fil
     assert.deepEqual(sortShoppingItems(items.slice(0, 1), mode), items.slice(0, 1))
   }
   assert.deepEqual(ids('purchased', items.map((item) => ({ ...item, bought: item.id === 3 }))), [3, 1, 2, 4])
+})
+
+test('stepQuantity steps whole quantities by one and stays in range', () => {
+  assert.equal(stepQuantity('2.000', 1), '3')
+  assert.equal(stepQuantity('2', -1), '1')
+  assert.equal(stepQuantity('1.000', -1), null)
+  assert.equal(stepQuantity('999999999.000', 1), null)
+  assert.equal(stepQuantity('1.500', 1), null)
+})
+
+test('listRowQuantity hides only a plain quantity of one', () => {
+  assert.equal(listRowQuantity({ quantity: '1.000', unitLabel: null }), '')
+  assert.equal(listRowQuantity({ quantity: '1.000', unitLabel: 'tray' }), '1 tray')
+  assert.equal(listRowQuantity({ quantity: '1.500', unitLabel: null }), '1.5')
+  assert.equal(listRowQuantity({ quantity: '2.000', unitLabel: '' }), '2')
 })
