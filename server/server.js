@@ -25,7 +25,7 @@ import {
   requiresEmailVerification,
   validatePassword,
 } from './authValidation.js'
-import { parseTripId, validateCorrection, validateHistoryQuery, validateReuse, validateRevision } from './tripValidation.js'
+import { parseTripId, validateCorrection, validateFinish, validateHistoryQuery, validateReuse } from './tripValidation.js'
 import {
   createAuthRateLimiter,
   createActionToken,
@@ -446,14 +446,10 @@ app.all('/api/cart/*', retiredCart)
 app.post('/api/trips/:id/finish', checkRequestOrigin, authenticate, async (request, response, next) => {
   const id = parseTripId(request.params.id)
   if (id === null) return response.status(400).json({ error: 'Invalid trip ID' })
-  if (!request.body || typeof request.body !== 'object' || Array.isArray(request.body) ||
-      Object.keys(request.body).length !== 1 || !Object.hasOwn(request.body, 'revision')) {
-    return response.status(400).json({ error: 'Provide the reviewed trip revision' })
-  }
-  const revision = validateRevision(request.body.revision)
-  if (revision.error) return response.status(400).json({ error: revision.error })
+  const input = validateFinish(request.body)
+  if (input.error) return response.status(400).json({ error: input.error })
   try {
-    const result = await tripRepo.finishTrip(pool, request.user.id, id, revision.revision)
+    const result = await tripRepo.finishTrip(pool, request.user.id, id, input.revision, input.remaining)
     if (result.error === 'not_found') return response.status(404).json({ error: 'Trip not found' })
     if (result.error === 'stale') return response.status(409).json({ error: 'Trip changed; reload it before finishing' })
     if (result.error === 'empty') return response.status(400).json({ error: 'An empty trip cannot be finished' })

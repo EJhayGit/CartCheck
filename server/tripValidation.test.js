@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { validateCorrection, validateHistoryQuery, validateReuse, validateRevision } from './tripValidation.js'
+import { validateCorrection, validateFinish, validateHistoryQuery, validateReuse, validateRevision } from './tripValidation.js'
 
 test('correction validation accepts standalone historical snapshots and normalizes values', () => {
   const result = validateCorrection({ revision: 4, items: [{
@@ -42,4 +42,14 @@ test('reuse validation accepts the two item choices and an optional list name', 
   for (const body of [null, [], {}, { items: 'some' }, { items: 'all', budget: '5.00' }, { items: 'all', name: '' }, { items: 'all', name: 'x'.repeat(101) }]) {
     assert.ok(validateReuse(body).error, JSON.stringify(body))
   }
+})
+
+test('validateFinish defaults to keep and rejects anything else', () => {
+  assert.deepEqual(validateFinish({ revision: 3 }), { revision: 3, remaining: 'keep' })
+  assert.deepEqual(validateFinish({ revision: 3, remaining: 'clear' }), { revision: 3, remaining: 'clear' })
+  assert.ok(validateFinish({ revision: 3, remaining: 'all' }).error)
+  assert.ok(validateFinish({ revision: 3, extra: true }).error)
+  assert.ok(validateFinish({ remaining: 'keep' }).error)
+  assert.ok(validateFinish([]).error)
+  assert.ok(validateFinish(null).error)
 })

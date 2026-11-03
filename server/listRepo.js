@@ -35,6 +35,11 @@ async function selectDetail(queryable, userId, listId, { lock = false } = {}) {
   return result.rows[0] ? detail(queryable, userId, result.rows[0]) : null
 }
 
+// Reads a list inside the caller's open transaction, which already holds the row lock.
+export function getActiveListDetail(queryable, userId, listId) {
+  return selectDetail(queryable, userId, listId)
+}
+
 async function transaction(pool, callback) {
   const client = await pool.connect()
   try { await client.query('BEGIN'); const value = await callback(client); await client.query('COMMIT'); return value }
