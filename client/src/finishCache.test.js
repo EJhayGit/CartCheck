@@ -24,7 +24,7 @@ const eggs = entry('eggs', 'Eggs', false)
 const rice = entry('rice', 'Rice', false)
 const json = (body) => new Response(JSON.stringify(body), { headers: { 'Content-Type': 'application/json' } })
 
-function setup({ items = [milk, eggs, rice], finish, kept = items.filter((item) => !item.bought) } = {}) {
+function setup({ items = [milk, eggs, rice], finish, loadList, kept = items.filter((item) => !item.bought) } = {}) {
   const cart = { tripId: 'active', name: 'Weekly Groceries', status: 'active', revision: 1, currency: 'PHP', budget: null, items }
   const fresh = { ...cart, revision: 42 }
   const reducedList = { ...fresh, revision: 43, items: kept }
@@ -35,7 +35,7 @@ function setup({ items = [milk, eggs, rice], finish, kept = items.filter((item) 
   const calls = []
   globalThis.fetch = async (url, options = {}) => {
     calls.push({ url, options })
-    if (url === '/api/lists/active') return json(fresh)
+    if (url === '/api/lists/active') return json(loadList ? loadList({ fresh, reducedList }) : fresh)
     if (url === '/api/lists') return json({ items: [{ tripId: 'active', name: cart.name }, { tripId: 'other', name: 'Party Supplies' }], nextCursor: null })
     if (url === '/api/catalog') return json({ items: [] })
     if (url === '/api/trips') return json({ items: [], nextCursor: null })
@@ -131,6 +131,87 @@ test('Confirming again after a lost connection finishes normally', async () => {
   await screen.findByText(/Trip saved/)
   assert.equal(attempts, 2)
   assert.equal(finishBody().revision, 42)
+})
+
+// The server saved the trip, but its first response never arrived.
+function savedButResponseLost(overrides = {}) {
+  let saved = false
+  return setup({
+    finish: ({ completed, reducedList }) => {
+      if (!saved) { saved = true; throw new TypeError('Failed to fetch') }
+      return json({ completedTrip: completed, list: reducedList })
+    },
+    loadList: ({ fresh, reducedList }) => saved ? reducedList : fresh,
+    ...overrides,
+  })
+}
+
+test('Keep shopping after a lost response finds the saved trip', async () => {
+  const { handlers, calls } = savedButResponseLost()
+  await openReview()
+  confirm()
+  await screen.findByRole('alert')
+  fireEvent.click(screen.getByRole('button', { name: 'Keep shopping' }))
+  await screen.findByText(/Trip saved/)
+  assert.equal(calls.filter(({ url }) => url.endsWith('/finish')).every(({ options }) => JSON.parse(options.body).revision === 42), true)
+  assert.equal(screen.queryByText('Milk'), null)
+  fireEvent.click(screen.getByRole('button', { name: 'View trip' }))
+  assert.deepEqual(handlers.openedTrips, ['trip-9'])
+})
+
+test('Escape after a lost response finds the saved trip', async () => {
+  savedButResponseLost()
+  await openReview()
+  confirm()
+  await screen.findByRole('alert')
+  fireEvent.keyDown(document, { key: 'Escape' })
+  await screen.findByText(/Trip saved/)
+})
+
+test('Reopening the review after an offline back-out finds the saved trip', async () => {
+  let offline = false
+  const { calls } = savedButResponseLost({
+    finish: ({ completed, reducedList }) => {
+      if (!offline) { offline = true; throw new TypeError('Failed to fetch') }
+      return json({ completedTrip: completed, list: reducedList })
+    },
+    loadList: ({ fresh, reducedList }) => {
+      if (!offline) return fresh
+      if (offline === true) { offline = 'reconnected'; throw new TypeError('Failed to fetch') }
+      return reducedList
+    },
+  })
+  await openReview()
+  confirm()
+  await screen.findByRole('alert')
+  fireEvent.click(screen.getByRole('button', { name: 'Keep shopping' }))
+  await waitFor(() => assert.equal(offline, 'reconnected'))
+  fireEvent.click(screen.getByRole('button', { name: 'Finish shopping' }))
+  await screen.findByText(/Trip saved/)
+  assert.equal(screen.queryByRole('heading', { name: 'Finish shopping?' }), null)
+  assert.equal(calls.filter(({ url }) => url.endsWith('/finish')).length, 2)
+})
+
+test('Backing out when nothing was saved changes nothing', async () => {
+  const { calls } = setup({ finish: () => { throw new TypeError('Failed to fetch') } })
+  await openReview()
+  confirm()
+  await screen.findByRole('alert')
+  const loads = calls.filter(({ url }) => url === '/api/lists/active').length
+  fireEvent.click(screen.getByRole('button', { name: 'Keep shopping' }))
+  await waitFor(() => assert.ok(calls.filter(({ url }) => url === '/api/lists/active').length > loads))
+  await screen.findByText('Milk')
+  assert.equal(calls.filter(({ url }) => url.endsWith('/finish')).length, 1)
+  assert.equal(screen.queryByText(/Trip saved/), null)
+})
+
+test('Tabbing around the review reaches the checked choice', async () => {
+  setup()
+  await openReview()
+  const summaries = document.querySelectorAll('.review-group summary')
+  summaries[summaries.length - 1].focus()
+  fireEvent.keyDown(document, { key: 'Tab' })
+  assert.equal(document.activeElement, screen.getByRole('radio', { name: 'Keep the 2 not-bought items on this list' }))
 })
 
 test('A trip completed before this change returns to My Lists', async () => {

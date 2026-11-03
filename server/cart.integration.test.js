@@ -242,6 +242,7 @@ test('named lists, item snapshots, transactional completion, history and ownersh
     assert.equal(corrected.completedAt, completed.completedAt)
     assert.equal(corrected.currency, completed.currency)
     assert.equal((await correct(a, completed.revision, completed.items)).status, 409)
+    assert.equal((await remove(first.tripId, unchecked.id)).status, 200, 'the kept item still holds its catalog product')
     assert.equal((await call(`/api/catalog/${custom.id}`, { cookie: a, method: 'DELETE' })).status, 204)
     const persisted = (await (await call(`/api/trips/${completed.id}`, { cookie: a })).json()).trip
     assert.equal(persisted.items[1].name, 'Snapshot flour')
@@ -300,8 +301,11 @@ test('named lists, item snapshots, transactional completion, history and ownersh
     const completedRows = await db.query("SELECT id FROM cartcheck.shopping_trips WHERE user_id=(SELECT id FROM cartcheck.users WHERE email=$1) AND status='completed' ORDER BY id LIMIT 2", [emails[0]])
     await db.query("UPDATE cartcheck.shopping_trips SET completed_at='2026-10-01T12:00:00.123900Z' WHERE id=$1", [completedRows.rows[0].id])
     await db.query("UPDATE cartcheck.shopping_trips SET completed_at='2026-10-01T12:00:00.123800Z' WHERE id=$1", [completedRows.rows[1].id])
-    const historyPage = await (await call('/api/trips?limit=1', { cookie: a })).json()
-    const historyNext = await (await call('/api/trips?limit=1&cursor=' + encodeURIComponent(historyPage.nextCursor), { cookie: a })).json()
+    const historyPageAfter = async (page) => (await call('/api/trips?limit=1' + (page ? '&cursor=' + encodeURIComponent(page.nextCursor) : ''), { cookie: a })).json()
+    // A trip saved by the delete race above is newer than the pinned rows, so walk to them.
+    let historyPage = await historyPageAfter()
+    while (historyPage.items[0].id !== String(completedRows.rows[0].id)) historyPage = await historyPageAfter(historyPage)
+    const historyNext = await historyPageAfter(historyPage)
     assert.equal(historyNext.items[0].id, String(completedRows.rows[1].id), 'historical microsecond pagination must preserve all rows')
     const clearing = await create(a, { name: 'Clear choice' })
     await add(clearing.tripId, apples.id)

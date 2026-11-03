@@ -118,6 +118,7 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
   const editorVersion = useRef(0)
   // An element id to focus after the next render, used when an element moves or disappears.
   const focusTarget = useRef(null)
+  const unconfirmedRevision = useRef(null)
   useEffect(() => {
     if (!focusTarget.current) return
     const target = document.getElementById(focusTarget.current)
@@ -165,6 +166,11 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
   useEffect(() => { if (!budgetEditing) setBudgetDraft(budget ?? '') }, [budget, budgetEditing])
   // Freeze the exact reviewed snapshot and revision until confirmation is closed.
   useEffect(() => { if (reviewing) return cache.beginMutation(cacheKey) }, [cache, cacheKey, reviewing])
+  // Leaving the review after a lost finish response must not hide a trip the server did save.
+  useEffect(() => {
+    if (reviewing || unconfirmedRevision.current === null) return
+    cache.load(cacheKey, fetchList, { force: true }).then(recoverUnconfirmedFinish).catch(() => {})
+  }, [reviewing])
 
   useEffect(() => {
     if (!reviewing) return
@@ -176,7 +182,7 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
         focusTarget.current = 'finish-shopping'
       }
       if (event.key !== 'Tab') return
-      const controls = [...reviewSurfaceRef.current.querySelectorAll('button:not(:disabled), summary')]
+      const controls = [...reviewSurfaceRef.current.querySelectorAll('input:checked:not(:disabled), button:not(:disabled), summary')]
       if (!controls.length) { event.preventDefault(); reviewRef.current?.focus(); return }
       const first = controls[0]
       const last = controls.at(-1)
@@ -186,6 +192,34 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
     document.addEventListener('keydown', handleReviewKey)
     return () => document.removeEventListener('keydown', handleReviewKey)
   }, [reviewing, finishBusy])
+
+  function showKeptList(result) {
+    cacheCompletedTrip(cache, result.completedTrip)
+    cache.set(cacheKey, result.list)
+    replaceListSummary(cache, result.list)
+    if (!mounted.current) return
+    setEditor(null)
+    setLastChange(null)
+    setReviewing(false)
+    setSavedTripId(result.completedTrip.id)
+    focusTarget.current = 'list-heading'
+  }
+
+  async function recoverUnconfirmedFinish(current) {
+    const reviewed = unconfirmedRevision.current
+    if (reviewed === null) return false
+    if (current.revision === reviewed) { unconfirmedRevision.current = null; return false }
+    try {
+      // A revision that is no longer current can only return a saved trip, never create one.
+      const result = await finishTrip(tripId, reviewed, remainingChoice)
+      unconfirmedRevision.current = null
+      if (cache.alive && result.list) showKeptList(result)
+      return true
+    } catch (caught) {
+      if (caught.status) unconfirmedRevision.current = null
+      return false
+    }
+  }
 
   async function confirmFinish() {
     if (pendingMutation.current || purchases.size || quantities.size || finishBusy || !tripId) return
@@ -197,28 +231,20 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
     try {
       const result = await finishTrip(tripId, revision, remainingChoice)
       if (!cache.alive) return
+      unconfirmedRevision.current = null
+      if (result.list) { showKeptList(result); return }
       const completedTrip = result.completedTrip
       cacheCompletedTrip(cache, completedTrip)
-      if (!result.list) {
-        // A list finished before finishing kept lists has no active row to return to.
-        cache.set(cacheKey, undefined)
-        removeListSummary(cache, listId)
-        if (!mounted.current) return
-        setEditor(null)
-        setReviewing(false)
-        // This screen unmounts on navigation, so My Lists shows the confirmation.
-        onBackToLists?.({ notice: `${name} is saved in Trips.`, tripId: completedTrip?.id ?? tripId })
-        return
-      }
-      cache.set(cacheKey, result.list)
-      replaceListSummary(cache, result.list)
+      // A list finished before finishing kept lists has no active row to return to.
+      cache.set(cacheKey, undefined)
+      removeListSummary(cache, listId)
       if (!mounted.current) return
       setEditor(null)
-      setLastChange(null)
       setReviewing(false)
-      setSavedTripId(completedTrip.id)
-      focusTarget.current = 'list-heading'
+      // This screen unmounts on navigation, so My Lists shows the confirmation.
+      onBackToLists?.({ notice: `${name} is saved in Trips.`, tripId: completedTrip?.id ?? tripId })
     } catch (caught) {
+      if (!caught.status) unconfirmedRevision.current = revision
       setFinishError(caught.status === 409
         ? 'This trip changed since you opened the review. Return to your list and review it again.'
         : caught.status ? (caught.message || 'We could not finish this trip. Please try again.')
@@ -239,6 +265,7 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
     try {
       const current = await cache.load(cacheKey, fetchList, { force: true })
       setBudgetDraft(current.budget ?? '')
+      if (await recoverUnconfirmedFinish(current)) return
       if (!current.items.length) return
       setFinishError('')
       setRemainingChoice('keep')

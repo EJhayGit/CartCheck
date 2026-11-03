@@ -30,7 +30,7 @@ Trips finished before this change keep their IDs and data.
 
 ### Migration `005_finish_keeps_list.sql`
 
-The schema needs this because the list row no longer records that it was finished. Without a link, a retry after a lost response gets a 409, although the review screen promises that retrying creates no duplicate. After a reload, the shopper could also save the leftover items as a second trip.
+The schema needs this because the list row no longer records that it was finished. Without a link, a retry after a lost response gets a 409, although the review screen promises that retrying creates no duplicate.
 
 ```sql
 ALTER TABLE cartcheck.shopping_trips
@@ -81,6 +81,8 @@ A retry returns the original outcome, including the original keep or clear choic
 ## Failure and concurrency
 
 - Lost response: confirming again returns the saved trip and current list, with no duplicate. The unique index is the database-level backstop.
+- Lost response, then leaving the review: the client remembers the unconfirmed revision, reloads the list and, if the revision moved, asks for that revision again. That request can only return the saved trip, so the list shows **Trip saved · View trip**. If the revision did not move, nothing was saved and nothing changes. If the shopper is offline, the check runs again when they next open the review.
+- Known limit: a full page reload forgets the unconfirmed revision. The list then shows its reduced items with no notice, and finishing it saves those leftovers as a separate trip. Both trips are accurate, and the first is in Trips.
 - Edit during finish: both requests lock the list row, so they run one after the other. An edit that lands first makes the finish return 409. An edit that lands after succeeds on a kept item and returns 404 on a removed one.
 - Delete during finish: the requests also serialize. The delete may now succeed after the finish, and the saved trip survives.
 - Other open tabs: they hold an old revision, so finishing from one gets the saved trip if it reviewed that same revision, otherwise 409. Editing a removed item returns 404.

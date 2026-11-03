@@ -37,14 +37,16 @@ try {
   await db.query('BEGIN')
   await db.query('CREATE SCHEMA cartcheck; CREATE TABLE cartcheck.schema_migrations(filename text PRIMARY KEY,sha256 text NOT NULL,applied_at timestamptz NOT NULL DEFAULT now())')
   for (const migration of [...backup.tables.schema_migrations].sort((a, b) => a.filename.localeCompare(b.filename))) {
-    assert.match(migration.filename, /^00[1-4]_[\w-]+\.sql$/)
+    assert.match(migration.filename, /^00[1-5]_[\w-]+\.sql$/)
     const sql = await readFile(new URL(`./migrations/${migration.filename}`, import.meta.url), 'utf8')
     assert.equal(createHash('sha256').update(sql).digest('hex'), migration.sha256, 'Export migration checksum must match repository')
     await db.query(sql)
   }
   for (const table of order) {
     stage = table
-    for (const row of backup.tables[table]) {
+    // A finished trip references its source list, which always has the lower ID.
+    const rows = table === 'shopping_trips' ? [...backup.tables[table]].sort((x, y) => Number(x.id) - Number(y.id)) : backup.tables[table]
+    for (const row of rows) {
       const columns = Object.keys(row)
       await db.query(`INSERT INTO cartcheck.${ident(table)} (${columns.map(ident).join(',')}) VALUES (${columns.map((_, i) => '$' + (i + 1)).join(',')})`, Object.values(row))
     }
