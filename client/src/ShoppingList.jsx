@@ -50,7 +50,7 @@ function BudgetMeter({ budget, summary, currency, label }) {
   </div>
 }
 
-export default function ShoppingList({ listId, active = true, editItem, onEditHandled, onBrowseCatalog, onBackToLists, onQuickAdd, onMutationPending, onReviewChange }) {
+export default function ShoppingList({ listId, active = true, editItem, onEditHandled, onBrowseCatalog, onBackToLists, onOpenTrip, onQuickAdd, onMutationPending, onReviewChange }) {
   const cache = useDataCache()
   const cacheKey = `list:${listId}`
   const fetchList = (signal) => getList(listId, { signal })
@@ -67,6 +67,8 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
   }
   function setBudget(value) { cache.set(cacheKey, (current) => current && { ...current, budget: value }) }
   const [finishBusy, setFinishBusy] = useState(false)
+  const [remainingChoice, setRemainingChoice] = useState('keep')
+  const [savedTripId, setSavedTripId] = useState(null)
   const [reviewBusy, setReviewBusy] = useState(false)
   const [finishError, setFinishError] = useState('')
   const reviewRef = useRef(null)
@@ -193,17 +195,29 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
     setFinishBusy(true)
     setFinishError('')
     try {
-      const result = await finishTrip(tripId, revision)
+      const result = await finishTrip(tripId, revision, remainingChoice)
       if (!cache.alive) return
       const completedTrip = result.completedTrip
-      cache.set(cacheKey, undefined)
-      removeListSummary(cache, listId)
       cacheCompletedTrip(cache, completedTrip)
+      if (!result.list) {
+        // A list finished before finishing kept lists has no active row to return to.
+        cache.set(cacheKey, undefined)
+        removeListSummary(cache, listId)
+        if (!mounted.current) return
+        setEditor(null)
+        setReviewing(false)
+        // This screen unmounts on navigation, so My Lists shows the confirmation.
+        onBackToLists?.({ notice: `${name} is saved in Trips.`, tripId: completedTrip?.id ?? tripId })
+        return
+      }
+      cache.set(cacheKey, result.list)
+      replaceListSummary(cache, result.list)
       if (!mounted.current) return
       setEditor(null)
+      setLastChange(null)
       setReviewing(false)
-      // This screen unmounts on navigation, so My Lists shows the confirmation.
-      onBackToLists?.({ notice: `${name} is saved in Trips.`, tripId: completedTrip?.id ?? tripId })
+      setSavedTripId(completedTrip.id)
+      focusTarget.current = 'list-heading'
     } catch (caught) {
       setFinishError(caught.status === 409
         ? 'This trip changed since you opened the review. Return to your list and review it again.'
@@ -227,6 +241,7 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
       setBudgetDraft(current.budget ?? '')
       if (!current.items.length) return
       setFinishError('')
+      setRemainingChoice('keep')
       setReviewing(true)
     } catch (caught) { setActionError(caught.message || 'Could not load the current trip for review.') }
     finally { pendingMutation.current = false; reportPending(); setReviewBusy(false) }
@@ -494,6 +509,7 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
       <p className="review-fact"><strong>{purchasedCount} bought</strong>{remainingCount > 0 ? <> · <strong>{remainingCount} will be saved as not bought</strong></> : ' · nothing left unchecked'}</p>
       <p className="review-spend">Recorded spending: <strong>{spending.actual.knownCount ? formatMoney(spending.actual.total, currency) : 'none recorded'}</strong>{spending.actual.missingCount ? ` · ${spending.actual.missingCount} bought item${spending.actual.missingCount === 1 ? ' has' : 's have'} no actual price` : ''}</p>
       <p className="optional-help">{spending.actual.knownCount ? '' : 'You can finish without recording prices. '}{budget !== null ? `Budget ${formatMoney(budget, currency)}; going over it does not prevent finishing. ` : ''}Other active lists stay as they are.</p>
+      {remainingCount > 0 && <fieldset className="review-choice"><legend className="visually-hidden">After saving this trip</legend><label className="trip-check"><input type="radio" name="remaining-items" value="keep" checked={remainingChoice === 'keep'} onChange={() => setRemainingChoice('keep')} disabled={finishBusy} /> Keep the {remainingCount} not-bought {remainingCount === 1 ? 'item' : 'items'} on this list</label><label className="trip-check"><input type="radio" name="remaining-items" value="clear" checked={remainingChoice === 'clear'} onChange={() => setRemainingChoice('clear')} disabled={finishBusy} /> Clear the list</label></fieldset>}
       {finishError && <p className="alert" role="alert">{finishError}</p>}
       <div className="trip-actions review-actions"><button className="catalog-button secondary" type="button" onClick={() => { setReviewing(false); setFinishError(''); if (finishError) cache.invalidate(cacheKey); focusTarget.current = 'finish-shopping' }} disabled={finishBusy}>Keep shopping</button><button className="catalog-button primary" type="button" onClick={confirmFinish} disabled={finishBusy}>{finishBusy ? 'Saving trip…' : 'Confirm and finish'}</button></div>
     </section>
@@ -568,10 +584,11 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
 
   return <main className="shopping-main">
     <div className="list-header">
-      <div className="list-title"><h1>{name}</h1>{loading ? <p className="catalog-subtitle" role="status">Loading items…</p> : items.length > 0 && <p className="list-progress-line"><strong>{purchasedCount} of {items.length}</strong> bought{savingCount > 0 ? <span className="saving-note"> · Saving…</span> : ''}</p>}</div>
+      <div className="list-title"><h1 id="list-heading" tabIndex="-1">{name}</h1>{loading ? <p className="catalog-subtitle" role="status">Loading items…</p> : items.length > 0 && <p className="list-progress-line"><strong>{purchasedCount} of {items.length}</strong> bought{savingCount > 0 ? <span className="saving-note"> · Saving…</span> : ''}</p>}</div>
       <div className="trip-actions"><button className="catalog-button secondary" type="button" onClick={onBrowseCatalog} disabled={busy || reviewBusy}>Browse catalog</button>{items.length > 0 && <button id="finish-shopping" className="catalog-button secondary" type="button" onClick={openReview} disabled={busy || loading || reviewBusy || savingCount > 0}>{reviewBusy ? 'Preparing review…' : 'Finish shopping'}</button>}</div>
       {!loading && items.length > 0 && <div className="progress-track" role="img" aria-label={`${purchasedCount} of ${items.length} items bought`}><span style={{ width: `${progressPercent}%` }} /></div>}
     </div>
+    {savedTripId && <p className="catalog-notice flash-notice saved-trip-notice" role="status"><span>Trip saved ·</span><button className="text-button" type="button" onClick={() => onOpenTrip?.(savedTripId)}>View trip</button></p>}
     {notice && <p className="catalog-notice" role="status">{notice}</p>}
     {actionError && <p className="alert" role="alert">{actionError}</p>}
     {error && <div className="catalog-state" role="alert"><p>{error}</p><button className="catalog-button secondary" type="button" onClick={cartQuery.refresh}>Try again</button></div>}

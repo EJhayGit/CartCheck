@@ -73,7 +73,7 @@ export const createCatalogItem = (input) => request('/api/catalog', { method: 'P
 export const updateCatalogItem = (id, input) => request(`/api/catalog/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(input) })
 export const deleteCatalogItem = (id) => request(`/api/catalog/${encodeURIComponent(id)}`, { method: 'DELETE' })
 export const updateSettings = (input) => request('/api/me/settings', { method: 'PATCH', body: JSON.stringify(input) })
-export const finishTrip = (id, revision) => request(`/api/trips/${encodeURIComponent(id)}/finish`, { method: 'POST', body: JSON.stringify({ revision }) })
+export const finishTrip = (id, revision, remaining) => request(`/api/trips/${encodeURIComponent(id)}/finish`, { method: 'POST', body: JSON.stringify({ revision, remaining }) })
 export const getTrips = (cursor = null, { signal } = {}) => request(`/api/trips${cursor ? `?${new URLSearchParams({ cursor })}` : ''}`, { signal })
 export const getLists = (cursor = null, { signal } = {}) => request(`/api/lists${cursor ? `?${new URLSearchParams({ cursor })}` : ''}`, { signal })
 export const getList = (id, { signal } = {}) => request(`/api/lists/${encodeURIComponent(id)}`, { signal })
