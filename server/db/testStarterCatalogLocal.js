@@ -6,6 +6,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import pg from 'pg'
+import { parseMigration } from './migrationFile.js'
 import { listCatalog } from '../catalogRepo.js'
 
 const here = (name) => new URL(name, import.meta.url)
@@ -58,8 +59,7 @@ try {
     filename text PRIMARY KEY, sha256 text NOT NULL, applied_at timestamptz NOT NULL DEFAULT now()
   )`)
   for (const filename of migrations) {
-    const sql = await read(`./migrations/${filename}`)
-    const sha256 = createHash('sha256').update(sql).digest('hex')
+    const { sql, sha256 } = parseMigration(await read(`./migrations/${filename}`))
     await db.query('BEGIN')
     try {
       const applied = await db.query('SELECT sha256 FROM cartcheck.schema_migrations WHERE filename=$1', [filename])

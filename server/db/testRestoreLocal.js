@@ -6,6 +6,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { resolve, relative, isAbsolute, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import pg from 'pg'
+import { parseMigration } from './migrationFile.js'
 
 const privateRoot = await realpath(fileURLToPath(new URL('../.test-runs/backups/', import.meta.url)))
 const file = await realpath(resolve(process.argv[2] || ''))
@@ -38,8 +39,8 @@ try {
   await db.query('CREATE SCHEMA cartcheck; CREATE TABLE cartcheck.schema_migrations(filename text PRIMARY KEY,sha256 text NOT NULL,applied_at timestamptz NOT NULL DEFAULT now())')
   for (const migration of [...backup.tables.schema_migrations].sort((a, b) => a.filename.localeCompare(b.filename))) {
     assert.match(migration.filename, /^00[1-5]_[\w-]+\.sql$/)
-    const sql = await readFile(new URL(`./migrations/${migration.filename}`, import.meta.url), 'utf8')
-    assert.equal(createHash('sha256').update(sql).digest('hex'), migration.sha256, 'Export migration checksum must match repository')
+    const { sql, sha256 } = parseMigration(await readFile(new URL(`./migrations/${migration.filename}`, import.meta.url), 'utf8'))
+    assert.equal(sha256, migration.sha256, 'Export migration checksum must match repository')
     await db.query(sql)
   }
   for (const table of order) {
