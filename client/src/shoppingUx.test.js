@@ -415,11 +415,59 @@ test('no Add row when the only match is already on this list', async () => {
   assert.equal(calls().length, 0)
 })
 
-test('no Add row when a suggestion matches', async () => {
-  typedItemFixture({ catalog: [{ id: 'p-1', name: 'Dinorado rice', category: 'Pantry' }], onQuickAdd: noop })
-  await typeInFind('rice')
+test('the Add row shows beside suggestions that are not exact, and Enter still takes a word-start match', async () => {
+  const added = []
+  const calls = typedItemFixture({ catalog: [{ id: 'p-1', name: 'Dinorado rice', category: 'Pantry' }], onQuickAdd: async (id) => { added.push(id) } })
+  const field = await typeInFind('rice')
   await screen.findByRole('button', { name: 'Add Dinorado rice' })
+  assert.ok(screen.getByRole('button', { name: /^Add “rice”/ }))
+  fireEvent.keyDown(field, { key: 'Enter' })
+  await waitFor(() => assert.deepEqual(added, ['p-1']))
+  assert.equal(calls().length, 0)
+})
+
+test('an exact or plural catalog match hides the Add row', async () => {
+  const added = []
+  typedItemFixture({ catalog: [{ id: 'p-1', name: 'Bananas', category: 'Produce' }], onQuickAdd: async (id) => { added.push(id) } })
+  const field = await typeInFind('banana')
+  await screen.findByRole('button', { name: 'Add Bananas' })
   assert.equal(screen.queryByRole('button', { name: /^Add “/ }), null)
+  fireEvent.keyDown(field, { key: 'Enter' })
+  await waitFor(() => assert.deepEqual(added, ['p-1']))
+})
+
+for (const [term, name] of [['ham', 'Shampoo'], ['ice', 'Orange juice']]) {
+  test(`Enter never adds a mid-word match: "${term}" lists ${name} but creates "${term}"`, async () => {
+    const added = []
+    const posts = []
+    typedItemFixture({
+      catalog: [{ id: 'p-1', name, category: 'Household' }],
+      onQuickAdd: async (id) => { added.push(id) },
+      createResponse: (body) => { posts.push(body); return json({ item: { id: 'new-1', ...body } }, 201) },
+    })
+    const field = await typeInFind(term)
+    assert.ok(await screen.findByRole('button', { name: `Add ${name}` }))
+    assert.ok(screen.getByRole('button', { name: new RegExp(`^Add “${term}”`) }))
+    fireEvent.keyDown(field, { key: 'Enter' })
+    await waitFor(() => assert.deepEqual(added, ['new-1']))
+    assert.deepEqual(posts, [{ name: term, category: 'Other' }])
+  })
+}
+
+test('Enter does nothing when the exact match is on the list and only a mid-word match is left', async () => {
+  const added = []
+  const calls = typedItemFixture({
+    catalog: [{ id: 'p-1', name: 'Milk', category: 'Dairy & eggs' }, { id: 'p-2', name: 'Buttermilk', category: 'Dairy & eggs' }],
+    items: [{ ...cartItem, productId: 'p-1' }],
+    onQuickAdd: async (id) => { added.push(id) },
+  })
+  const field = await typeInFind('milk')
+  await screen.findByRole('button', { name: 'Add Buttermilk' })
+  assert.equal(screen.queryByRole('button', { name: /^Add “/ }), null)
+  fireEvent.keyDown(field, { key: 'Enter' })
+  await new Promise((resolve) => setTimeout(resolve, 20))
+  assert.deepEqual(added, [])
+  assert.equal(calls().length, 0)
 })
 
 test('a failed catalog load offers no Add row and Enter creates nothing', async () => {
