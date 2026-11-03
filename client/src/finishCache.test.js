@@ -9,7 +9,7 @@ globalThis.HTMLElement = dom.window.HTMLElement
 globalThis.Node = dom.window.Node
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 const React = await import('react')
-const { render, screen, fireEvent, cleanup, waitFor } = await import('@testing-library/react')
+const { act, render, screen, fireEvent, cleanup, waitFor } = await import('@testing-library/react')
 const { createServer } = await import('vite')
 const vite = await createServer({ configFile: 'vite.config.js', server: { middlewareMode: true, hmr: false }, appType: 'custom' })
 const { DataCacheProvider } = await vite.ssrLoadModule('/src/dataCache.jsx')
@@ -53,6 +53,8 @@ function setup({ items = [milk, eggs, rice], finish, loadList, kept = items.filt
 async function openReview() {
   fireEvent.click(screen.getByRole('button', { name: 'Finish shopping' }))
   await screen.findByRole('heading', { name: 'Finish shopping?' })
+  // The review's freeze starts in an effect, which can run just after the heading appears.
+  await act(async () => {})
 }
 const confirm = () => fireEvent.click(screen.getByRole('button', { name: 'Confirm and finish' }))
 
