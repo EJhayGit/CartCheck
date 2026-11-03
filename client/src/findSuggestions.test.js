@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { matchTier, rankSuggestions } from './findSuggestions.js'
+import { isItemList, matchTier, parseItemList, rankSuggestions, resolveItemList } from './findSuggestions.js'
 
 const products = (...names) => names.map((name, index) => ({ id: index + 1, name }))
 const ranked = (names, term, lastTrip = []) => {
@@ -60,4 +60,29 @@ test('matchTier names exact, name start, word start, substring and no match', ()
   assert.equal(matchTier('Shampoo', 'ham'), 3)
   assert.equal(matchTier('Orange juice', 'ice'), 3)
   assert.equal(matchTier('Eggs', 'milk'), -1)
+})
+
+test('parseItemList splits on commas and lines, trims, and drops blanks and repeats', () => {
+  assert.deepEqual(parseItemList(' eggs, Milk\nrice,,eggs , '), ['eggs', 'Milk', 'rice'])
+})
+
+test('isItemList needs a separator', () => {
+  assert.equal(isItemList('eggs'), false)
+  assert.equal(isItemList('eggs,'), true)
+})
+
+test('resolveItemList reuses only exact or plural matches and creates the rest', () => {
+  const products = [{ id: 1, name: 'Bananas' }, { id: 2, name: 'Hamburger buns' }, { id: 3, name: 'Rice' }]
+  assert.deepEqual(resolveItemList(['banana', 'ham', 'rice'], products, new Set(['3'])), {
+    entries: [{ name: 'Bananas', product: products[0] }, { name: 'ham', product: null }],
+    skipped: ['rice'],
+  })
+})
+
+test('resolveItemList collapses plurals and skips names already being added', () => {
+  const products = [{ id: 1, name: 'Bananas' }]
+  assert.deepEqual(resolveItemList(['banana', 'bananas', 'apple', 'apples', 'soap'], products, new Set(), ['Soap']), {
+    entries: [{ name: 'Bananas', product: products[0] }, { name: 'apple', product: null }],
+    skipped: ['soap'],
+  })
 })

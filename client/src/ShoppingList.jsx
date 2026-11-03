@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createCatalogItem, deleteListItem, finishTrip, getCatalog, getList, getTrip, getTrips, updateList, updateListItem } from './api/httpApi.js'
 import { formatQuantity, getShoppingProgress, isWholeQuantity, listRowQuantity, sortShoppingItems, stepQuantity } from './shoppingProgress.js'
-import { matchTier, rankSuggestions } from './findSuggestions.js'
+import { isItemList, matchTier, parseItemList, rankSuggestions, resolveItemList } from './findSuggestions.js'
 import { budgetProgress, formatMoney, moneySummary, normalizeMoney } from './money.js'
 import { createPurchaseMutations, mergePendingListResponse } from './purchaseMutations.js'
 import { useDataCache, useDataQuery } from './dataCache.jsx'
@@ -12,7 +12,6 @@ import { sortItems } from './Catalog.jsx'
 const EMPTY_FORM = { name: '', quantity: '1', unitLabel: '', estimatedTotal: '', actualTotal: '' }
 const VIEW_KEY = 'cartcheck:list-view'
 const SORT_MODES = ['default', 'az', 'category']
-const NEW_PRODUCT = 'new'
 
 function formFor(item) {
   return { name: item.name, quantity: formatQuantity({ quantity: item.quantity }), unitLabel: item.unitLabel || '', estimatedTotal: item.estimatedTotal ?? '', actualTotal: item.actualTotal ?? '' }
@@ -57,7 +56,11 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
   const [reviewing, setReviewing] = useState(false)
   const cartQuery = useDataQuery(cacheKey, fetchList, { enabled: active && !reviewing })
   const knownName = cache.get('lists').data?.items?.find((list) => String(list.id) === String(listId))?.name
-  const { items = [], currency = 'PHP', tripId = listId, revision = null, budget = null, name = knownName || 'Your list' } = cartQuery.data || {}
+  const { items: savedItems = [], currency = 'PHP', tripId = listId, revision = null, budget = null, name = knownName || 'Your list' } = cartQuery.data || {}
+  // Adds not yet confirmed by the server show as rows here and stay out of the cache, so a list response cannot drop them.
+  const [pendingAdds, setPendingAdds] = useState([])
+  const savedProductIds = new Set(savedItems.map((item) => String(item.productId)))
+  const items = [...savedItems, ...pendingAdds.filter((row) => !savedProductIds.has(String(row.productId)))]
   const loading = cartQuery.loading
   const error = cartQuery.error ? 'We could not refresh your shopping list. Check your connection and try again.' : ''
   const hasCart = cartQuery.data !== undefined
@@ -96,7 +99,11 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
   const [view, setView] = useState(readView)
   const { sortMode, hidePurchased } = view
   const [query, setQuery] = useState('')
-  const [addingProductId, setAddingProductId] = useState(null)
+  const addQueue = useRef(Promise.resolve())
+  const pendingAddCount = useRef(0)
+  const nextPendingId = useRef(0)
+  const failedAdds = useRef([])
+  const restoredText = useRef('')
   const [purchasePending, setPurchasePending] = useState(0)
   const [quantityPending, setQuantityPending] = useState(0)
   const [quantityAnnouncement, setQuantityAnnouncement] = useState('')
@@ -106,14 +113,14 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
   const lastTripId = tripsQuery.data?.items?.[0]?.id ?? null
   const lastTripQuery = useDataQuery(lastTripId ? `trip:${lastTripId}` : 'trip:none', (signal) => getTrip(lastTripId, { signal }), { staleTime: Infinity, enabled: active && query.trim() !== '' && lastTripId !== null })
   const purchases = useMemo(() => createPurchaseMutations(cache, (itemId, input) => updateListItem(listId, itemId, input), {
-    onPending: (count) => { setPurchasePending(count); onMutationPending(Boolean(count || pendingMutation.current || quantities.size)) }, onError: setActionError, listId,
+    onPending: (count) => { setPurchasePending(count); onMutationPending(Boolean(count || pendingMutation.current || pendingAddCount.current || quantities.size)) }, onError: setActionError, listId,
   }), [cache, listId])
   useEffect(() => purchases.subscribe(), [purchases])
   const quantities = useMemo(() => createPurchaseMutations(cache, (itemId, input) => updateListItem(listId, itemId, input), {
-    onPending: (count) => { setQuantityPending(count); onMutationPending(Boolean(count || pendingMutation.current || purchases.size)) }, onError: setActionError, listId, field: 'quantity',
+    onPending: (count) => { setQuantityPending(count); onMutationPending(Boolean(count || pendingMutation.current || pendingAddCount.current || purchases.size)) }, onError: setActionError, listId, field: 'quantity',
   }), [cache, listId])
   useEffect(() => quantities.subscribe(), [quantities])
-  const savingCount = purchasePending + quantityPending
+  const savingCount = purchasePending + quantityPending + pendingAdds.length
   const pendingMutation = useRef(false)
   const editorVersion = useRef(0)
   // An element id to focus after the next render, used when an element moves or disappears.
@@ -134,7 +141,7 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
     const timer = setTimeout(() => setLastChange(null), 6000)
     return () => clearTimeout(timer)
   }, [lastChange])
-  function reportPending() { onMutationPending(Boolean(pendingMutation.current || purchases.size || quantities.size)) }
+  function reportPending() { onMutationPending(Boolean(pendingMutation.current || pendingAddCount.current || purchases.size || quantities.size)) }
   function updateView(changes) {
     setView((current) => {
       const next = { ...current, ...changes }
@@ -257,7 +264,7 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
   }
 
   async function openReview() {
-    if (pendingMutation.current || purchases.size || quantities.size || reviewBusy) return
+    if (pendingMutation.current || pendingAddCount.current || purchases.size || quantities.size || reviewBusy) return
     pendingMutation.current = true
     reportPending()
     setReviewBusy(true)
@@ -467,45 +474,92 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
     quantities.set(item.id, next)
   }
 
-  async function quickAdd(product) {
-    if (addingProductId || !onQuickAdd) return
-    setAddingProductId(product.id)
-    setActionError('')
-    setNotice('')
-    try {
-      await onQuickAdd(product.id)
-      setQuery('')
-      setAnnouncement(`${product.name} added.`)
-      focusTarget.current = 'find-item'
-    } catch (caught) { setActionError(`We could not add ${product.name}. ${caught.message || 'Please try again.'}`) }
-    finally { setAddingProductId(null) }
-  }
-
-  async function addTyped(name) {
-    if (addingProductId || !onQuickAdd) return
-    setAddingProductId(NEW_PRODUCT)
-    setActionError('')
-    setNotice('')
+  async function createTypedItem(name) {
     const release = cache.beginMutation('catalog')
-    let created
     try {
-      created = (await createCatalogItem({ name, category: 'Other' })).item
+      const { item: created } = await createCatalogItem({ name, category: 'Other' })
       // Once cached, a failed add below leaves a normal suggestion to retry, not a second create.
       cache.set('catalog', (current) => ({ ...(Array.isArray(current) ? {} : current), items: sortItems([...(Array.isArray(current) ? current : current?.items || []), created]) }))
+      return created
     } catch (caught) {
       cache.invalidate('catalog')
-      // The tapped row was disabled while saving, so give focus a stable place.
-      focusTarget.current = 'find-item'
-      setActionError(`We could not create ${name}. ${caught.message || 'Please try again.'}`)
-      setAddingProductId(null)
-      return
+      throw caught
     } finally { release() }
-    setAddingProductId(null)
-    await quickAdd(created)
+  }
+
+  async function saveAdd(row, product) {
+    let action = product ? 'add' : 'create'
+    try {
+      const saved = product || await createTypedItem(row.name)
+      action = 'add'
+      // With its product known, the row hides as soon as the saved entry reaches the cache.
+      setPendingAdds((current) => current.map((entry) => entry.id === row.id ? { ...entry, productId: saved.id } : entry))
+      await onQuickAdd(saved.id)
+      setAnnouncement(`${row.name} added.`)
+    } catch (caught) {
+      failedAdds.current.push(row.name)
+      const names = failedAdds.current.join(', ')
+      setActionError(`We could not ${failedAdds.current.length > 1 ? 'add' : action} ${names}. ${caught.message || 'Please try again.'}`)
+      // Failed names return to an empty field, so Enter retries them.
+      setQuery((current) => !current.trim() || current === restoredText.current ? names : current)
+      restoredText.current = names
+    } finally {
+      setPendingAdds((current) => current.filter((entry) => entry.id !== row.id))
+      pendingAddCount.current -= 1
+      if (mounted.current) reportPending()
+    }
+  }
+
+  function enqueueAdd(name, product) {
+    if (!pendingAddCount.current) { failedAdds.current = []; restoredText.current = ''; setActionError('') }
+    nextPendingId.current += 1
+    const row = { id: `pending-${nextPendingId.current}`, productId: product?.id ?? null, name, category: product?.category ?? 'Other', quantity: '1', unitLabel: null, estimatedTotal: null, actualTotal: null, bought: false, pending: true }
+    setPendingAdds((current) => [...current, row])
+    pendingAddCount.current += 1
+    reportPending()
+    // One at a time, so an older list response can never overwrite a newer one.
+    addQueue.current = addQueue.current.then(() => saveAdd(row, product))
+  }
+
+  function startAdd() {
+    setNotice('')
+    setQuery('')
+    focusTarget.current = 'find-item'
+  }
+
+  function quickAdd(product) {
+    if (!onQuickAdd) return
+    startAdd()
+    enqueueAdd(product.name, product)
+  }
+
+  function addTyped(name) {
+    if (!onQuickAdd) return
+    startAdd()
+    enqueueAdd(name, null)
+  }
+
+  function addList() {
+    if (!onQuickAdd || catalogQuery.data === undefined) return
+    const { entries, skipped } = resolveItemList(listNames, catalogItems, onList, pendingAdds.map((row) => row.name))
+    startAdd()
+    for (const entry of entries) enqueueAdd(entry.name, entry.product)
+    if (skipped.length) setNotice(`Already on this list: ${skipped.join(', ')}.`)
+  }
+
+  // A plain input strips line breaks from a pasted list, which would join the names.
+  function pasteList(event) {
+    const pasted = event.clipboardData.getData('text')
+    if (!/\n/.test(pasted)) return
+    event.preventDefault()
+    const { selectionStart, selectionEnd, value } = event.target
+    setQuery(value.slice(0, selectionStart) + pasted.replace(/\r?\n/g, ', ') + value.slice(selectionEnd))
   }
 
   const { purchasedCount, remainingCount, visibleItems: unfilteredVisible } = getShoppingProgress(items, hidePurchased)
-  const term = query.trim().toLocaleLowerCase()
+  const listMode = isItemList(query)
+  const listNames = listMode ? parseItemList(query) : []
+  const term = listMode ? '' : query.trim().toLocaleLowerCase()
   const visibleItems = term ? unfilteredVisible.filter((item) => item.name.toLocaleLowerCase().includes(term)) : unfilteredVisible
   const sortedItems = sortShoppingItems(visibleItems, sortMode)
   const remainingItems = visibleItems.filter((item) => item.bought !== true || settling.has(item.id))
@@ -526,7 +580,8 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
   const catalogMatches = rankSuggestions(catalogItems, term, boughtBefore)
   const suggestions = catalogMatches.filter((product) => !onList.has(String(product.id))).slice(0, 5)
   // A loaded catalog with no exact match can offer a create, so an item is never duplicated.
-  const canCreate = term !== '' && catalogQuery.data !== undefined && !catalogMatches.some((product) => matchTier(product.name, term) === 0)
+  const addPending = term !== '' && pendingAdds.some((row) => matchTier(row.name, term) === 0)
+  const canCreate = term !== '' && !addPending && catalogQuery.data !== undefined && !catalogMatches.some((product) => matchTier(product.name, term) === 0)
   // A mid-word hit ("ham" in Shampoo) stays listed, but Enter must not add it by surprise.
   const enterSuggestion = suggestions[0] && matchTier(suggestions[0].name, term) <= 2 ? suggestions[0] : null
 
@@ -575,11 +630,11 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
     return <ul className="shopping-items" aria-label={label}>{entries.map((item) => {
       const editing = editor?.id === item.id
       const note = priceNote(item, currency)
-      const steppable = item.bought !== true && !editing && isWholeQuantity(item.quantity)
+      const steppable = item.bought !== true && !editing && !item.pending && isWholeQuantity(item.quantity)
       const count = Number(item.quantity)
       return <li className={`shopping-item${item.bought ? ' is-purchased' : ''}${editing ? ' is-editing' : ''}${steppable ? ' has-stepper' : ''}`} key={item.id}>
-        <label className="purchased-control"><input id={`check-${item.id}`} type="checkbox" checked={item.bought === true} onChange={(event) => setBought(item, event.target.checked)} disabled={busy || reviewBusy} aria-label={item.name} /><Tick /></label>
-        <button id={`edit-${item.id}`} className="row-edit" type="button" onClick={() => openEdit(item)} disabled={busy} aria-expanded={editing}>
+        <label className="purchased-control"><input id={`check-${item.id}`} type="checkbox" checked={item.bought === true} onChange={(event) => setBought(item, event.target.checked)} disabled={busy || reviewBusy || item.pending} aria-label={item.name} /><Tick /></label>
+        <button id={`edit-${item.id}`} className="row-edit" type="button" onClick={() => openEdit(item)} disabled={busy || item.pending} aria-expanded={editing}>
           <span className="visually-hidden">Edit </span><span className="shopping-item-info"><strong>{item.name}</strong><small>{steppable && item.unitLabel ? `${item.unitLabel} · ` : ''}{item.category || 'Grocery'}{note ? ` · ${note}` : ''}</small></span>
           {!steppable && listRowQuantity(item) && <span className="shopping-item-quantity">{listRowQuantity(item)}</span>}
         </button>
@@ -601,10 +656,11 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
 
   const findField = <div className="find-item">
     <label htmlFor="find-item">Find or add an item</label>
-    <input id="find-item" type="search" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key !== 'Enter' || event.nativeEvent.isComposing) return; if (enterSuggestion) quickAdd(enterSuggestion); else if (canCreate) addTyped(query.trim()) }} placeholder="Try eggs, rice, soap" maxLength={100} autoComplete="off" aria-describedby={term ? 'find-results' : undefined} />
+    <input id="find-item" type="search" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key !== 'Enter' || event.nativeEvent.isComposing) return; if (listMode) addList(); else if (addPending) setQuery(''); else if (enterSuggestion) quickAdd(enterSuggestion); else if (canCreate) addTyped(query.trim()) }} onPaste={pasteList} placeholder="Try eggs, rice, soap" maxLength={2000} autoComplete="off" aria-describedby={term || listNames.length ? 'find-results' : undefined} />
+    {listMode && listNames.length > 0 && <div id="find-results" className="find-results"><button className="find-new" type="button" onClick={addList} disabled={catalogQuery.data === undefined}><strong>{`Add ${listNames.length} ${listNames.length === 1 ? 'item' : 'items'}`}</strong><small>Exact matches come from your catalog; anything new goes under Other</small></button></div>}
     {term && <div id="find-results" className="find-results">
-      {suggestions.length > 0 && <ul aria-label="Add from your catalog">{suggestions.map((product) => <li key={product.id}><span><strong>{product.name}</strong><small>{product.category}{boughtBefore.has(String(product.id)) ? ' · on your last trip' : ''}</small></span><button className="catalog-small-button" type="button" onClick={() => quickAdd(product)} disabled={addingProductId !== null} aria-label={addingProductId === product.id ? undefined : `Add ${product.name}`}>{addingProductId === product.id ? 'Adding…' : 'Add'}</button></li>)}</ul>}
-      {canCreate && <button className="find-new" type="button" onClick={() => addTyped(query.trim())} disabled={addingProductId !== null}><strong>{addingProductId === NEW_PRODUCT ? 'Adding…' : `Add “${query.trim()}”`}</strong><small>New item in your catalog, under Other</small></button>}
+      {suggestions.length > 0 && <ul aria-label="Add from your catalog">{suggestions.map((product) => <li key={product.id}><span><strong>{product.name}</strong><small>{product.category}{boughtBefore.has(String(product.id)) ? ' · on your last trip' : ''}</small></span><button className="catalog-small-button" type="button" onClick={() => quickAdd(product)} aria-label={`Add ${product.name}`}>Add</button></li>)}</ul>}
+      {canCreate && <button className="find-new" type="button" onClick={() => addTyped(query.trim())}><strong>{`Add “${query.trim()}”`}</strong><small>New item in your catalog, under Other</small></button>}
       {!suggestions.length && !catalogQuery.loading && <div className="find-empty">{!canCreate && <p className="optional-help">{catalogMatches.length ? 'Already on this list.' : 'We could not load your catalog.'}</p>}<button className="find-catalog-link" type="button" onClick={() => onBrowseCatalog(query.trim())}>Find or create it in the catalog</button></div>}
     </div>}
   </div>
