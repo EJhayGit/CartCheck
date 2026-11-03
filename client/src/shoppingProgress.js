@@ -13,6 +13,17 @@ export function formatQuantity(item) {
   return item.unitLabel ? `${amount} ${item.unitLabel}` : amount
 }
 
+export const isWholeQuantity = (quantity) => /^\d+(\.0+)?$/.test(String(quantity))
+
+// The next whole quantity, or null when stepping does not apply. quantity is NUMERIC(12, 3), so 9 whole digits at most.
+export function stepQuantity(quantity, delta) {
+  const next = Number(quantity) + delta
+  return isWholeQuantity(quantity) && next >= 1 && next <= 999999999 ? String(next) : null
+}
+
+// A plain quantity of one says nothing, so list rows leave it out.
+export const listRowQuantity = (item) => Number(item.quantity) === 1 && !item.unitLabel ? '' : formatQuantity(item)
+
 export function sortShoppingItems(items, mode = 'default') {
   const sorted = [...items]
   if (mode === 'az') sorted.sort((a, b) => a.name.localeCompare(b.name))

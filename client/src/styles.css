@@ -188,6 +188,13 @@ input:focus, select:focus { border-color: var(--primary); }
 .shopping-item-info { display: grid; flex: 1; min-width: 0; gap: 2px; line-height: 1.35; }
 .shopping-item-info strong { overflow-wrap: anywhere; font-size: 16px; font-weight: 650; }
 .shopping-item-info small { color: var(--muted-text); font-size: 13px; font-variant-numeric: tabular-nums; }
+.shopping-item.has-stepper { grid-template-columns: var(--text-column) minmax(0, 1fr) auto; }
+.has-stepper .row-edit { padding-right: 4px; }
+.quantity-stepper { display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; }
+.quantity-step { display: grid; place-items: center; width: 44px; min-height: 44px; padding: 0; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--muted-text); transition: background-color .16s ease, color .16s ease; }
+.quantity-step:hover:not(:disabled) { background: var(--surface-hover); color: var(--text); }
+.quantity-step svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.quantity-value { min-width: 20px; color: var(--text); font-size: 15px; font-weight: 650; text-align: center; font-variant-numeric: tabular-nums; }
 .shopping-item-quantity { flex: none; color: var(--muted-text); font-size: 14px; font-weight: 650; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .is-purchased .shopping-item-info strong { color: var(--muted-text); text-decoration: line-through; text-decoration-color: var(--muted-decoration); text-decoration-thickness: 1.5px; }
 .is-editing { background: var(--surface-hover); }

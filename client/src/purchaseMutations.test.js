@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createDataCache } from './dataCache.js'
-import { createPurchaseMutations } from './purchaseMutations.js'
+import { createPurchaseMutations, mergePendingListResponse } from './purchaseMutations.js'
 
 const tick = () => new Promise((resolve) => setImmediate(resolve))
 function fixture() {
@@ -130,4 +130,66 @@ test('older list purchase responses preserve newer parent membership and revisio
   await tick()
   assert.equal(cache.get('list:list-1').data.revision, 4)
   assert.deepEqual(cache.get('list:list-1').data.items.map((item) => item.id), ['one', 'new-item'])
+})
+
+function quantityFixture() {
+  const cache = createDataCache()
+  cache.set('list:1', { revision: 1, items: [{ id: 'a', quantity: '2.000', bought: false }] })
+  const requests = []
+  const errors = []
+  const persist = (id, changes) => new Promise((resolve, reject) => requests.push({ id, changes, resolve, reject }))
+  const quantities = createPurchaseMutations(cache, persist, { field: 'quantity', listId: '1', onError: (message) => errors.push(message) })
+  quantities.subscribe()
+  return { cache, requests, errors, quantities, persist, item: () => cache.get('list:1').data.items[0] }
+}
+
+test('quantity taps apply at once and coalesce to the latest value', async () => {
+  const f = quantityFixture()
+  for (const value of ['3', '4', '5']) f.quantities.set('a', value)
+  assert.equal(f.item().quantity, '5')
+  assert.equal(f.requests.length, 1)
+  assert.deepEqual(f.requests[0].changes, { quantity: '3' })
+  f.requests[0].resolve({ item: { quantity: '3.000' } })
+  await tick()
+  assert.equal(f.item().quantity, '5')
+  assert.deepEqual(f.requests[1].changes, { quantity: '5' })
+  f.requests[1].resolve({ item: { quantity: '5.000' } })
+  await tick()
+  assert.equal(f.item().quantity, '5.000')
+  assert.equal(f.quantities.size, 0)
+})
+
+test('a failed quantity save rolls back to the last confirmed value and reports once', async () => {
+  const f = quantityFixture()
+  f.quantities.set('a', '3')
+  f.requests[0].reject(new Error('offline'))
+  await tick()
+  assert.equal(f.item().quantity, '2.000')
+  assert.equal(f.errors.length, 1)
+  assert.equal(f.quantities.size, 0)
+})
+
+test('quantity and purchase saves on one item never overwrite each other', async () => {
+  const f = quantityFixture()
+  const purchases = createPurchaseMutations(f.cache, f.persist, { listId: '1' })
+  purchases.subscribe()
+  f.quantities.set('a', '3')
+  purchases.set('a', true)
+  const [quantityRequest, purchaseRequest] = f.requests
+  // Each response is a full list snapshot that has not seen the other pending change.
+  purchaseRequest.resolve({ item: { bought: true }, list: { revision: 2, items: [{ id: 'a', quantity: '2.000', bought: true }] } })
+  await tick()
+  assert.equal(f.item().quantity, '3')
+  assert.equal(f.item().bought, true)
+  quantityRequest.resolve({ item: { quantity: '3.000' }, list: { revision: 3, items: [{ id: 'a', quantity: '3.000', bought: true }] } })
+  await tick()
+  assert.equal(Number(f.item().quantity), 3)
+  assert.equal(f.item().bought, true)
+})
+
+test('mergePendingListResponse keeps a pending quantity over a server snapshot', () => {
+  const f = quantityFixture()
+  f.quantities.set('a', '3')
+  const merged = mergePendingListResponse(f.cache, '1', { revision: 9, items: [{ id: 'a', quantity: '2.000', bought: false }] })
+  assert.equal(merged.items[0].quantity, '3')
 })

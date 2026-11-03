@@ -507,3 +507,100 @@ test('a failed add after create retries the same catalog item instead of a dupli
   await waitFor(() => assert.deepEqual(attempts, ['new-1', 'new-1']))
   assert.equal(posts.length, 1)
 })
+
+const stepperItems = [
+  { id: 'one', name: 'Milk', category: 'Dairy', quantity: '1.000', unitLabel: null, estimatedTotal: null, actualTotal: null, bought: false },
+  { id: 'three', name: 'Apples', category: 'Produce', quantity: '3.000', unitLabel: null, estimatedTotal: null, actualTotal: null, bought: false },
+  { id: 'unit', name: 'Soy sauce', category: 'Pantry', quantity: '2.000', unitLabel: 'bottles', estimatedTotal: null, actualTotal: null, bought: false },
+  { id: 'dec', name: 'Chicken', category: 'Meat', quantity: '1.500', unitLabel: 'kg', estimatedTotal: null, actualTotal: null, bought: false },
+  { id: 'done', name: 'Eggs', category: 'Dairy', quantity: '1.000', unitLabel: null, estimatedTotal: null, actualTotal: null, bought: true },
+  { id: 'done2', name: 'Rice', category: 'Pantry', quantity: '2.000', unitLabel: null, estimatedTotal: null, actualTotal: null, bought: true },
+]
+function stepperFixture(patch) {
+  const writes = []
+  mockFetch((url, options) => {
+    if (url.endsWith('/api/lists/trip-1') && !options.method) return json(seed(stepperItems))
+    if (url.includes('/api/lists/trip-1/items/') && options.method === 'PATCH') {
+      const body = JSON.parse(options.body)
+      writes.push(body)
+      const item = stepperItems.find((entry) => url.endsWith(entry.id))
+      return patch ? patch(body, item) : json({ item: { ...item, ...body } })
+    }
+    throw new Error(`Unexpected request: ${url}`)
+  })
+  shoppingFixture(stepperItems)
+  return writes
+}
+
+test('stepper shows on to-buy whole quantities only', async () => {
+  stepperFixture()
+  await screen.findByRole('checkbox', { name: 'Apples' })
+  assert.ok(screen.getByRole('button', { name: 'Increase Apples quantity' }))
+  assert.ok(screen.getByRole('button', { name: 'Decrease Apples quantity' }))
+  assert.equal(screen.getByRole('group', { name: 'Apples quantity' }).textContent, '3')
+  // Quantity 1 with no unit hides the number and can only go up.
+  assert.ok(screen.getByRole('button', { name: 'Increase Milk quantity' }))
+  assert.equal(screen.queryByRole('button', { name: 'Decrease Milk quantity' }), null)
+  assert.equal(screen.getByRole('group', { name: 'Milk quantity' }).textContent, '')
+  // The unit moves under the name; the number stays in the stepper.
+  assert.equal(screen.getByRole('group', { name: 'Soy sauce quantity' }).textContent, '2')
+  assert.match(screen.getByRole('button', { name: /Edit Soy sauce/ }).textContent, /bottles · Pantry/)
+  // Decimals and bought rows stay plain text.
+  assert.equal(screen.queryByRole('button', { name: 'Increase Chicken quantity' }), null)
+  assert.match(screen.getByRole('button', { name: /Edit Chicken/ }).textContent, /1\.5 kg/)
+  assert.equal(screen.queryByRole('button', { name: 'Increase Rice quantity' }), null)
+  assert.match(screen.getByRole('button', { name: /Edit Rice/ }).textContent, /2$/)
+  assert.doesNotMatch(screen.getByRole('button', { name: /Edit Eggs/ }).textContent, /1/)
+})
+
+test('stepping updates at once, saves the value and announces it', async () => {
+  const writes = stepperFixture()
+  fireEvent.click(await screen.findByRole('button', { name: 'Increase Apples quantity' }))
+  assert.equal(screen.getByRole('group', { name: 'Apples quantity' }).textContent, '4')
+  assert.ok(screen.getByText('Apples, quantity 4.'))
+  await waitFor(() => assert.deepEqual(writes, [{ quantity: '4' }]))
+})
+
+test('stepping down to one hides the minus and moves focus to plus', async () => {
+  const writes = stepperFixture()
+  const minus = await screen.findByRole('button', { name: 'Decrease Soy sauce quantity' })
+  minus.focus()
+  fireEvent.click(minus)
+  await waitFor(() => assert.equal(screen.queryByRole('button', { name: 'Decrease Soy sauce quantity' }), null))
+  assert.equal(screen.getByRole('group', { name: 'Soy sauce quantity' }).textContent, '1')
+  await waitFor(() => assert.equal(document.activeElement, screen.getByRole('button', { name: 'Increase Soy sauce quantity' })))
+  await waitFor(() => assert.deepEqual(writes, [{ quantity: '1' }]))
+})
+
+test('a failed step rolls back and shows a non-blocking error', async () => {
+  stepperFixture(() => json({ error: 'nope' }, 500))
+  fireEvent.click(await screen.findByRole('button', { name: 'Increase Apples quantity' }))
+  assert.equal(screen.getByRole('group', { name: 'Apples quantity' }).textContent, '4')
+  assert.match((await screen.findByRole('alert')).textContent, /Couldn't save that change/)
+  assert.equal(screen.getByRole('group', { name: 'Apples quantity' }).textContent, '3')
+  assert.ok(screen.getByRole('checkbox', { name: 'Apples' }))
+})
+
+test('tapping the name still opens the editor and hides that row stepper', async () => {
+  stepperFixture()
+  fireEvent.click(await screen.findByRole('button', { name: /Edit Apples/ }))
+  assert.equal(screen.getByLabelText('Quantity').value, '3')
+  assert.equal(screen.queryByRole('button', { name: 'Increase Apples quantity' }), null)
+})
+
+test('Finish waits for a pending quantity save', async () => {
+  const pending = deferred()
+  stepperFixture((body, item) => pending.promise.then(() => json({ item: { ...item, ...body } })))
+  fireEvent.click(await screen.findByRole('button', { name: 'Increase Apples quantity' }))
+  assert.equal(screen.getByRole('button', { name: 'Finish shopping' }).disabled, true)
+  pending.resolve()
+  await waitFor(() => assert.equal(screen.getByRole('button', { name: 'Finish shopping' }).disabled, false))
+})
+
+test('two taps before a re-render still count as two steps', async () => {
+  const { act } = await import('@testing-library/react')
+  stepperFixture()
+  const plus = await screen.findByRole('button', { name: 'Increase Apples quantity' })
+  act(() => { plus.click(); plus.click() })
+  assert.equal(screen.getByRole('group', { name: 'Apples quantity' }).textContent, '5')
+})
