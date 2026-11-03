@@ -179,7 +179,7 @@ test('named lists, item snapshots, transactional completion, history and ownersh
     assert.equal((await load(first.tripId)).items.length, 2)
   })
   let completed
-  await t.test('completion is revision guarded, transactional, idempotent and creates no replacement', async () => {
+  await t.test('completion is revision guarded, transactional, idempotent and keeps the list active', async () => {
     const review = await load(first.tripId)
     const finish = (cookie, revision) => call(`/api/trips/${first.tripId}/finish`, { cookie, method: 'POST', body: { revision } })
     assert.equal((await finish(b, review.revision)).status, 404)
@@ -189,28 +189,39 @@ test('named lists, item snapshots, transactional completion, history and ownersh
     const bodies = await Promise.all(results.map((r) => r.json()))
     completed = bodies[0].completedTrip
     assert.equal(bodies[1].completedTrip.id, completed.id)
-    assert.equal(Object.hasOwn(bodies[0], 'activeTrip'), false)
+    assert.notEqual(completed.id, first.tripId)
+    assert.equal(completed.status, 'completed')
+    assert.equal(completed.budget, '250.50')
+    assert.equal(completed.items.length, 2)
     assert.equal(completed.name, 'Family 🛒')
     assert.equal(completed.currency, 'PHP')
     assert.equal(completed.items[0].bought, true)
     assert.equal(completed.items[1].bought, false)
     assert.ok(completed.items.every((v) => v.productId === null))
     assert.equal(completed.items[0].actualTotal, '0.00')
+    assert.equal(completed.items[1].actualTotal, '99.00', 'the snapshot keeps prices as recorded')
     const active = (await (await call('/api/lists', { cookie: a })).json()).items
-    assert.deepEqual(active.map((v) => v.tripId), [second.tripId])
+    assert.deepEqual(active.map((v) => v.tripId).sort(), [first.tripId, second.tripId].sort())
     assert.equal((await load(second.tripId)).items.length, 0)
-    assert.equal((await finish(a, review.revision)).status, 200)
-    assert.equal((await (await call('/api/lists', { cookie: a })).json()).items.length, 1)
-    assert.equal((await (await call(`/api/lists/${first.tripId}`, { cookie: a })).json()).completedTrip.id, completed.id)
+    const kept = await load(first.tripId)
+    assert.equal(kept.status, 'active')
+    assert.equal(kept.budget, '250.50')
+    assert.ok(kept.revision > review.revision)
+    assert.equal(kept.items.length, 1)
+    assert.equal(kept.items[0].id, unchecked.id)
+    assert.equal(kept.items[0].productId, custom.id)
+    assert.equal(kept.items[0].quantity, '2.500')
+    assert.equal(kept.items[0].unitLabel, 'kg')
+    assert.equal(kept.items[0].bought, false)
+    assert.equal(kept.items[0].estimatedTotal, null)
+    assert.equal(kept.items[0].actualTotal, null)
+    const retried = await finish(a, review.revision)
+    assert.equal(retried.status, 200)
+    assert.equal((await retried.json()).completedTrip.id, completed.id)
+    assert.equal((await (await call('/api/trips', { cookie: a })).json()).items.length, 1, 'retries create no duplicate trip')
     assert.equal((await call(`/api/lists/${first.tripId}`, { cookie: b })).status, 404)
-    for (const operation of [
-      patch(first.tripId, { name: 'Cannot rename' }),
-      patch(first.tripId, { budget: '9' }),
-      edit(first.tripId, item.id, { bought: false }),
-      remove(first.tripId, item.id),
-      call(`/api/lists/${first.tripId}`, { cookie: a, method: 'DELETE' }),
-      call(`/api/lists/${first.tripId}/items`, { cookie: a, method: 'POST', body: { productId: apples.id } }),
-    ]) assert.equal((await operation).status, 404)
+    assert.equal((await edit(first.tripId, item.id, { bought: false })).status, 404, 'a bought item left with the trip')
+    assert.equal((await remove(first.tripId, item.id)).status, 404)
     const emptyReview = await load(second.tripId)
     assert.equal((await call(`/api/trips/${second.tripId}/finish`, { cookie: a, method: 'POST', body: { revision: emptyReview.revision } })).status, 400)
   })
@@ -231,6 +242,7 @@ test('named lists, item snapshots, transactional completion, history and ownersh
     assert.equal(corrected.completedAt, completed.completedAt)
     assert.equal(corrected.currency, completed.currency)
     assert.equal((await correct(a, completed.revision, completed.items)).status, 409)
+    assert.equal((await remove(first.tripId, unchecked.id)).status, 200, 'the kept item still holds its catalog product')
     assert.equal((await call(`/api/catalog/${custom.id}`, { cookie: a, method: 'DELETE' })).status, 204)
     const persisted = (await (await call(`/api/trips/${completed.id}`, { cookie: a })).json()).trip
     assert.equal(persisted.items[1].name, 'Snapshot flour')
@@ -240,10 +252,12 @@ test('named lists, item snapshots, transactional completion, history and ownersh
   await t.test('confirmed active deletion removes only selected list and leaves history/other accounts', async () => {
     await add(second.tripId, apples.id)
     assert.equal((await call(`/api/lists/${second.tripId}`, { cookie: a, method: 'DELETE' })).status, 204)
-    assert.deepEqual((await (await call('/api/lists', { cookie: a })).json()).items, [])
+    assert.deepEqual((await (await call('/api/lists', { cookie: a })).json()).items.map((v) => v.tripId), [first.tripId])
     assert.equal((await (await call('/api/trips', { cookie: a })).json()).items.length, 1)
     assert.equal((await load(foreign.tripId, b)).items.length, 1)
     assert.equal((await call(`/api/lists/${second.tripId}`, { cookie: a })).status, 404)
+    assert.equal((await call(`/api/lists/${first.tripId}`, { cookie: a, method: 'DELETE' })).status, 204)
+    assert.equal((await call(`/api/trips/${completed.id}`, { cookie: a })).status, 200, 'deleting a list keeps its saved trips')
   })
   await t.test('concurrent edit/finish and delete/finish serialize on the selected parent', async () => {
     const list = await create(a, { name: 'Edit race' })
@@ -253,12 +267,13 @@ test('named lists, item snapshots, transactional completion, history and ownersh
       call(`/api/trips/${list.tripId}/finish`, { cookie: a, method: 'POST', body: { revision: review.revision } }),
       edit(list.tripId, entry.id, { bought: true }),
     ])
-    assert.ok((finished.status === 200 && edited.status === 404) || (finished.status === 409 && edited.status === 200))
+    assert.equal(edited.status, 200, 'an unbought item stays on the list whichever request wins')
+    assert.ok([200, 409].includes(finished.status))
     if (finished.status === 409) {
       const fresh = await load(list.tripId)
       assert.equal((await call(`/api/trips/${list.tripId}/finish`, { cookie: a, method: 'POST', body: { revision: fresh.revision } })).status, 200)
     }
-    assert.equal((await call(`/api/lists/${list.tripId}`, { cookie: a, method: 'DELETE' })).status, 404)
+    assert.equal((await call(`/api/lists/${list.tripId}`, { cookie: a, method: 'DELETE' })).status, 204)
     const deleting = await create(a, { name: 'Delete race' })
     await add(deleting.tripId, apples.id)
     const fresh = await load(deleting.tripId)
@@ -266,9 +281,14 @@ test('named lists, item snapshots, transactional completion, history and ownersh
       call(`/api/trips/${deleting.tripId}/finish`, { cookie: a, method: 'POST', body: { revision: fresh.revision } }),
       call(`/api/lists/${deleting.tripId}`, { cookie: a, method: 'DELETE' }),
     ])
-    assert.ok((finishResponse.status === 200 && deleteResponse.status === 404) || (finishResponse.status === 404 && deleteResponse.status === 204))
+    assert.equal(deleteResponse.status, 204)
+    assert.ok([200, 404].includes(finishResponse.status))
+    if (finishResponse.status === 200) {
+      const saved = (await finishResponse.json()).completedTrip
+      assert.equal((await call(`/api/trips/${saved.id}`, { cookie: a })).status, 200, 'the saved trip survives the delete')
+    }
     assert.deepEqual((await (await call('/api/lists', { cookie: a })).json()).items, [])
-    if (deleteResponse.status === 204) assert.equal((await db.query('SELECT count(*)::int AS count FROM cartcheck.trip_items WHERE trip_id=$1', [deleting.tripId])).rows[0].count, 0)
+    assert.equal((await db.query('SELECT count(*)::int AS count FROM cartcheck.trip_items WHERE trip_id=$1', [deleting.tripId])).rows[0].count, 0)
     const itemRace = await create(a, { name: 'Item delete race' })
     const itemEntry = (await add(itemRace.tripId, apples.id)).item
     const [deleteItem, updateItem] = await Promise.all([
@@ -281,8 +301,22 @@ test('named lists, item snapshots, transactional completion, history and ownersh
     const completedRows = await db.query("SELECT id FROM cartcheck.shopping_trips WHERE user_id=(SELECT id FROM cartcheck.users WHERE email=$1) AND status='completed' ORDER BY id LIMIT 2", [emails[0]])
     await db.query("UPDATE cartcheck.shopping_trips SET completed_at='2026-10-01T12:00:00.123900Z' WHERE id=$1", [completedRows.rows[0].id])
     await db.query("UPDATE cartcheck.shopping_trips SET completed_at='2026-10-01T12:00:00.123800Z' WHERE id=$1", [completedRows.rows[1].id])
-    const historyPage = await (await call('/api/trips?limit=1', { cookie: a })).json()
-    const historyNext = await (await call('/api/trips?limit=1&cursor=' + encodeURIComponent(historyPage.nextCursor), { cookie: a })).json()
+    const historyPageAfter = async (page) => (await call('/api/trips?limit=1' + (page ? '&cursor=' + encodeURIComponent(page.nextCursor) : ''), { cookie: a })).json()
+    // A trip saved by the delete race above is newer than the pinned rows, so walk to them.
+    let historyPage = await historyPageAfter()
+    while (historyPage.items[0].id !== String(completedRows.rows[0].id)) historyPage = await historyPageAfter(historyPage)
+    const historyNext = await historyPageAfter(historyPage)
     assert.equal(historyNext.items[0].id, String(completedRows.rows[1].id), 'historical microsecond pagination must preserve all rows')
+    const clearing = await create(a, { name: 'Clear choice' })
+    await add(clearing.tripId, apples.id)
+    const clearReview = await load(clearing.tripId)
+    const cleared = await call(`/api/trips/${clearing.tripId}/finish`, { cookie: a, method: 'POST', body: { revision: clearReview.revision, remaining: 'clear' } })
+    assert.equal(cleared.status, 200)
+    const clearedBody = await cleared.json()
+    assert.equal(clearedBody.list.items.length, 0)
+    assert.equal(clearedBody.completedTrip.items.length, 1)
+    assert.equal(clearedBody.completedTrip.items[0].bought, false)
+    assert.equal((await call(`/api/trips/${clearing.tripId}/finish`, { cookie: a, method: 'POST', body: { revision: clearReview.revision, remaining: 'other' } })).status, 400)
+    await call(`/api/lists/${clearing.tripId}`, { cookie: a, method: 'DELETE' })
   })
 })

@@ -16,6 +16,8 @@ Migration `004_multiple_named_lists.sql` adds required list names and update tim
 
 The client and API use explicit list IDs. Registration and finishing no longer create an automatic empty list; users create lists explicitly. Legacy `/api/cart` endpoints are retired. Old server code depends on the removed unique index and cannot safely overlap the new schema.
 
+Migration `005_finish_keeps_list.sql` adds `finished_from_list_id` and `finished_from_revision` to `shopping_trips`, with a partial unique index on the pair. Finishing now saves the trip as a new row and leaves the list row active, so this link is how a retry finds its saved trip. It adds nullable columns only and backfills nothing; trips finished earlier keep their IDs and data. Old server code would still finish by completing the list row, so release the matching client and server together.
+
 Before an approved release to a retained database:
 
 1. Inspect migration checksums, schema constraints, candidate backfill counts, and invalid existing names using read-only queries.

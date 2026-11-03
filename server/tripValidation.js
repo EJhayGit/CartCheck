@@ -12,6 +12,18 @@ export function validateRevision(value) {
   return { revision: value }
 }
 
+export function validateFinish(body) {
+  if (!body || typeof body !== 'object' || Array.isArray(body) || !Object.hasOwn(body, 'revision') ||
+      Object.keys(body).some((key) => !['revision', 'remaining'].includes(key))) {
+    return { error: 'Provide the reviewed trip revision' }
+  }
+  const revision = validateRevision(body.revision)
+  if (revision.error) return revision
+  const remaining = body.remaining ?? 'keep'
+  if (!['keep', 'clear'].includes(remaining)) return { error: 'Choose to keep the not-bought items or clear the list' }
+  return { revision: revision.revision, remaining }
+}
+
 export function validateCorrection(body) {
   if (!body || typeof body !== 'object' || Array.isArray(body) ||
       Object.keys(body).length !== 2 || !Object.hasOwn(body, 'revision') || !Object.hasOwn(body, 'items')) {

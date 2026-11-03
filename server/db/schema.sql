@@ -72,6 +72,8 @@ CREATE TABLE IF NOT EXISTS cartcheck.shopping_trips (
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   completed_at TIMESTAMPTZ,
+  finished_from_list_id BIGINT REFERENCES cartcheck.shopping_trips(id) ON DELETE SET NULL,
+  finished_from_revision INTEGER,
   CONSTRAINT shopping_trips_id_user_unique UNIQUE (id, user_id),
   CONSTRAINT shopping_trips_name_valid CHECK (
     char_length(name) BETWEEN 1 AND 100 AND
@@ -120,6 +122,9 @@ CREATE INDEX IF NOT EXISTS products_user_category_idx
   ON cartcheck.products (user_id, category);
 CREATE INDEX IF NOT EXISTS shopping_trips_user_completed_idx
   ON cartcheck.shopping_trips (user_id, completed_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS shopping_trips_finished_from_idx
+  ON cartcheck.shopping_trips (finished_from_list_id, finished_from_revision)
+  WHERE finished_from_list_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS shopping_trips_active_updated_idx
   ON cartcheck.shopping_trips (user_id, updated_at DESC, id DESC) WHERE status = 'active';
 CREATE INDEX IF NOT EXISTS trip_items_trip_id_idx

@@ -1,3 +1,5 @@
+import { getActiveListDetail } from './listRepo.js'
+
 function mapItem(row) {
   return {
     id: String(row.id), productId: row.product_id === null ? null : String(row.product_id),
@@ -36,7 +38,7 @@ async function detail(queryable, userId, row) {
     summary: await tripSummary(queryable, userId, row.id) }
 }
 
-export async function finishTrip(pool, userId, tripId, revision) {
+export async function finishTrip(pool, userId, tripId, revision, remaining = 'keep') {
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
@@ -49,20 +51,52 @@ export async function finishTrip(pool, userId, tripId, revision) {
     if (trip.status === 'completed') {
       const completedTrip = await detail(client, userId, trip)
       await client.query('COMMIT')
-      return { completedTrip }
+      return { completedTrip, list: null }
     }
-    if (trip.revision !== revision) { await client.query('ROLLBACK'); return { error: 'stale' } }
+    if (trip.revision !== revision) {
+      // The list row stays active, so a retry after a lost response finds its trip through this link.
+      const saved = await client.query(
+        `SELECT id, name, status, currency, budget, revision, created_at, updated_at, completed_at FROM cartcheck.shopping_trips
+         WHERE user_id = $1 AND finished_from_list_id = $2 AND finished_from_revision = $3`, [userId, tripId, revision]
+      )
+      if (!saved.rows[0]) { await client.query('ROLLBACK'); return { error: 'stale' } }
+      const completedTrip = await detail(client, userId, saved.rows[0])
+      const list = await getActiveListDetail(client, userId, tripId)
+      await client.query('COMMIT')
+      return { completedTrip, list }
+    }
     const count = await client.query('SELECT count(*)::int AS count FROM cartcheck.trip_items WHERE user_id = $1 AND trip_id = $2', [userId, tripId])
     if (!count.rows[0].count) { await client.query('ROLLBACK'); return { error: 'empty' } }
     const completed = await client.query(
-      `UPDATE cartcheck.shopping_trips SET status = 'completed', completed_at = now(), updated_at = now(), revision = revision + 1
-       WHERE id = $1 AND user_id = $2 AND status = 'active'
-       RETURNING id, name, status, currency, budget, revision, created_at, updated_at, completed_at`, [tripId, userId]
+      `INSERT INTO cartcheck.shopping_trips (user_id, name, status, currency, budget, created_at, updated_at, completed_at,
+         finished_from_list_id, finished_from_revision)
+       VALUES ($1, $2, 'completed', $3, $4, $5, now(), now(), $6, $7)
+       RETURNING id, name, status, currency, budget, revision, created_at, updated_at, completed_at`,
+      [userId, trip.name, trip.currency, trip.budget, trip.created_at, tripId, revision]
     )
-    await client.query('UPDATE cartcheck.trip_items SET product_id = NULL WHERE user_id = $1 AND trip_id = $2', [userId, tripId])
+    await client.query(
+      `INSERT INTO cartcheck.trip_items (user_id, trip_id, product_id, name, category, quantity, unit_label,
+         estimated_total, actual_total, bought, created_at)
+       SELECT user_id, $3, NULL, name, category, quantity, unit_label, estimated_total, actual_total, bought, created_at
+       FROM cartcheck.trip_items WHERE user_id = $1 AND trip_id = $2 ORDER BY created_at, id`,
+      [userId, tripId, completed.rows[0].id]
+    )
+    await client.query(
+      `DELETE FROM cartcheck.trip_items WHERE user_id = $1 AND trip_id = $2${remaining === 'keep' ? ' AND bought' : ''}`,
+      [userId, tripId]
+    )
+    await client.query(
+      `UPDATE cartcheck.trip_items SET bought = false, estimated_total = NULL, actual_total = NULL, updated_at = now()
+       WHERE user_id = $1 AND trip_id = $2`, [userId, tripId]
+    )
+    await client.query(
+      `UPDATE cartcheck.shopping_trips SET revision = revision + 1, updated_at = now()
+       WHERE id = $1 AND user_id = $2 AND status = 'active'`, [tripId, userId]
+    )
     const completedTrip = await detail(client, userId, completed.rows[0])
+    const list = await getActiveListDetail(client, userId, tripId)
     await client.query('COMMIT')
-    return { completedTrip }
+    return { completedTrip, list }
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {})
     throw error
