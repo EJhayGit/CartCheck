@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { isItemList, matchTier, parseItemList, rankSuggestions, resolveItemList } from './findSuggestions.js'
+import { isItemList, lastTripProductIds, matchTier, parseItemList, rankSuggestions, resolveItemList } from './findSuggestions.js'
 
 const products = (...names) => names.map((name, index) => ({ id: index + 1, name }))
 const ranked = (names, term, lastTrip = []) => {
@@ -85,4 +85,13 @@ test('resolveItemList collapses plurals and skips names already being added', ()
     entries: [{ name: 'Bananas', product: products[0] }, { name: 'apple', product: null }],
     skipped: ['soap'],
   })
+})
+
+test('last trip items match the catalog by name because snapshots keep no product id', () => {
+  const catalog = products('Almond milk', 'Fresh milk', 'Eggs')
+  const tripItems = [{ productId: null, name: 'fresh MILK', bought: false }, { productId: null, name: 'Deleted item', bought: true }]
+  const ids = lastTripProductIds(catalog, tripItems)
+  assert.deepEqual([...ids], ['2'])
+  assert.deepEqual(rankSuggestions(catalog, 'milk', ids).map((item) => item.name), ['Fresh milk', 'Almond milk'])
+  assert.deepEqual([...lastTripProductIds(catalog)], [])
 })

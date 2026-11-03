@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createCatalogItem, deleteListItem, finishTrip, getCatalog, getList, getTrip, getTrips, updateList, updateListItem } from './api/httpApi.js'
 import { formatQuantity, getShoppingProgress, isWholeQuantity, listRowQuantity, sortShoppingItems, stepQuantity } from './shoppingProgress.js'
-import { isItemList, matchTier, parseItemList, rankSuggestions, resolveItemList } from './findSuggestions.js'
+import { isItemList, lastTripProductIds, matchTier, parseItemList, rankSuggestions, resolveItemList } from './findSuggestions.js'
 import { budgetProgress, formatMoney, moneySummary, normalizeMoney } from './money.js'
 import { createPurchaseMutations, mergePendingListResponse } from './purchaseMutations.js'
 import { useDataCache, useDataQuery } from './dataCache.jsx'
@@ -576,7 +576,7 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
   ].filter(Boolean).join(' · ')
   const onList = new Set(items.map((item) => String(item.productId)))
   const catalogItems = Array.isArray(catalogQuery.data) ? catalogQuery.data : catalogQuery.data?.items || []
-  const boughtBefore = new Set((lastTripQuery.data?.trip?.items || []).map((entry) => String(entry.productId)))
+  const boughtBefore = lastTripProductIds(catalogItems, lastTripQuery.data?.trip?.items)
   const catalogMatches = rankSuggestions(catalogItems, term, boughtBefore)
   const suggestions = catalogMatches.filter((product) => !onList.has(String(product.id))).slice(0, 5)
   // A loaded catalog with no exact match can offer a create, so an item is never duplicated.
