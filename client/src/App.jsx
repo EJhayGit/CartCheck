@@ -310,11 +310,12 @@ export default function App() {
     } finally { setBusy(false) }
   }
 
-  async function addItem(productId, destinationId) {
+  async function addItem(productId, destinationId, { reload = true } = {}) {
     if (!destinationId) throw new Error('Choose a list before adding this item.')
     const generation = accountGeneration.current
     const key = `list:${destinationId}`
-    const selectedList = await dataCache.load(key, (signal) => getList(destinationId, { signal }), { force: true })
+    // The list screen already shows this list, and the server rejects a finished one.
+    const selectedList = reload || !dataCache.get(key).data ? await dataCache.load(key, (signal) => getList(destinationId, { signal }), { force: true }) : dataCache.get(key).data
     if (selectedList?.completedTrip || selectedList?.status === 'completed') throw new Error('This list is finished. Choose another active list.')
     if (generation !== accountGeneration.current || !dataCache.alive) return
     const release = dataCache.beginMutation(key)
@@ -519,7 +520,7 @@ export default function App() {
       {privateReady ? <DataCacheProvider key={`${user.id}:${renderedGeneration}`} cache={dataCache} onRevalidate={validatePrivateSession}><div id="main-content" tabIndex="-1">
         {error && <p className="alert" role="alert">{error}</p>}
         {page === 'lists' && <Lists onOpenList={(id) => navigate('list', id)} onOpenTrip={(id) => navigate('trips', id)} preferredCurrency={preferredCurrency} flash={flash} />}
-        {page === 'list' && <ListRoute key={`${user.id}:${routeListId}`} listId={routeListId} editItem={requestedEdit} onEditHandled={() => setRequestedEdit(null)} onBrowseCatalog={(search) => browseCatalog(routeListId, search)} onQuickAdd={(productId) => addItem(productId, routeListId)} onBackToLists={(finished) => navigate('lists', null, { replace: true, flash: finished?.notice ? finished : null })} onOpenList={(id) => navigate('list', id)} onOpenTrip={(id) => navigate('trips', id)} onMutationPending={reportCartPending} onReviewChange={setReviewOpen} />}
+        {page === 'list' && <ListRoute key={`${user.id}:${routeListId}`} listId={routeListId} editItem={requestedEdit} onEditHandled={() => setRequestedEdit(null)} onBrowseCatalog={(search) => browseCatalog(routeListId, search)} onQuickAdd={(productId) => addItem(productId, routeListId, { reload: false })} onBackToLists={(finished) => navigate('lists', null, { replace: true, flash: finished?.notice ? finished : null })} onOpenList={(id) => navigate('list', id)} onOpenTrip={(id) => navigate('trips', id)} onMutationPending={reportCartPending} onReviewChange={setReviewOpen} />}
         {catalogVisited && page === 'catalog' && <Catalog key={catalogSearch} active destinationId={catalogDestinationId} initialSearch={catalogSearch} onAdd={addItem} onAddPending={reportCatalogAddPending} onManageLists={() => navigate('lists')} onOpenList={(id) => navigate('list', id)} />}
         {page === 'trips' && <Trips key={`${user.id}:${routeListId ?? ''}`} initialTripId={routeListId} onReviewChange={setReviewOpen} onOpenList={(id) => navigate('list', id)} />}
         {page === 'settings' && <main className="settings-main">

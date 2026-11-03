@@ -604,3 +604,57 @@ test('two taps before a re-render still count as two steps', async () => {
   act(() => { plus.click(); plus.click() })
   assert.equal(screen.getByRole('group', { name: 'Apples quantity' }).textContent, '5')
 })
+
+test('adds show at once, keep the field free, and save one at a time in order', async () => {
+  const started = []
+  const finishers = []
+  typedItemFixture({
+    catalog: [{ id: 'p-1', name: 'Eggs', category: 'Dairy' }, { id: 'p-2', name: 'Milk', category: 'Dairy' }],
+    onQuickAdd: (id) => { started.push(id); return new Promise((resolve) => finishers.push(resolve)) },
+  })
+  const field = await typeInFind('eggs')
+  await screen.findByRole('button', { name: 'Add Eggs' })
+  fireEvent.keyDown(field, { key: 'Enter' })
+  assert.equal(field.value, '')
+  assert.ok(await screen.findByText('Eggs'))
+  fireEvent.change(field, { target: { value: 'milk' } })
+  await screen.findByRole('button', { name: 'Add Milk' })
+  fireEvent.keyDown(field, { key: 'Enter' })
+  assert.ok(await screen.findByText('Milk'))
+  await waitFor(() => assert.deepEqual(started, ['p-1']))
+  assert.equal(screen.getByRole('checkbox', { name: 'Eggs' }).disabled, true)
+  finishers[0]()
+  await waitFor(() => assert.deepEqual(started, ['p-1', 'p-2']))
+  finishers[1]()
+  await waitFor(() => assert.equal(screen.queryByRole('checkbox', { name: 'Milk' }), null))
+})
+
+test('a failed add removes the row, names it and returns it to an empty field', async () => {
+  typedItemFixture({
+    catalog: [{ id: 'p-1', name: 'Eggs', category: 'Dairy' }],
+    onQuickAdd: async () => { throw new Error('Offline') },
+  })
+  const field = await typeInFind('eggs')
+  await screen.findByRole('button', { name: 'Add Eggs' })
+  fireEvent.keyDown(field, { key: 'Enter' })
+  assert.match((await screen.findByRole('alert')).textContent, /We could not add Eggs\. Offline/)
+  assert.equal(field.value, 'Eggs')
+  assert.equal(screen.queryByRole('checkbox', { name: 'Eggs' }), null)
+})
+
+test('a typed list adds exact matches, creates the rest and reports what is on the list', async () => {
+  const added = []
+  const posts = []
+  typedItemFixture({
+    catalog: [{ id: 'p-1', name: 'Eggs', category: 'Dairy' }, { id: 'p-2', name: 'Hamburger buns', category: 'Bakery' }, { id: 'p-3', name: 'Rice', category: 'Pantry' }],
+    items: [{ ...cartItem, id: 'on-list', name: 'Rice', productId: 'p-3' }],
+    onQuickAdd: async (id) => { added.push(id) },
+    createResponse: (body) => { posts.push(body); return json({ item: { id: 'new-1', ...body } }, 201) },
+  })
+  const field = await typeInFind('egg, ham, rice')
+  fireEvent.click(await screen.findByRole('button', { name: /^Add 3 items/ }))
+  assert.equal(field.value, '')
+  await waitFor(() => assert.deepEqual(added, ['p-1', 'new-1']))
+  assert.deepEqual(posts, [{ name: 'ham', category: 'Other' }])
+  assert.ok(screen.getByText('Already on this list: rice.'))
+})
