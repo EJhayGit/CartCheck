@@ -71,3 +71,44 @@ test('Catalog ignores a delayed list page when the active cursor changes', async
   assert.equal(within(destination).queryByRole('option', { name: 'List stale-result' }), null)
   assert.equal(cache.get('lists').data.nextCursor, 'fresh-cursor')
 })
+
+function renderInstantAdd(onAdd, onAddPending = noop) {
+  globalThis.fetch = async (url) => {
+    if (String(url) === '/api/lists') return json({ items: [summary(1, 'Groceries')], nextCursor: null })
+    if (String(url) === '/api/catalog') return json({ items: [{ id: 'p-1', name: 'Eggs', category: 'Other', source: 'custom' }, { id: 'p-2', name: 'Milk', category: 'Other', source: 'custom' }] })
+    if (String(url) === '/api/lists/1') return json({ tripId: '1', name: 'Groceries', currency: 'PHP', items: [] })
+    throw new Error(`Unexpected request: ${url}`)
+  }
+  render(React.createElement(DataCacheProvider, null, React.createElement(Catalog, { destinationId: '1', onAdd, onAddPending, onOpenList: noop })))
+}
+
+test('Catalog adds show at once and save one at a time until the queue is empty', async () => {
+  const saves = []
+  const started = []
+  const pending = []
+  renderInstantAdd((id) => { started.push(id); const save = deferred(); saves.push(save); return save.promise }, (value) => pending.push(value))
+  fireEvent.click(await screen.findByRole('button', { name: 'Add Eggs' }))
+  assert.equal(screen.getByRole('button', { name: 'Change amount of Eggs' }).disabled, true)
+  assert.match(screen.getByRole('status').textContent, /1 added/)
+  fireEvent.click(screen.getByRole('button', { name: 'Add Milk' }))
+  assert.match(screen.getByRole('status').textContent, /2 added/)
+  assert.equal(screen.getByRole('button', { name: 'Saving…' }).disabled, true)
+  await waitFor(() => assert.deepEqual(started, ['p-1']))
+  await act(async () => saves[0].resolve({ created: true }))
+  await waitFor(() => assert.deepEqual(started, ['p-1', 'p-2']))
+  assert.equal(pending.at(-1), true)
+  await act(async () => saves[1].resolve({ created: true }))
+  await waitFor(() => assert.equal(pending.at(-1), false))
+  assert.ok(screen.getByRole('button', { name: 'Back to list' }))
+})
+
+test('a failed Catalog add undoes the label and count, names the item and keeps later adds', async () => {
+  const started = []
+  renderInstantAdd(async (id) => { started.push(id); if (id === 'p-1') throw new Error('Offline'); return { created: true } })
+  fireEvent.click(await screen.findByRole('button', { name: 'Add Eggs' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Add Milk' }))
+  assert.match((await screen.findByRole('alert')).textContent, /We could not add Eggs.*Offline/)
+  await waitFor(() => assert.deepEqual(started, ['p-1', 'p-2']))
+  await screen.findByRole('button', { name: 'Add Eggs' })
+  assert.match(screen.getByRole('status').textContent, /1 added/)
+})

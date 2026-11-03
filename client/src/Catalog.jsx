@@ -22,7 +22,7 @@ export default function Catalog({ onAdd, onAddPending, active = true, destinatio
   const [form, setForm] = useState(EMPTY_ITEM)
   const [formError, setFormError] = useState('')
   const [busy, setBusy] = useState(false)
-  const [addingId, setAddingId] = useState(null)
+  const [pendingAdds, setPendingAdds] = useState(() => new Set())
   const [selectedDestination, setSelectedDestination] = useState(() => {
     if (destinationId) return destinationId
     try { return window.localStorage.getItem(DESTINATION_KEY) || '' } catch { return '' }
@@ -38,6 +38,8 @@ export default function Catalog({ onAdd, onAddPending, active = true, destinatio
   const destinationQuery = useDataQuery(`list:${destination || 'none'}`, (signal) => getList(destination, { signal }), { enabled: active && Boolean(destination) })
   const mutationBusyRef = useRef(false)
   const addBusyRef = useRef(false)
+  const addQueue = useRef(Promise.resolve())
+  const pendingAddIds = useRef(new Set())
   const pageBusyRef = useRef(false)
   const pageSessionRef = useRef(0)
   const mountedRef = useRef(false)
@@ -194,20 +196,34 @@ export default function Catalog({ onAdd, onAddPending, active = true, destinatio
     }
   }
 
-  async function add(item) {
-    if (mutationBusyRef.current || addBusyRef.current) return
-    addBusyRef.current = true
-    setNotice('')
-    setOperationError('')
-    setAddingId(item.id)
-    onAddPending(true)
+  async function saveAdd(item, targetId, counted) {
+    const undoCount = () => setAdded((current) => ({ count: current.count - 1, last: current.last === item.name ? '' : current.last }))
     try {
-      if (!destination) { setOperationError('Choose a list before adding this item.'); return }
-      const result = await onAdd(item.id, destination)
-      if (result?.created && mountedRef.current) setAdded((current) => ({ count: current.count + 1, last: item.name }))
+      const result = await onAdd(item.id, targetId)
+      if (counted && !result?.created && mountedRef.current) undoCount()
     } catch (caught) {
+      if (counted && mountedRef.current) undoCount()
       setOperationError(`We could not add ${item.name} to your shopping list. ${caught.message}`)
-    } finally { addBusyRef.current = false; onAddPending(false); setAddingId(null) }
+    } finally {
+      pendingAddIds.current.delete(item.id)
+      setPendingAdds(new Set(pendingAddIds.current))
+      if (!pendingAddIds.current.size) { addBusyRef.current = false; onAddPending(false) }
+    }
+  }
+
+  function add(item, listed) {
+    if (mutationBusyRef.current || pendingAddIds.current.has(item.id)) return
+    setNotice('')
+    if (!destination) { setOperationError('Choose a list before adding this item.'); return }
+    if (!pendingAddIds.current.size) setOperationError('')
+    addBusyRef.current = true
+    pendingAddIds.current.add(item.id)
+    setPendingAdds(new Set(pendingAddIds.current))
+    onAddPending(true)
+    // Change opens an existing entry, so only a new item counts as added.
+    if (!listed) setAdded((current) => ({ count: current.count + 1, last: item.name }))
+    // One at a time, so an older list response can never overwrite a newer one.
+    addQueue.current = addQueue.current.then(() => saveAdd(item, destination, !listed))
   }
 
   const queryError = catalogQuery.error && 'We could not load your catalog. Check your connection and try again.'
@@ -231,7 +247,7 @@ export default function Catalog({ onAdd, onAddPending, active = true, destinatio
       </form></section>
     </> : <>
       <div className="catalog-heading"><div><h1>Catalog</h1><p className="catalog-subtitle">Your reusable groceries. Catalog items never carry prices.</p></div><button className="catalog-button secondary" type="button" onClick={openCreate}>New item</button></div>
-      {destinationId ? <p className="catalog-notice catalog-destination">Adding to <strong>{destinationName}</strong></p> : <section className="catalog-panel catalog-tools catalog-destination-select"><label htmlFor="catalog-destination">Add items to</label>{listsQuery.data?.items?.length ? <><select id="catalog-destination" value={listedDestination} onChange={(event) => { setSelectedDestination(event.target.value); setAdded({ count: 0, last: '' }); try { window.localStorage.setItem(DESTINATION_KEY, event.target.value) } catch { /* Storage is optional. */ } }}><option value="">Choose a list</option>{listsQuery.data.items.map((list) => <option key={list.tripId ?? list.id} value={list.tripId ?? list.id}>{list.name}</option>)}</select>{listsQuery.data?.nextCursor && <button className="catalog-button secondary" type="button" onClick={loadMoreLists} disabled={pageBusy}>{pageBusy ? 'Loading…' : 'Load more lists'}</button>}</> : <><p className="optional-help">Create a list before adding groceries.</p><button className="catalog-button secondary" type="button" onClick={onManageLists}>Go to My Lists</button></>}{pageError && <p className="alert" role="alert">{pageError}</p>}</section>}
+      {destinationId ? <p className="catalog-notice catalog-destination">Adding to <strong>{destinationName}</strong></p> : <section className="catalog-panel catalog-tools catalog-destination-select"><label htmlFor="catalog-destination">Add items to</label>{listsQuery.data?.items?.length ? <><select id="catalog-destination" value={listedDestination} disabled={pendingAdds.size > 0} onChange={(event) => { setSelectedDestination(event.target.value); setAdded({ count: 0, last: '' }); try { window.localStorage.setItem(DESTINATION_KEY, event.target.value) } catch { /* Storage is optional. */ } }}><option value="">Choose a list</option>{listsQuery.data.items.map((list) => <option key={list.tripId ?? list.id} value={list.tripId ?? list.id}>{list.name}</option>)}</select>{listsQuery.data?.nextCursor && <button className="catalog-button secondary" type="button" onClick={loadMoreLists} disabled={pageBusy}>{pageBusy ? 'Loading…' : 'Load more lists'}</button>}</> : <><p className="optional-help">Create a list before adding groceries.</p><button className="catalog-button secondary" type="button" onClick={onManageLists}>Go to My Lists</button></>}{pageError && <p className="alert" role="alert">{pageError}</p>}</section>}
       <section className="catalog-tools" aria-label="Search and filter catalog"><label htmlFor="catalog-search">Search catalog</label><input id="catalog-search" type="search" placeholder="Try milk, rice, or soap" value={search} onChange={(event) => setSearch(event.target.value)} maxLength={100} /><div className="catalog-filters" role="group" aria-label="Filter by category"><button type="button" className={!category ? 'selected' : ''} aria-pressed={!category} onClick={() => setCategory('')}>All</button>{CATEGORIES.map((value) => <button key={value} type="button" className={category === value ? 'selected' : ''} aria-pressed={category === value} onClick={() => setCategory(value)}>{CATEGORY_LABELS[value] || value}</button>)}</div></section>
       {notice && <p className="catalog-notice" role="status">{notice}</p>}
       {operationError && <p className="alert" role="alert">{operationError}</p>}
@@ -239,10 +255,11 @@ export default function Catalog({ onAdd, onAddPending, active = true, destinatio
       {catalogQuery.loading && <div className="catalog-state" role="status"><p>Loading your catalog…</p></div>}
       {!catalogQuery.loading && !queryError && <div className="catalog-results-heading"><h2>{visibleItems.length} {visibleItems.length === 1 ? 'item' : 'items'}</h2><button type="button" className="text-button" onClick={catalogQuery.refresh} disabled={catalogQuery.fetching}>{catalogQuery.fetching ? 'Refreshing…' : 'Refresh catalog'}</button></div>}
       {!catalogQuery.loading && (visibleItems.length ? <div className="catalog-grid">{visibleItems.map((item) => {
-        const listed = onList.has(String(item.id))
-        return <article className={`catalog-item${listed ? ' is-listed' : ''}`} key={item.id}><span className="catalog-info"><strong>{item.name}</strong><small>{CATEGORY_LABELS[item.category] || item.category}{item.source === 'custom' ? ' · custom' : ''}{listed ? ' · on this list' : ''}</small></span><span className="catalog-actions"><button className="text-button" type="button" onClick={() => openEdit(item)} disabled={busy} aria-label={`${item.source === 'starter' ? 'Customize' : 'Edit'} ${item.name}`}>{item.source === 'starter' ? 'Customize' : 'Edit'}</button><button className={`catalog-small-button${listed ? '' : ' add'}`} type="button" onClick={() => add(item)} disabled={addingId !== null || busy || !destination} aria-label={addingId === item.id ? undefined : `${listed ? 'Change amount of' : 'Add'} ${item.name}`}>{addingId === item.id ? 'Adding…' : listed ? 'Change' : 'Add'}</button></span></article>
+        const adding = pendingAdds.has(item.id)
+        const listed = adding || onList.has(String(item.id))
+        return <article className={`catalog-item${listed ? ' is-listed' : ''}`} key={item.id}><span className="catalog-info"><strong>{item.name}</strong><small>{CATEGORY_LABELS[item.category] || item.category}{item.source === 'custom' ? ' · custom' : ''}{listed ? ' · on this list' : ''}</small></span><span className="catalog-actions"><button className="text-button" type="button" onClick={() => openEdit(item)} disabled={busy} aria-label={`${item.source === 'starter' ? 'Customize' : 'Edit'} ${item.name}`}>{item.source === 'starter' ? 'Customize' : 'Edit'}</button><button className={`catalog-small-button${listed ? '' : ' add'}`} type="button" onClick={() => add(item, listed)} disabled={adding || busy || !destination} aria-label={`${listed ? 'Change amount of' : 'Add'} ${item.name}`}>{listed ? 'Change' : 'Add'}</button></span></article>
       })}</div> : !catalogQuery.error && <div className="catalog-state"><h2>{search.trim() ? `No matches for “${search.trim()}”` : 'No catalog items in this category'}</h2><p>Try another search or category, or create it as a new item.</p><button className="catalog-button secondary" type="button" onClick={openCreate}>{search.trim() ? `Create “${search.trim().slice(0, 40)}”` : 'New item'}</button></div>)}
-      {added.count > 0 && <div className="added-bar" role="status"><p><strong>{added.count} added</strong> to {destinationName}{added.last ? <span className="added-last"> · {added.last}</span> : ''}</p>{onOpenList && <button className="catalog-button primary" type="button" onClick={() => onOpenList(destination)}>Back to list</button>}</div>}
+      {added.count > 0 && <div className="added-bar" role="status"><p><strong>{added.count} added</strong> to {destinationName}{added.last ? <span className="added-last"> · {added.last}</span> : ''}</p>{onOpenList && <button className="catalog-button primary" type="button" onClick={() => onOpenList(destination)} disabled={pendingAdds.size > 0}>{pendingAdds.size > 0 ? 'Saving…' : 'Back to list'}</button>}</div>}
     </>}
   </main>
 }
