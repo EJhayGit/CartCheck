@@ -248,7 +248,7 @@ Soft, consistent rounding with thin 1px borders. Controls (buttons, inputs, sele
 - **Start from a trip:** Create list offers "Start with" (an empty list, or the last trip's items) when a finished trip exists; the currency follows the account preference.
 - **Reviews pause the menu:** the Finish and correction reviews say that the menu is paused until the shopper keeps going or confirms.
 - **Shop again:** trip details and each Trips card offer Shop again; it opens an inline panel (all items or only the not bought, plus a list name) and then opens the new list.
-- **Catalog adds:** adding a new item keeps the shopper in the catalog; a sticky bar counts the adds and offers Back to list.
+- **Catalog adds:** adding a new item keeps the shopper in the catalog; a sticky bar counts the adds and offers Back to list. A tapped item reads “on this list” at once while it saves; Back to list reads “Saving…” until saves finish.
 - **Dialog / review:** focus moves into the review, stays trapped while it's open, and returns to its trigger on close. Escape closes without committing.
 - **Loading:** placeholder rows and cards in the final geometry, with a text status for assistive technology; no misleading zero totals.
 - **Empty states:**
