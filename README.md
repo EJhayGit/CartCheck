@@ -23,7 +23,7 @@ Express serves the Vite build and `/api` from a single HTTPS origin, with Postgr
 
 ## Run locally
 
-You need Node.js 20 or newer, npm, and a disposable PostgreSQL database. A local PostgreSQL 17 Compose service is available in [compose.yml](compose.yml).
+You need Node.js 24 (24.22.1 or newer), npm, and a disposable PostgreSQL database. A local PostgreSQL 17 Compose service is available in [compose.yml](compose.yml).
 
 From the repository root, configure the server and start it:
 
