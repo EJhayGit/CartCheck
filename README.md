@@ -8,7 +8,7 @@ CartCheck is a private grocery checklist for planning a shop and keeping a recor
 
 - Provides a searchable catalog of 160 starter groceries and private custom items.
 - Keeps multiple named lists per account, with searchable groceries, custom items, quantities, and bought status.
-- Records a selected list as a named dated trip, then returns to My Lists. Other lists remain available; new lists are created explicitly.
+- Records a selected list as a named dated trip and keeps that list active, with its not-bought items or empty, as you choose. Other lists do not change; new lists are created explicitly.
 - Lets you review and correct past trips without changing their original finish date.
 - Tracks optional spending and budget in PHP, USD, or EUR. Missing prices stay visibly incomplete; a known free item can be entered as `0.00`.
 - Offers responsive layouts and Light, Dark, and System appearance settings.
