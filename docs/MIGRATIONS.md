@@ -5,7 +5,7 @@
 ## Rules
 
 - Migrations are numbered SQL files in `server/db/migrations/NNN_*.sql`, applied in order by `server/db/run.js` (`npm run db:migrate`).
-- The runner records checksums and rejects edits to applied migrations. Never edit an applied migration; add a new one.
+- The runner records checksums and rejects edits to applied migrations. Never edit an applied migration; add a new one. Checksums are taken after converting CRLF to LF, so a Windows checkout matches the committed file; any other difference is rejected.
 - Never reset a retained database. `server/db/schema.sql` is a reference only.
 - Check the target with `npm run db:preflight` first and verify with `npm run db:verify`. Use the [local setup steps](../README.md#run-locally) for a disposable local database.
 - Local setup instructions do not authorize production changes.

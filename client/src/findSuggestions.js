@@ -47,3 +47,9 @@ export function resolveItemList(names, products, onListIds, pendingNames = []) {
   }
   return { entries, skipped }
 }
+
+// Finished trip snapshots keep no product id, so only the name links them to the catalog.
+export function lastTripProductIds(products, tripItems = []) {
+  const names = new Set(tripItems.map((entry) => entry.name.toLocaleLowerCase()))
+  return new Set(products.filter((product) => names.has(product.name.toLocaleLowerCase())).map((product) => String(product.id)))
+}
