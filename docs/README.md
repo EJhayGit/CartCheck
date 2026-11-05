@@ -10,5 +10,6 @@
 | [Migrations](MIGRATIONS.md) | Migration rules and the 004 multiple-list upgrade | Adding or releasing a schema change |
 | [Backup and recovery](BACKUP_RECOVERY.md) | Private export and isolated restore verification | Exporting, restoring, or before a data update |
 | [Account email setup](ACCOUNT_EMAIL_SETUP.md) | Verification and password-recovery email | Changing email delivery or verification policy |
+| [Assistant setup](ASSISTANT_SETUP.md) | Planned: Gemini key, demo limits, turning the assistant off | Building or configuring the assistant |
 
 Agent rules are in [AGENTS.md](../AGENTS.md); local setup is in the [README](../README.md).
