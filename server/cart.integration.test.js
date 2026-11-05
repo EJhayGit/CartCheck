@@ -319,4 +319,34 @@ test('named lists, item snapshots, transactional completion, history and ownersh
     assert.equal((await call(`/api/trips/${clearing.tripId}/finish`, { cookie: a, method: 'POST', body: { revision: clearReview.revision, remaining: 'other' } })).status, 400)
     await call(`/api/lists/${clearing.tripId}`, { cookie: a, method: 'DELETE' })
   })
+  await t.test('Shop again keeps catalog links, so adding the same product makes no second row', async () => {
+    const product = (await (await call('/api/catalog', { cookie: a, method: 'POST', body: { name: 'Shop again oat milk', category: 'Dairy & eggs' } })).json()).item
+    const source = await create(a, { name: 'Shop again source' })
+    await add(source.tripId, product.id)
+    const finished = await call(`/api/trips/${source.tripId}/finish`, { cookie: a, method: 'POST', body: { revision: (await load(source.tripId)).revision } })
+    assert.equal(finished.status, 200)
+    const trip = (await finished.json()).completedTrip
+    assert.equal(trip.items[0].productId, null, 'finished trips stay free of catalog links')
+    const reuse = (cookie = a) => call(`/api/trips/${trip.id}/reuse`, { cookie, method: 'POST', body: { items: 'all' } })
+    const reused = await (await reuse()).json()
+    assert.equal(reused.items[0].productId, product.id)
+    assert.equal((await add(reused.tripId, product.id)).created, false)
+    assert.equal((await load(reused.tripId)).items.length, 1)
+
+    assert.equal((await reuse(b)).status, 404, 'another account cannot reuse the trip')
+
+    // A correction can leave the same name twice; a list holds a product once.
+    const row = trip.items[0]
+    const corrected = await call(`/api/trips/${trip.id}`, { cookie: a, method: 'PUT', body: { revision: trip.revision, items: [
+      { id: row.id, name: row.name, category: row.category, quantity: row.quantity, bought: row.bought },
+      { name: 'SHOP AGAIN OAT MILK', category: row.category, quantity: '2', bought: false },
+      { name: 'Not in the catalog', category: row.category, quantity: '1', bought: false },
+    ] } })
+    assert.equal(corrected.status, 200, await corrected.clone().text())
+    const deduped = await reuse()
+    assert.equal(deduped.status, 201, await deduped.clone().text())
+    assert.deepEqual((await deduped.json()).items.map((item) => [item.name, item.productId]), [
+      ['Shop again oat milk', product.id], ['Not in the catalog', null],
+    ])
+  })
 })

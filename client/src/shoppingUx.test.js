@@ -630,6 +630,21 @@ test('adds show at once, keep the field free, and save one at a time in order', 
   await waitFor(() => assert.ok(!screen.queryByRole('checkbox', { name: 'Milk' })))
 })
 
+test('a typed add shows at once on a list that has a row with no catalog link', async () => {
+  const pending = deferred()
+  typedItemFixture({
+    items: [{ id: 'i-1', productId: null, name: 'Rice', category: 'Pantry', quantity: '1', unitLabel: null, estimatedTotal: null, actualTotal: null, bought: false }],
+    createResponse: () => pending.promise,
+    onQuickAdd: async () => {},
+  })
+  await screen.findByRole('checkbox', { name: 'Rice' })
+  const field = await typeInFind('Kimchi')
+  await screen.findByRole('button', { name: /Add .*Kimchi/ })
+  fireEvent.keyDown(field, { key: 'Enter' })
+  assert.ok(await screen.findByText('Kimchi'))
+  pending.resolve(json({ item: { id: 'new-1', name: 'Kimchi', category: 'Other', source: 'custom' } }, 201))
+})
+
 test('a failed add removes the row, names it and returns it to an empty field', async () => {
   typedItemFixture({
     catalog: [{ id: 'p-1', name: 'Eggs', category: 'Dairy' }],
