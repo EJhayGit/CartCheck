@@ -47,14 +47,16 @@ The owner completes the setup guide's key and limit steps, and works through "Mu
 
 ### Task 1: Accuracy check before building
 
+**Status: done 2026-11-05.** `gemini-3.1-flash-lite` passed 20 of 20. See the spec's Accuracy results.
+
 **Files:**
 - Create: a throwaway script in the session scratchpad only, not in the repo.
 
-- [ ] **Step 1:** Confirm the exact model ID, REST endpoint, response schema and thinking settings in Google's current docs.
-- [ ] **Step 2:** Run the spec's 20 acceptance commands against the real model using the draft system prompt and schema. This uses about 20 free-tier requests and the owner's key.
-- [ ] **Step 3:** Record the score and the input and output tokens per message.
-- [ ] **Step 4:** Stop and discuss with the owner if fewer than 18 of 20 pass, or any must-pass row fails. Tune the prompt only with the owner's agreement.
-- [ ] **Step 5:** Update the spec with the confirmed model ID, settings and measured tokens.
+- [x] **Step 1:** Confirm the exact model ID, REST endpoint, response schema and thinking settings in Google's current docs.
+- [x] **Step 2:** Run the spec's 20 acceptance commands against the real model using the draft system prompt and schema. This uses about 20 free-tier requests and the owner's key.
+- [x] **Step 3:** Record the score and the input and output tokens per message.
+- [x] **Step 4:** Stop and discuss with the owner if fewer than 18 of 20 pass, or any must-pass row fails. Tune the prompt only with the owner's agreement.
+- [x] **Step 5:** Update the spec with the confirmed model ID, settings and measured tokens.
 
 **Check:** at least 18 of 20 correct, all must-pass rows correct, tokens recorded.
 
@@ -108,7 +110,7 @@ The owner completes the setup guide's key and limit steps, and works through "Mu
 - Produces: `assistantConfig(env) -> { enabled, dailyLimit, appLimit, model }`
 - Produces: `interpretMessage(message, { apiKey, model, fetchImpl = fetch }) -> raw JSON text`, throwing on network, timeout, non-OK or empty responses
 
-- [ ] **Step 1:** Write failing tests with a mocked `fetch`: key in the header and absent from the URL, body contains only the message and fixed prompt, timeout signal set, 429 and 500 throw, safety-blocked or empty reply throws, token counts logged and message text not logged.
+- [ ] **Step 1:** Write failing tests with a mocked `fetch`: key in the header and absent from the URL, body contains only the message and fixed prompt, timeout signal set, a 503 or timeout retries once after 2 seconds, a second failure throws, 429 and 500 throw without a retry, safety-blocked or empty reply throws, token counts logged and message text not logged.
 - [ ] **Step 2:** Write failing tests for `assistantConfig`: missing key disabled, bad limits disabled, defaults of 5 and 100.
 - [ ] **Step 3:** Implement using the settings confirmed in Task 1.
 - [ ] **Step 4:** Add `GEMINI_API_KEY`, `GEMINI_MODEL`, `ASSISTANT_DAILY_LIMIT` and `ASSISTANT_APP_DAILY_LIMIT` to `.env.example` with comments.

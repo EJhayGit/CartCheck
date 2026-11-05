@@ -20,7 +20,7 @@ Limits apply per project, not per key, so every account shares one quota. The da
 Google doesn't publish fixed free-tier numbers on its [rate limits page](https://aistudio.google.com/docs/rate-limits). It points to the limits page in AI Studio, which shows your project's active values.
 
 1. Open the limits page in AI Studio and note the requests per day for your chosen model.
-2. Set `ASSISTANT_APP_DAILY_LIMIT` below that number, leaving some room for testing.
+2. Set `ASSISTANT_APP_DAILY_LIMIT` to at most half that number. A retried message can use two requests, and this also leaves room for testing.
 
 ## 3. Configure the server
 
@@ -29,7 +29,7 @@ Set these in `server/.env` locally, and in the Render dashboard for production. 
 | Variable | Required | Value |
 | --- | --- | --- |
 | `GEMINI_API_KEY` | Yes | The key from step 1. Without it, the assistant is off. |
-| `GEMINI_MODEL` | Yes | The model ID confirmed during the build. Stored here because Google retires models fairly often. |
+| `GEMINI_MODEL` | Yes | `gemini-3.1-flash-lite`, the model that passed the accuracy check. Run the spec's acceptance commands again before changing it. Stored here because Google retires models fairly often. |
 | `ASSISTANT_DAILY_LIMIT` | No | Messages per account per day. Default `5`. |
 | `ASSISTANT_APP_DAILY_LIMIT` | No | Messages per day across all accounts. Default `100`; set it from step 2. |
 
