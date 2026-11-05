@@ -103,6 +103,16 @@ try {
   assert.equal(zero.rows[0].actual_total, '0.00')
   results.push('zero estimated and actual totals: 0.00, distinct from NULL')
 
+  const usageDate = '2026-11-05'
+  await rejects('assistant usage count not negative',
+    `INSERT INTO cartcheck.assistant_usage (user_id, usage_date, message_count) VALUES ($1, $2, -1)`, [user1, usageDate], '23514')
+  await rejects('assistant app count not negative',
+    `INSERT INTO cartcheck.assistant_app_usage (usage_date, message_count) VALUES ($1, -1)`, ['1999-01-01'], '23514')
+  await client.query(`INSERT INTO cartcheck.assistant_usage (user_id, usage_date, message_count) VALUES ($1, $2, 1)`, [user1, usageDate])
+  await rejects('one assistant usage row per account per day',
+    `INSERT INTO cartcheck.assistant_usage (user_id, usage_date, message_count) VALUES ($1, $2, 1)`, [user1, usageDate], '23505')
+  results.push('assistant usage: counted per account and day')
+
   assert.notEqual(trip1, trip2)
   await client.query('ROLLBACK')
   for (const result of results) console.log(result)

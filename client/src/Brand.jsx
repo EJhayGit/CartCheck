@@ -15,6 +15,9 @@ export function NavIcon({ destination }) {
     cart: <><rect x="4" y="3" width="16" height="18" rx="3" /><path d="m7 8 1 1 2-2m-3 7 1 1 2-2m3-5h4m-4 6h4" /></>,
     catalog: <><rect x="3" y="3" width="7" height="7" rx="2" /><rect x="14" y="3" width="7" height="7" rx="2" /><rect x="3" y="14" width="7" height="7" rx="2" /><rect x="14" y="14" width="7" height="7" rx="2" /></>,
     trips: <><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6" /><path d="M12 7v5l3 2" /></>,
+    assistant: <><path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-7l-4 4v-4H6a2 2 0 0 1-2-2Z" /><path d="m9 10 2 2 4-4" /></>,
+    send: <path d="M5 12h14m-6-6 6 6-6 6" />,
+    close: <path d="m6 6 12 12M18 6 6 18" />,
     settings: <><path d="m9 3-.6 2.2-2 .9-2.1-.6-2 3.5 1.5 1.6v2.8L2.3 15l2 3.5 2.1-.6 2 .9L9 21h6l.6-2.2 2-.9 2.1.6 2-3.5-1.5-1.6v-2.8l1.5-1.6-2-3.5-2.1.6-2-.9L15 3Z" /><circle cx="12" cy="12" r="3" /></>,
   }
   return <svg className="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[destination]}</svg>

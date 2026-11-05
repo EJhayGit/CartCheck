@@ -2,9 +2,9 @@
 
 > Purpose: Gemini key, demo limits, turning the assistant off, and what goes to Google. · Read when: building, configuring or troubleshooting the CartCheck Assistant.
 
-**Status: planned, not built yet.** The env vars below do nothing until the feature ships. See the [design spec](superpowers/specs/2026-11-05-cartcheck-assistant-design.md) and [implementation plan](superpowers/plans/2026-11-05-cartcheck-assistant.md).
+**Status: built, not yet released to production.** See the [design spec](superpowers/specs/2026-11-05-cartcheck-assistant-design.md) and [implementation plan](superpowers/plans/2026-11-05-cartcheck-assistant.md).
 
-The assistant runs on the Gemini API free tier. `server/assistantModel.js` will be the only file that talks to Google, and the browser never does.
+The assistant runs on the Gemini API free tier. `server/assistantModel.js` is the only file that talks to Google, and the browser never does.
 
 ## 1. Create the API key
 
@@ -35,7 +35,7 @@ Set these in `server/.env` locally, and in the Render dashboard for production. 
 
 A limit that isn't a positive integer turns the assistant off.
 
-If `ASSISTANT_DAILY_LIMIT` changes, the demo notice in the popup must change with it, because the copy says 5.
+The popup's notice and counts use `ASSISTANT_DAILY_LIMIT`, so they change with it.
 
 ## 4. Check Google's terms
 
@@ -66,6 +66,7 @@ Remove `GEMINI_API_KEY` and restart the server. The popup says the assistant isn
 | --- | --- | --- |
 | "You've used today's 5 demo messages" | The account reached its daily limit | Wait for the reset time shown |
 | "The demo is full for today" | The app-wide cap was reached | Wait for the reset, or raise `ASSISTANT_APP_DAILY_LIMIT` if it's still below Google's limit |
-| "The assistant isn't available" for everyone | Missing key, invalid limit, or Google's quota used up | Check the env vars and the AI Studio limits page |
-| "The assistant isn't available" after working before | The model was retired or Google's limits changed | Check server logs and Google's model list, then update `GEMINI_MODEL` |
+| "The demo has hit its limit for now" | Google returned its own limit error, per minute or per day | Try later. If it's frequent, compare `ASSISTANT_APP_DAILY_LIMIT` with the AI Studio limits page |
+| "The assistant isn't available" for everyone | Missing key or model, or an invalid limit | Check the env vars |
+| "The assistant isn't available" after working before | The model was retired or Google is having problems | Check server logs for "Assistant model call failed" and its status and Google's model list, then update `GEMINI_MODEL` |
 | "I didn't catch that" often | The model is misreading commands | Re-run the acceptance commands in the design spec |

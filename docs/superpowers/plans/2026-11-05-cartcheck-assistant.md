@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-> Purpose: ordered build tasks for the CartCheck Assistant. · Read when: building this feature. Not started; building needs the owner's go-ahead.
+> Purpose: ordered build tasks for the CartCheck Assistant. · Read when: building this feature. Tasks 1 to 9 are built and checked locally except where noted; Task 10 needs the owner's go-ahead.
 
 **Goal:** A shopper can type a command in a bottom-right chat popup, check a confirmation card and have it saved, using the Gemini free tier with 5 messages per account per day.
 
@@ -72,12 +72,12 @@ The owner completes the setup guide's key and limit steps, and works through "Mu
 - Produces: `reserveMessage(pool, userId, { dailyLimit, appLimit }) -> { usageDate, usage } | { error: 'daily_limit' | 'app_limit', resetsAt }`
 - Produces: `refundMessage(pool, userId, usageDate) -> void`
 
-- [ ] **Step 1:** Write failing tests with a fake client, as in `listRepo.test.js`: first message, fifth message, sixth refused, app cap refused and rolled back so the account isn't charged, refund uses the reserved date, connection released on every path.
-- [ ] **Step 2:** Add the migration from the spec.
-- [ ] **Step 3:** Implement the repo using the spec's conditional upsert, with the Pacific date from SQL: `(now() AT TIME ZONE 'America/Los_Angeles')::date`.
-- [ ] **Step 4:** Add table and constraint checks to `server/db/verify.js`. Add both tables to the `order` list in `server/db/testRestoreLocal.js`, after `users`. That script requires an exact table match, so it must also keep accepting older exports that have only nine tables.
-- [ ] **Step 5:** Run `node --test assistantRepo.test.js` in `server/`.
-- [ ] **Step 6:** Apply to a disposable local database only: `npm run db:preflight`, `npm run db:migrate`, `npm run db:verify`.
+- [x] **Step 1:** Write failing tests with a fake client, as in `listRepo.test.js`: first message, fifth message, sixth refused, app cap refused and rolled back so the account isn't charged, refund uses the reserved date, connection released on every path.
+- [x] **Step 2:** Add the migration from the spec.
+- [x] **Step 3:** Implement the repo using the spec's conditional upsert, with the Pacific date from SQL: `(now() AT TIME ZONE 'America/Los_Angeles')::date`.
+- [x] **Step 4:** Add table and constraint checks to `server/db/verify.js`. Add both tables to the `order` list in `server/db/testRestoreLocal.js`, after `users`. That script requires an exact table match, so it must also keep accepting older exports that have only nine tables.
+- [x] **Step 5:** Run `node --test assistantRepo.test.js` in `server/`.
+- [x] **Step 6:** Apply to a disposable local database only: `npm run db:preflight`, `npm run db:migrate`, `npm run db:verify`.
 
 **Check:** repo tests pass; migration and verify succeed on the disposable database.
 
@@ -92,10 +92,10 @@ The owner completes the setup guide's key and limit steps, and works through "Mu
 - Produces: `parseAssistantOutput(text) -> { intent, actions } | null`
 - Consumes: `normalizeListName`, `CATALOG_CATEGORIES`, `validateItemChanges`
 
-- [ ] **Step 1:** Write failing tests for the message: extra keys, non-string, empty after trim, 300 and 301 characters.
-- [ ] **Step 2:** Write failing tests for the output, using each action shape from the spec: bad JSON, unknown key, unknown intent, price field rejected, 4 actions, 31 items, `act` with no actions, `help` with actions, bad quantity, unknown category falling back to Other.
-- [ ] **Step 3:** Implement. Any invalid part rejects the whole reply, except the category fallback.
-- [ ] **Step 4:** Run `node --test assistantValidation.test.js`.
+- [x] **Step 1:** Write failing tests for the message: extra keys, non-string, empty after trim, 300 and 301 characters.
+- [x] **Step 2:** Write failing tests for the output, using each action shape from the spec: bad JSON, unknown key, unknown intent, price field rejected, 4 actions, 31 items, `act` with no actions, `help` with actions, bad quantity, unknown category falling back to Other.
+- [x] **Step 3:** Implement. Any invalid part rejects the whole reply, except the category fallback.
+- [x] **Step 4:** Run `node --test assistantValidation.test.js`.
 
 **Check:** validation tests pass.
 
@@ -110,11 +110,11 @@ The owner completes the setup guide's key and limit steps, and works through "Mu
 - Produces: `assistantConfig(env) -> { enabled, dailyLimit, appLimit, model }`
 - Produces: `interpretMessage(message, { apiKey, model, fetchImpl = fetch }) -> raw JSON text`, throwing on network, timeout, non-OK or empty responses
 
-- [ ] **Step 1:** Write failing tests with a mocked `fetch`: key in the header and absent from the URL, body contains only the message and fixed prompt, timeout signal set, a 503 or timeout retries once after 2 seconds, a second failure throws, 429 and 500 throw without a retry, safety-blocked or empty reply throws, token counts logged and message text not logged.
-- [ ] **Step 2:** Write failing tests for `assistantConfig`: missing key disabled, bad limits disabled, defaults of 5 and 100.
-- [ ] **Step 3:** Implement using the settings confirmed in Task 1.
-- [ ] **Step 4:** Add `GEMINI_API_KEY`, `GEMINI_MODEL`, `ASSISTANT_DAILY_LIMIT` and `ASSISTANT_APP_DAILY_LIMIT` to `.env.example` with comments.
-- [ ] **Step 5:** Run `node --test assistantModel.test.js`.
+- [x] **Step 1:** Write failing tests with a mocked `fetch`: key in the header and absent from the URL, body contains only the message and fixed prompt, timeout signal set, a 503 or timeout retries once after 2 seconds, a second failure throws, 429 and 500 throw without a retry, safety-blocked or empty reply throws, token counts logged and message text not logged.
+- [x] **Step 2:** Write failing tests for `assistantConfig`: missing key disabled, bad limits disabled, defaults of 5 and 100.
+- [x] **Step 3:** Implement using the settings confirmed in Task 1.
+- [x] **Step 4:** Add `GEMINI_API_KEY`, `GEMINI_MODEL`, `ASSISTANT_DAILY_LIMIT` and `ASSISTANT_APP_DAILY_LIMIT` to `.env.example` with comments.
+- [x] **Step 5:** Run `node --test assistantModel.test.js`.
 
 **Check:** wrapper tests pass; no real network call in tests.
 
@@ -129,11 +129,11 @@ The owner completes the setup guide's key and limit steps, and works through "Mu
 
 Route order for `interpret`: `checkRequestOrigin`, `authenticate`, config check, `validateAssistantMessage`, `reserveMessage`, `interpretMessage`, `parseAssistantOutput`, respond.
 
-- [ ] **Step 1:** Add the routes.
-- [ ] **Step 2:** Refund the account's message when `interpretMessage` throws or `parseAssistantOutput` returns `null`. Log a refund failure without any message text.
-- [ ] **Step 3:** Set `Retry-After` in seconds until `resetsAt` on both `429` responses.
-- [ ] **Step 4:** Run `npm test` in `server/`.
-- [ ] **Step 5:** Run locally against the disposable database with `curl` or the browser, covering every row of the spec's API table.
+- [x] **Step 1:** Add the routes.
+- [x] **Step 2:** Refund the account's message when `interpretMessage` throws or `parseAssistantOutput` returns `null`. Log a refund failure without any message text.
+- [x] **Step 3:** Set `Retry-After` in seconds until `resetsAt` on both `429` responses.
+- [x] **Step 4:** Run `npm test` in `server/`.
+- [x] **Step 5:** Run locally against the disposable database with `curl` or the browser, covering every row of the spec's API table.
 
 **Check:** server tests pass; every API row behaves as specified.
 
@@ -150,10 +150,10 @@ Route order for `interpret`: `checkRequestOrigin`, `authenticate`, config check,
 - Produces: `applyProposal(proposal, { api, cache, preferredCurrency }) -> { saved, skipped, failed, listId }`
 - Consumes: `resolveItemList`, `matchTier`, `cache.beginMutation`, `replaceListSummary`, `mergePendingListResponse`
 
-- [ ] **Step 1:** Write failing tests for matching: exact name ignoring case, duplicate names needing a choice, name not found, default to the open list, catalog reuse, `mark_bought` found and not found.
-- [ ] **Step 2:** Write failing tests for saving with a fake API: order of calls, quantity applied only to new items, existing item skipped and named, partial failure stops nothing already saved, no retry, catalog cache invalidated.
-- [ ] **Step 3:** Implement both, following the save pattern in `client/src/ShoppingList.jsx`.
-- [ ] **Step 4:** Run `node --test src/assistantActions.test.js` in `client/`.
+- [x] **Step 1:** Write failing tests for matching: exact name ignoring case, duplicate names needing a choice, name not found, default to the open list, catalog reuse, `mark_bought` found and not found.
+- [x] **Step 2:** Write failing tests for saving with a fake API: order of calls, quantity applied only to new items, existing item skipped and named, partial failure stops nothing already saved, no retry, catalog cache invalidated.
+- [x] **Step 3:** Implement both, following the save pattern in `client/src/ShoppingList.jsx`.
+- [x] **Step 4:** Run `node --test src/assistantActions.test.js` in `client/`.
 
 **Check:** client logic tests pass.
 
@@ -163,14 +163,14 @@ Route order for `interpret`: `checkRequestOrigin`, `authenticate`, config check,
 - Create: `client/src/Assistant.jsx`
 - Modify: `client/src/App.jsx`, `client/src/Brand.jsx` (chat icon, if placed with `NavIcon`), `client/src/styles.css`
 
-- [ ] **Step 1:** Use the impeccable skill, with `DESIGN.md` and `.impeccable/design.json`.
-- [ ] **Step 2:** Mount `Assistant` inside `DataCacheProvider` in `App.jsx`. Pass the open list ID, `preferredCurrency`, pending flags, `reviewOpen` and a way to open a list. Hide the launcher while `reviewOpen` is set.
-- [ ] **Step 3:** Add `assistantPending` to `App.jsx` and include it in `switchingDisabled`.
-- [ ] **Step 4:** Build the launcher and native `<dialog>` popup per the spec's layouts, fetching status on first open.
-- [ ] **Step 5:** Build the messages area, example chips, input, confirmation card, list picker and result, using the spec's exact copy.
-- [ ] **Step 6:** Add the phone positions and `main` padding, using `--mobile-nav-height`.
-- [ ] **Step 7:** Run `npm test` and `npm run build` in `client/`.
-- [ ] **Step 8:** Check in a browser at 320px, phone landscape, desktop, dark mode and 200% zoom, using keyboard only and with reduced motion on.
+- [x] **Step 1:** Use the impeccable skill, with `DESIGN.md` and `.impeccable/design.json`.
+- [x] **Step 2:** Mount `Assistant` inside `DataCacheProvider` in `App.jsx`. Pass the open list ID, `preferredCurrency`, pending flags, `reviewOpen` and a way to open a list. Hide the launcher while `reviewOpen` is set.
+- [x] **Step 3:** Add `assistantPending` to `App.jsx` and include it in `switchingDisabled`.
+- [x] **Step 4:** Build the launcher and native `<dialog>` popup per the spec's layouts, fetching status on first open.
+- [x] **Step 5:** Build the messages area, example chips, input, confirmation card, list picker and result, using the spec's exact copy.
+- [x] **Step 6:** Add the phone positions and `main` padding, using `--mobile-nav-height`.
+- [x] **Step 7:** Run `npm test` and `npm run build` in `client/`.
+- [x] **Step 8:** Check in a browser at 320px, phone landscape, desktop, dark mode and 200% zoom, using keyboard only and with reduced motion on.
 
 **Check:** tests and build pass; browser checks pass; Review Focus items 5, 6, 8 and 9 hold.
 
@@ -179,25 +179,25 @@ Route order for `interpret`: `checkRequestOrigin`, `authenticate`, config check,
 **Files:**
 - Modify: `PRODUCT.md`, `DESIGN.md`, `.impeccable/design.json`, `docs/ARCHITECTURE.md`, `docs/MIGRATIONS.md`, `docs/BACKUP_RECOVERY.md`, `docs/README.md`, `docs/ASSISTANT_SETUP.md`
 
-- [ ] **Step 1:** `PRODUCT.md`: add the behavior item with its approval date, demo limit and screen entry.
-- [ ] **Step 2:** `DESIGN.md` and `.impeccable/design.json`: add the launcher and popup.
-- [ ] **Step 3:** `docs/ARCHITECTURE.md`: add Gemini to the diagrams, the routes, the two tables, the env vars, and what data goes to Google.
-- [ ] **Step 4:** `docs/MIGRATIONS.md`: add migration 006.
-- [ ] **Step 5:** `docs/BACKUP_RECOVERY.md`: update the table count from nine to eleven.
-- [ ] **Step 6:** `docs/README.md` and `docs/ASSISTANT_SETUP.md`: remove the planned and not-built labels.
+- [x] **Step 1:** `PRODUCT.md`: add the behavior item with its approval date, demo limit and screen entry.
+- [x] **Step 2:** `DESIGN.md`: add the launcher and popup. `.impeccable/design.json` was already stale, so refresh it with `impeccable document`.
+- [x] **Step 3:** `docs/ARCHITECTURE.md`: add Gemini to the diagrams, the routes, the two tables, the env vars, and what data goes to Google.
+- [x] **Step 4:** `docs/MIGRATIONS.md`: add migration 006.
+- [x] **Step 5:** `docs/BACKUP_RECOVERY.md`: update the table count from nine to eleven.
+- [x] **Step 6:** `docs/README.md` and `docs/ASSISTANT_SETUP.md`: remove the planned and not-built labels.
 
 **Check:** the docs match what shipped; if code and a doc disagree, say so instead of picking one silently.
 
 ### Task 9: End-to-end check
 
-- [ ] **Step 1:** Run `npm test` in `server/` and `client/`, plus `npm run build` in `client/`.
-- [ ] **Step 2:** Run locally with a disposable database and a real free-tier key:
+- [x] **Step 1:** Run `npm test` in `server/` and `client/`, plus `npm run build` in `client/`.
+- [x] **Step 2:** Run locally with a disposable database and a real free-tier key:
   - Create a list with items, add to the open list, add a catalog item, mark an item bought, and refresh after each.
   - "Delete my list" gets the blocked reply and changes nothing. An off-topic message gets the fixed reply.
   - The 6th message is refused, parallel sends can't exceed 5, and a forced Gemini failure refunds the message.
   - Without a key, the popup says unavailable and the rest of the app works.
   - A second account has its own count and can't see the first account's data.
-- [ ] **Step 3:** Work through every item in Review Focus.
+- [x] **Step 3:** Work through every item in Review Focus.
 - [ ] **Step 4:** Ask the owner whether to run the guarded integration runner. Run it only with explicit approval.
 
 **Check:** everything above passes, and anything skipped is reported.

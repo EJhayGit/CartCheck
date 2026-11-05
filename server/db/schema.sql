@@ -108,6 +108,18 @@ CREATE TABLE IF NOT EXISTS cartcheck.trip_items (
   CONSTRAINT trip_items_one_product_per_trip UNIQUE (trip_id, product_id)
 );
 
+CREATE TABLE IF NOT EXISTS cartcheck.assistant_usage (
+  user_id BIGINT NOT NULL REFERENCES cartcheck.users(id) ON DELETE CASCADE,
+  usage_date DATE NOT NULL,
+  message_count INTEGER NOT NULL CHECK (message_count >= 0),
+  PRIMARY KEY (user_id, usage_date)
+);
+
+CREATE TABLE IF NOT EXISTS cartcheck.assistant_app_usage (
+  usage_date DATE PRIMARY KEY,
+  message_count INTEGER NOT NULL CHECK (message_count >= 0)
+);
+
 CREATE INDEX IF NOT EXISTS sessions_user_id_idx
   ON cartcheck.sessions (user_id);
 CREATE INDEX IF NOT EXISTS sessions_expires_at_idx

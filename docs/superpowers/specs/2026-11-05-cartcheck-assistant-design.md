@@ -2,7 +2,7 @@
 
 > Purpose: approved design for a demo chat assistant that sets things up in CartCheck. · Read when: reviewing or building this feature.
 
-Design approved 2026-11-05. Nothing here is built yet. Operating details are in the [setup guide](../../ASSISTANT_SETUP.md), and the build order is in the [implementation plan](../plans/2026-11-05-cartcheck-assistant.md).
+Design approved 2026-11-05. Built on `feat/cartcheck-assistant`, not yet released. Operating details are in the [setup guide](../../ASSISTANT_SETUP.md), and the build order is in the [implementation plan](../plans/2026-11-05-cartcheck-assistant.md).
 
 ## Goal
 
@@ -55,7 +55,7 @@ All of this is written by CartCheck, not by the model.
 | Moment | Text |
 | --- | --- |
 | Title | CartCheck Assistant |
-| Demo notice | Demo: 5 messages per day. Messages are sent to Google Gemini and may be used to improve its products. Don't enter personal information. |
+| Demo notice | Demo: {limit} messages per day. Messages are sent to Google Gemini and may be used to improve its products. Don't enter personal information. |
 | Input label | Tell the assistant what to do |
 | Examples | What can you do? · Add eggs and rice to my list · Make a Weekly list |
 | Help | I'm CartCheck's AI helper. I can create lists, add items, add to your catalog and check items off. You confirm everything first. |
@@ -63,12 +63,13 @@ All of this is written by CartCheck, not by the model.
 | Blocked | I can't do that here. You can do it from the normal CartCheck screens. |
 | Unclear | I didn't catch that. Try: Add eggs and rice to Weekly. |
 | Unusable model reply | I didn't catch that, and it didn't use a message. Try: Add eggs and rice to Weekly. |
-| Account limit | You've used today's 5 demo messages. They reset at {local time}. |
+| Account limit | You've used today's {limit} demo messages. They reset at {local time}. |
 | App-wide cap | The demo is full for today. Try again after {local time}. |
+| Google's limit | The demo has hit its limit for now. Try again later. |
 | Unavailable | The assistant isn't available right now. You can still use CartCheck as usual. |
-| Remaining | {n} of 5 left today |
+| Remaining | {n} of {limit} left today |
 
-The "What can you do?" example is answered in the browser and doesn't use a message. The same question typed in the input does use one, because it reaches the model.
+The "What can you do?" example is answered in the browser and doesn't use a message. The other two examples fill the input for editing and send nothing. The same question typed in the input does use one, because it reaches the model.
 
 ## Request flow
 
@@ -237,9 +238,16 @@ Body: exactly `{ "message": "..." }`, 1 to 300 characters after trimming.
 | Bad body or message length | `400` | None | No |
 | Account limit reached | `429` with `Retry-After` | `ASSISTANT_DAILY_LIMIT` | No |
 | App-wide cap reached | `429` with `Retry-After` | `ASSISTANT_APP_LIMIT` | No |
+| Google returns its own limit error (429) | `429`, no `Retry-After` | `ASSISTANT_PROVIDER_LIMIT` | No |
 | No key, bad configuration, or Gemini failure | `503` | `ASSISTANT_UNAVAILABLE` | No |
 
 `httpApi.js` already passes `error`, `code` and `Retry-After` through to the caller.
+
+### Standard limit messages
+
+Every limit and unavailable response has the same body: `{ "error": "<standard text>", "code": "<code>" }`. Google's own error text never reaches the shopper. The server owns the text in the Copy table, without the reset time, because it doesn't know the shopper's time zone. The popup adds the reset time from `Retry-After`.
+
+Google's limit can be per minute or per day, so its message gives no time. The account's message is refunded, and no retry is made, because retrying wouldn't help.
 
 ## Client
 
