@@ -173,12 +173,20 @@ export async function createListFromTrip(pool, userId, tripId, { items, name }) 
        RETURNING ${LIST_FIELDS}`, [userId, name ?? source.rows[0].name ?? 'Shopping trip'])
     const list = created.rows[0]
     if (!list) return null
+    // Finished trips carry no product link, so the link is found again by name; without it the
+    // shopper could add the same product a second time. A list holds a product once, so repeats drop.
+    // shortcut: a row renamed away from its catalog name stays unlinked, keep product_id on trip rows if that matters.
     await client.query(
       `INSERT INTO cartcheck.trip_items (user_id, trip_id, product_id, name, category, quantity, unit_label)
        SELECT $1, $2, p.id, ti.name, ti.category, ti.quantity, ti.unit_label
-       FROM cartcheck.trip_items ti LEFT JOIN cartcheck.products p ON p.id = ti.product_id AND p.user_id = $1
+       FROM cartcheck.trip_items ti LEFT JOIN LATERAL (
+         SELECT p.id FROM cartcheck.products p
+         WHERE p.user_id = $1 AND (p.id = ti.product_id OR lower(p.name) = lower(ti.name))
+         ORDER BY (p.id = ti.product_id) IS TRUE DESC, p.id LIMIT 1
+       ) p ON true
        WHERE ti.user_id = $1 AND ti.trip_id = $3${items === 'notBought' ? ' AND NOT ti.bought' : ''}
-       ORDER BY ti.created_at, ti.id`, [userId, list.id, tripId])
+       ORDER BY ti.created_at, ti.id
+       ON CONFLICT (trip_id, product_id) DO NOTHING`, [userId, list.id, tripId])
     return selectDetail(client, userId, list.id)
   })
 }

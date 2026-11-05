@@ -60,7 +60,7 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
   // Adds not yet confirmed by the server show as rows here and stay out of the cache, so a list response cannot drop them.
   const [pendingAdds, setPendingAdds] = useState([])
   const savedProductIds = new Set(savedItems.map((item) => String(item.productId)))
-  const items = [...savedItems, ...pendingAdds.filter((row) => !savedProductIds.has(String(row.productId)))]
+  const items = [...savedItems, ...pendingAdds.filter((row) => row.productId === null || !savedProductIds.has(String(row.productId)))]
   const loading = cartQuery.loading
   const error = cartQuery.error ? 'We could not refresh your shopping list. Check your connection and try again.' : ''
   const hasCart = cartQuery.data !== undefined
