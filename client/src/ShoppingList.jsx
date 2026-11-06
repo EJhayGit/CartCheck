@@ -141,8 +141,8 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
   }, [])
   useEffect(() => {
     if (!lastChange) return
-    // Keep in step with the 4s .check-status p animation in styles.css.
-    const timer = setTimeout(() => setLastChange(null), 4000)
+    // Keep in step with the 3s .check-status p animation in styles.css.
+    const timer = setTimeout(() => setLastChange(null), 3000)
     return () => clearTimeout(timer)
   }, [lastChange])
   function reportPending() { onMutationPending(Boolean(pendingMutation.current || pendingAddCount.current || purchases.size || quantities.size)) }

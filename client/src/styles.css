@@ -53,8 +53,8 @@ h1[tabindex="-1"]:focus { outline: none; }
 .check-status p { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; padding: 4px 8px 4px 18px; border-radius: var(--radius-card); background: var(--text); color: var(--surface); font-size: 15px; box-shadow: var(--surface-shadow); pointer-events: auto; }
 .check-status .text-button { padding: 0 10px; color: var(--mint); }
 /* Lasts as long as the undo timer in ShoppingList.jsx: rise in, hold, fade out. */
-.check-status p { animation: check-status-life 4s ease both; }
-@keyframes check-status-life { 0% { opacity: 0; transform: translateY(8px); } 5%, 92% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+.check-status p { animation: check-status-life 3s ease both; }
+@keyframes check-status-life { 0% { opacity: 0; transform: translateY(8px); } 7%, 90% { opacity: 1; transform: none; } 100% { opacity: 0; } }
 /* In dark mode the bar inverts to a light surface, so Undo takes the dark green ink. */
 [data-theme="dark"] .check-status .text-button { color: var(--on-primary); }
 .skeleton .skeleton-row { display: flex; align-items: center; gap: 16px; min-height: 60px; padding: 0 16px; border-bottom: 1px solid var(--border-subtle); }
