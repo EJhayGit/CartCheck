@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { finishTrip } from './tripRepo.js'
+import { deleteTrip, finishTrip } from './tripRepo.js'
 
 const now = new Date('2026-10-05T00:00:00.000Z')
 const row = (overrides) => ({ id: '7', name: 'Groceries', status: 'active', currency: 'PHP', budget: '500.00',
@@ -116,4 +116,19 @@ test('a row completed before this change returns its trip with no list', async (
   assert.equal(result.list, null)
   for (const write of ['INSERT', 'DELETE', 'UPDATE cartcheck']) assert.equal(client.ran(write), false)
   assert.equal(client.last(), 'COMMIT')
+})
+
+test('deleteTrip removes only an owned completed trip', async () => {
+  const calls = []
+  const pool = { async query(sql, params) { calls.push({ sql, params }); return { rowCount: 1 } } }
+  assert.equal(await deleteTrip(pool, '2', '50'), true)
+  assert.match(calls[0].sql, /DELETE FROM cartcheck\.shopping_trips/)
+  assert.match(calls[0].sql, /user_id = \$2/)
+  assert.match(calls[0].sql, /status = 'completed'/)
+  assert.deepEqual(calls[0].params, ['50', '2'])
+})
+
+test('deleteTrip reports a missing or foreign trip', async () => {
+  const pool = { async query() { return { rowCount: 0 } } }
+  assert.equal(await deleteTrip(pool, '2', '7'), false)
 })

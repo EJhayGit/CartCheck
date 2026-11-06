@@ -197,3 +197,11 @@ export async function correctTrip(pool, userId, tripId, revision, items) {
     throw error
   } finally { client.release() }
 }
+
+// Trip items go with it through the trip_items foreign key's ON DELETE CASCADE.
+export async function deleteTrip(pool, userId, tripId) {
+  const result = await pool.query(
+    `DELETE FROM cartcheck.shopping_trips WHERE id = $1 AND user_id = $2 AND status = 'completed'`, [tripId, userId]
+  )
+  return result.rowCount > 0
+}

@@ -86,5 +86,6 @@ export const deleteListItem = (id, itemId) => request(`/api/lists/${encodeURICom
 export const getTrip = (id, { signal } = {}) => request(`/api/trips/${encodeURIComponent(id)}`, { signal })
 export const reuseTrip = (id, input) => request(`/api/trips/${encodeURIComponent(id)}/reuse`, { method: 'POST', body: JSON.stringify(input) })
 export const correctTrip = (id, input) => request(`/api/trips/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(input) })
+export const deleteTrip = (id) => request(`/api/trips/${encodeURIComponent(id)}`, { method: 'DELETE' })
 export const getAssistantStatus = () => request('/api/assistant/status')
 export const sendAssistantMessage = (message) => request('/api/assistant/interpret', { method: 'POST', body: JSON.stringify({ message }) })

@@ -110,6 +110,7 @@ All domain routes are JSON under `/api`. Private mutations require a session, or
 | `POST` | `/api/trips/:id/reuse` | Shop again: create a new active list from a completed trip (`items`: `all` or `notBought`, optional `name`). Copies names, categories, quantities and units; no prices or bought state. Items link back to the catalog by name (repeats of one product merge into the first row), so adding that product again makes no second row. 404 for another account's trip. |
 | `GET` | `/api/trips`, `/api/trips/:id` | Paginated history and itemized detail. |
 | `PUT` | `/api/trips/:id` | Confirm a full correction set using expected revision. |
+| `DELETE` | `/api/trips/:id` | Delete one completed trip and its item snapshots. 404 for an active list or another account's trip. |
 | `GET` | `/api/assistant/status` | Whether the assistant is on, and this account's messages left today. |
 | `POST` | `/api/assistant/interpret` | Turn one message into validated JSON. Saves nothing; confirmed changes use the routes above. |
 | `GET` | `/healthz`, `/readyz` | Process and database readiness. |

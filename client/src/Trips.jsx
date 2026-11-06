@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { correctTrip, getTrip, getTrips, reuseTrip } from './api/httpApi.js'
+import { correctTrip, deleteTrip, getTrip, getTrips, reuseTrip } from './api/httpApi.js'
 import { useDataCache, useDataQuery } from './dataCache.jsx'
 import { mergeHistoryPage, replaceListSummary } from './dataCache.js'
 import { formatMoney, moneySummary } from './money.js'
@@ -46,6 +46,9 @@ export default function Trips({ onReviewChange, initialTripId = null, onExit, on
   const reuseOnOpen = useRef(null)
   const [reuseBusy, setReuseBusy] = useState(false)
   const [reuseError, setReuseError] = useState('')
+  const [confirmingId, setConfirmingId] = useState(null)
+  const [deletingIds, setDeletingIds] = useState(() => new Set())
+  const [deleteError, setDeleteError] = useState('')
   const headingRef = useRef(null)
   const reviewSurfaceRef = useRef(null)
   const reviewTriggerRef = useRef(null)
@@ -90,9 +93,10 @@ export default function Trips({ onReviewChange, initialTripId = null, onExit, on
     pageBusyRef.current = true
     setPageLoading(true)
     setPageError('')
+    // A fresh page each time, so a trip deleted since an earlier load cannot come back.
     const key = `trips:page:${next}`
     try {
-      const result = await cache.load(key, (signal) => getTrips(next, { signal }), { staleTime: 30000 })
+      const result = await cache.load(key, (signal) => getTrips(next, { signal }), { force: true })
       cache.set('trips', (current) => {
         if (!current || !result || current.nextCursor !== next) return current
         const ids = new Set((current.items || []).map((trip) => String(trip.id)))
@@ -112,6 +116,34 @@ export default function Trips({ onReviewChange, initialTripId = null, onExit, on
     setSelectedId(id)
     setNotice('')
     setMode('details')
+  }
+
+  async function remove(trip) {
+    const key = String(trip.id)
+    if (deletingIds.has(key)) return
+    setConfirmingId(null)
+    setDeleteError('')
+    setNotice('')
+    // The card disappears optimistically, so keep keyboard focus on the page.
+    headingRef.current?.focus()
+    const previousIndex = trips.findIndex((entry) => String(entry.id) === key)
+    const release = cache.beginMutation('trips')
+    setDeletingIds((current) => new Set(current).add(key))
+    cache.set('trips', (current) => current && ({ ...current, items: current.items.filter((entry) => String(entry.id) !== key) }))
+    try { await deleteTrip(trip.id); cache.invalidate(`trip:${trip.id}`); if (mountedRef.current) setNotice(`${trip.name || 'Trip'} deleted.`) }
+    catch (caught) {
+      cache.set('trips', (current) => {
+        const currentItems = current?.items || []
+        if (currentItems.some((entry) => String(entry.id) === key)) return current
+        const restored = [...currentItems]
+        restored.splice(Math.max(0, Math.min(previousIndex, restored.length)), 0, trip)
+        return { ...(current || { nextCursor: null }), items: restored }
+      })
+      if (mountedRef.current) setDeleteError(caught.message || 'We could not delete this trip.')
+    } finally {
+      release()
+      if (mountedRef.current) setDeletingIds((current) => { const next = new Set(current); next.delete(key); return next })
+    }
   }
 
   function openReuse(trip = selected) {
@@ -222,9 +254,11 @@ export default function Trips({ onReviewChange, initialTripId = null, onExit, on
 
   const queryErrorText = (caught) => caught?.message || 'Could not load trip history.'
   if (mode === 'history') return <main className="shopping-main trip-screen"><div className="shopping-heading"><div><h1 ref={headingRef} tabIndex="-1">Trips</h1><p className="catalog-subtitle">Review what you bought and what was left behind.</p></div></div>
-    {notice && <p role="status" className="catalog-notice">{notice}</p>}{detailError && <p role="alert" className="alert">{detailError.message || 'Could not load this trip.'}</p>}{error && <div className="catalog-state" role="alert"><p>{queryErrorText(error)}</p><button type="button" className="catalog-button secondary" onClick={() => loadTrips()}>Try again</button></div>}{loading && !trips.length && <div className="catalog-state" role="status">Loading trip history…</div>}{!loading && !error && !trips.length && <section className="catalog-state"><h2>No finished trips yet</h2><p>Completed shopping trips will appear here after you finish a list.</p></section>}
+    {notice && <p role="status" className="catalog-notice">{notice}</p>}{deleteError && <p role="alert" className="alert">{deleteError}</p>}{detailError && <p role="alert" className="alert">{detailError.message || 'Could not load this trip.'}</p>}{error && <div className="catalog-state" role="alert"><p>{queryErrorText(error)}</p><button type="button" className="catalog-button secondary" onClick={() => loadTrips()}>Try again</button></div>}{loading && !trips.length && <div className="catalog-state" role="status">Loading trip history…</div>}{!loading && !error && !trips.length && <section className="catalog-state"><h2>No finished trips yet</h2><p>Completed shopping trips will appear here after you finish a list.</p></section>}
     {pageError && <div className="catalog-state" role="alert"><p>{pageError}</p><button type="button" className="catalog-button secondary" onClick={() => loadTrips(cursor)} disabled={pageLoading}>Try again</button></div>}
-    <div className="trip-cards">{trips.map((trip) => <article className="trip-card" key={trip.id}><div><h2>{trip.name || 'Shopping trip'}</h2><p className="trip-card-date">Finished {dateLabel(trip.completedAt)}</p><p>{trip.itemCount} items · {trip.boughtCount} bought · {trip.notBoughtCount} not bought</p></div><div className="trip-card-spend"><span>Recorded spending</span><strong>{amount(trip.summary.actualTotal, trip.currency)}</strong><small>{trip.summary.actualMissingCount ? `Partial total · ${trip.summary.actualMissingCount} price${trip.summary.actualMissingCount === 1 ? '' : 's'} missing` : 'Actual prices recorded'}</small></div><button className="catalog-button secondary" type="button" onClick={() => openTrip(trip.id)} disabled={detailLoading}>View details</button>{onOpenList && <button className="text-button" type="button" onClick={() => openTrip(trip.id, { reuse: true })} disabled={detailLoading} aria-label={`Shop again from ${trip.name || 'this trip'}`}>Shop again</button>}</article>)}</div>{cursor && <button type="button" className="catalog-button secondary" onClick={() => loadTrips(cursor)} disabled={loading || pageLoading}>{pageLoading ? 'Loading…' : 'Load more trips'}</button>}
+    <div className="trip-cards">{trips.map((trip) => <article className="trip-card" key={trip.id}><div><h2>{trip.name || 'Shopping trip'}</h2><p className="trip-card-date">Finished {dateLabel(trip.completedAt)}</p><p>{trip.itemCount} items · {trip.boughtCount} bought · {trip.notBoughtCount} not bought</p></div><div className="trip-card-spend"><span>Recorded spending</span><strong>{amount(trip.summary.actualTotal, trip.currency)}</strong><small>{trip.summary.actualMissingCount ? `Partial total · ${trip.summary.actualMissingCount} price${trip.summary.actualMissingCount === 1 ? '' : 's'} missing` : 'Actual prices recorded'}</small></div><button className="catalog-button secondary" type="button" onClick={() => openTrip(trip.id)} disabled={detailLoading}>View details</button>{onOpenList && <button className="text-button" type="button" onClick={() => openTrip(trip.id, { reuse: true })} disabled={detailLoading} aria-label={`Shop again from ${trip.name || 'this trip'}`}>Shop again</button>}{confirmingId === String(trip.id)
+      ? <p className="remove-confirm" role="group" aria-label={`Delete ${trip.name || 'this trip'}?`}><span>Delete “{trip.name || 'Shopping trip'}” from history? This can’t be undone.</span><button className="catalog-small-button" type="button" onClick={() => setConfirmingId(null)}>Keep</button><button className="catalog-small-button danger" type="button" onClick={() => remove(trip)} autoFocus>Delete</button></p>
+      : <button className="text-button danger" type="button" onClick={() => setConfirmingId(String(trip.id))} disabled={deletingIds.has(String(trip.id))} aria-label={`Delete ${trip.name || 'this trip'}`}>{deletingIds.has(String(trip.id)) ? 'Deleting…' : 'Delete'}</button>}</article>)}</div>{cursor && <button type="button" className="catalog-button secondary" onClick={() => loadTrips(cursor)} disabled={loading || pageLoading}>{pageLoading ? 'Loading…' : 'Load more trips'}</button>}
   </main>
 
   if (!selected) return <main className="shopping-main trip-screen"><div className="shopping-heading"><div><h1 ref={headingRef} tabIndex="-1">Saved trip</h1><p className="catalog-subtitle">{detailError ? (detailError.message || 'Could not load this trip.') : 'Loading saved trip details…'}</p></div><button type="button" className="catalog-button secondary" onClick={() => onExit ? onExit() : (viewRevision.current += 1, setMode('history'), setSelectedId(null))}>{onExit ? 'My Lists' : 'All trips'}</button></div>{detailError && <section className="catalog-state" role="alert"><p>{detailError.message || 'Could not load this trip.'}</p><button className="catalog-button secondary" type="button" onClick={detailQuery.refresh}>Try again</button></section>}</main>
