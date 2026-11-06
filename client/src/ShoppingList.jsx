@@ -88,6 +88,8 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
   const settleTimers = useRef(new Map())
   const rowsRef = useRef([])
   const [lastChange, setLastChange] = useState(null)
+  // Each change remounts the undo bar so its fade animation restarts.
+  const changeId = useRef(0)
   const [moreFields, setMoreFields] = useState(false)
   const [actionError, setActionError] = useState('')
   const [editor, setEditor] = useState(null)
@@ -139,7 +141,8 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
   }, [])
   useEffect(() => {
     if (!lastChange) return
-    const timer = setTimeout(() => setLastChange(null), 6000)
+    // Keep in step with the 4s .check-status p animation in styles.css.
+    const timer = setTimeout(() => setLastChange(null), 4000)
     return () => clearTimeout(timer)
   }, [lastChange])
   function reportPending() { onMutationPending(Boolean(pendingMutation.current || pendingAddCount.current || purchases.size || quantities.size)) }
@@ -451,7 +454,7 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
       settleTimers.current.set(item.id, setTimeout(() => settle(item.id), 1500))
     } else if (sortMode === 'default' && document.activeElement?.id === `check-${item.id}`) focusTarget.current = `check-${item.id}`
     const left = remainingCount + (bought ? -1 : 1)
-    setLastChange({ item, bought, text: `${item.name} ${bought ? 'bought' : 'moved back to To buy'}. ${left} left.` })
+    setLastChange({ id: ++changeId.current, item, bought, text: `${item.name} ${bought ? 'bought' : 'moved back to To buy'}. ${left} left.` })
     purchases.set(item.id, bought)
   }
 
@@ -460,7 +463,7 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
     const { item, bought } = lastChange
     stopSettling(item.id)
     focusTarget.current = `check-${item.id}`
-    setLastChange({ item, bought: !bought, undone: true, text: `${item.name} ${bought ? 'moved back to To buy' : 'bought'}.` })
+    setLastChange({ id: ++changeId.current, item, bought: !bought, undone: true, text: `${item.name} ${bought ? 'moved back to To buy' : 'bought'}.` })
     purchases.set(item.id, !bought)
   }
 
@@ -712,6 +715,6 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
     </details></div>}
     <p className="visually-hidden" role="status" aria-live="polite">{lastChange ? '' : announcement}</p>
     <p className="visually-hidden" role="status" aria-live="polite">{quantityAnnouncement}</p>
-    <div className="check-status" role="status" aria-live="polite">{lastChange && <p><span>{lastChange.text}</span>{!lastChange.undone && <button className="text-button" type="button" onClick={undoLastChange}>Undo</button>}</p>}</div>
+    <div className="check-status" role="status" aria-live="polite">{lastChange && <p key={lastChange.id}><span>{lastChange.text}</span>{!lastChange.undone && <button className="text-button" type="button" onClick={undoLastChange}>Undo</button>}</p>}</div>
   </main>
 }
