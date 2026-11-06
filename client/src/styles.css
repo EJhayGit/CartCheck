@@ -410,6 +410,8 @@ details[open] > summary .when-open { display: inline; }
 .assistant-dialog[open] { display: flex; flex-direction: column; animation: assistant-rise .2s var(--ease-out); }
 .assistant-dialog::backdrop { background: transparent; }
 @keyframes assistant-rise { from { opacity: 0; transform: translateY(8px); } }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .18s; animation-timing-function: var(--ease-out); }
+::view-transition-group(*) { animation-duration: .2s; animation-timing-function: var(--ease-out); }
 .assistant-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 6px 6px 18px; border-bottom: 1px solid var(--border); }
 .assistant-head h2 { margin: 0; font-size: 16px; font-weight: 700; }
 .assistant-close { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: var(--radius-control); background: none; color: var(--muted-text); }
@@ -515,4 +517,5 @@ details[open] > summary .when-open { display: inline; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; transition-delay: 0s !important; }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
 }
