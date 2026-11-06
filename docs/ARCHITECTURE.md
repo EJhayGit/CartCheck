@@ -108,6 +108,7 @@ All domain routes are JSON under `/api`. Private mutations require a session, or
 | `POST` | `/api/trips/:id/reuse` | Shop again: create a new active list from a completed trip (`items`: `all` or `notBought`, optional `name`). Copies names, categories, quantities and units; no prices or bought state. 404 for another account's trip. |
 | `GET` | `/api/trips`, `/api/trips/:id` | Paginated history and itemized detail. |
 | `PUT` | `/api/trips/:id` | Confirm a full correction set using expected revision. |
+| `DELETE` | `/api/trips/:id` | Delete one completed trip and its item snapshots. 404 for an active list or another account's trip. |
 | `GET` | `/healthz`, `/readyz` | Process and database readiness. |
 
 Search is escaped, case-insensitive, bounded, and paginated. Each cart/trip response explicitly distinguishes known subtotals from completeness flags and missing counts. An absent optional amount is JSON `null`, never `0` or an inferred catalog price.
