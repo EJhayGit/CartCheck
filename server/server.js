@@ -42,6 +42,7 @@ import { assistantConfig, interpretMessage } from './assistantModel.js'
 import { respondToMessage } from './assistantService.js'
 import { assistantErrorBody, validateAssistantMessage } from './assistantValidation.js'
 import { accountActionUrl } from './accountLinks.js'
+import { setStaticCacheHeaders } from './staticCache.js'
 
 const app = express()
 app.set('trust proxy', 1)
@@ -49,7 +50,7 @@ const DUMMY_PASSWORD_HASH = '$2b$12$xptoLy.PbkOgrqREcktMpum2TPLPLVKmXVGXUqCvYrRC
 const clientDist = resolve(dirname(fileURLToPath(import.meta.url)), '../client/dist')
 const clientIndex = resolve(clientDist, 'index.html')
 const hasClientBuild = existsSync(clientIndex)
-const serveClientAssets = express.static(clientDist, { index: false })
+const serveClientAssets = express.static(clientDist, { index: false, setHeaders: setStaticCacheHeaders })
 
 // CORS before the routes. Middleware registered after a route never sees that
 // route's requests, which is the m4 lesson showing up in production.
@@ -568,6 +569,7 @@ app.use((request, response) => {
     return response.status(404).json({ error: 'No such route' })
   }
   if (hasClientBuild && ['GET', 'HEAD'].includes(request.method)) {
+    response.set('Cache-Control', 'no-cache')
     return response.sendFile(clientIndex)
   }
   response.status(404).json({ error: 'No such route' })
