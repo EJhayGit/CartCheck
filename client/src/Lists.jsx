@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { withViewTransition } from './viewTransition.js'
 import { createPortal } from 'react-dom'
 import { createList, deleteList, getList, getLists, getTrips, reuseTrip, updateList } from './api/httpApi.js'
 import { formatMoney, moneySummary, normalizeMoney, budgetProgress } from './money.js'
@@ -163,7 +164,7 @@ export default function Lists({ onOpenList, onOpenTrip = onOpenList, preferredCu
     const previousIndex = query.data?.items.findIndex((entry) => String(entry.id) === key) ?? 0
     const release = cache.beginMutation('lists')
     setDeletingIds((current) => new Set(current).add(key))
-    cache.set('lists', (current) => current && ({ ...current, items: current.items.filter((entry) => String(entry.id) !== String(list.id)) }))
+    await withViewTransition(() => cache.set('lists', (current) => current && ({ ...current, items: current.items.filter((entry) => String(entry.id) !== String(list.id)) })))
     try { await deleteList(list.id); cache.invalidate(`list:${list.id}`); setNotice(`${list.name} deleted.`) }
     catch (caught) {
       cache.set('lists', (current) => {
@@ -215,7 +216,7 @@ export default function Lists({ onOpenList, onOpenTrip = onOpenList, preferredCu
         actual.knownCount ? `Actual spending ${formatMoney(actual.total, list.currency)}${actual.missingCount > 0 ? ' · incomplete' : ''}` : '',
         list.budget == null ? '' : `Budget ${formatMoney(list.budget, list.currency)}${budgetState ? ` · ${budgetState.over ? 'over budget' : budgetState.reached ? 'reached' : `${formatMoney(budgetState.value, list.currency)} remaining`}${estimated.missingCount > 0 ? ' (known prices only)' : ''}` : ''}`,
       ].filter(Boolean)
-      return <article className="list-card" key={list.id}>
+      return <article className="list-card" key={list.id} style={{ viewTransitionName: `list-${list.id}` }}>
         <button className="list-card-open" type="button" onClick={() => onOpenList(list.id)}><strong>{list.name}</strong><span>{count ? `${bought} of ${count} bought` : 'No items yet'}</span><span className="progress-track" role="img" aria-label={`${progress}% bought`}><span style={{ width: `${progress}%` }} /></span>{money.length ? money.map((line) => <span className="list-card-budget" key={line}>{line}</span>) : count > 0 && <span className="list-card-budget">No prices entered</span>}<span className="list-card-updated">{list.currency} · Updated {dateLabel(list.updatedAt)}</span></button>
         <div className="list-card-actions"><button className="catalog-button secondary" type="button" onClick={(event) => openEdit(list, event)}>Edit</button>{confirmingId === String(list.id)
           ? <p className="remove-confirm" role="group" aria-label={`Delete ${list.name}?`}><span>Delete “{list.name}” and its items? Trip history is unaffected.</span><button className="catalog-small-button" type="button" onClick={() => { setConfirmingId(null); focusTarget.current = `delete-list-${list.id}` }}>Keep</button><button className="catalog-small-button danger" type="button" onClick={() => remove(list)} autoFocus>Delete</button></p>

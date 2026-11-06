@@ -2,7 +2,10 @@ import { lazy, Suspense, useRef, useState } from 'react'
 import { PASSWORD_HINT } from './passwordPolicy.js'
 import { Brand, Tick } from './Brand.jsx'
 
-const Strength = lazy(() => import('./PasswordStrength.jsx'))
+const loadStrength = () => import('./PasswordStrength.jsx')
+const Strength = lazy(loadStrength)
+// A failed prefetch is harmless: lazy() retries when the meter renders.
+export function preloadPasswordMeter() { loadStrength().catch(() => {}) }
 export function PasswordMeter(props) {
   return <Suspense fallback={<div className="password-meter"><p className="password-hint">{PASSWORD_HINT}</p></div>}><Strength {...props} /></Suspense>
 }

@@ -545,3 +545,27 @@ test('a transient focus check preserves the last confirmed account data', async 
   assert.ok(screen.getByRole('button', { name: /Known A list/ }))
   assert.equal(calls.filter((call) => !call.url.includes('/api/auth/')).length, privateRequestCount)
 })
+
+test('signing in from a stale deep link replaces the route at once even while view transitions wait for a frame', async () => {
+  // A transition whose update never runs stands in for the frame the browser has not painted yet.
+  document.startViewTransition = () => ({ updateCallbackDone: new Promise(() => {}) })
+  try {
+    window.history.replaceState({}, '', '/trips/7')
+    let authenticated = false
+    const calls = mockFetch((url) => {
+      if (url.endsWith('/api/auth/me')) return authenticated ? json({ user }) : json({ error: 'unauthenticated' }, 401)
+      if (url.endsWith('/api/auth/login')) { authenticated = true; return json({ user }) }
+      return appResponse(url)
+    })
+    render(React.createElement(App))
+    await screen.findByRole('heading', { name: 'Sign in' })
+    fireEvent.change(screen.getByLabelText('Email address'), { target: { value: user.email } })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'local-password' } })
+    fireEvent.submit(screen.getByLabelText('Email address').closest('form'))
+    await screen.findByRole('heading', { name: 'My Lists' })
+    assert.equal(window.location.pathname, '/lists')
+    assert.equal(calls.some((call) => call.url.endsWith('/api/trips/7')), false)
+  } finally {
+    delete document.startViewTransition
+  }
+})

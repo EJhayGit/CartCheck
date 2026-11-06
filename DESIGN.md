@@ -239,7 +239,7 @@ Soft, consistent rounding with thin 1px borders. Controls (buttons, inputs, sele
 - "3 of 10 bought" under the list title, with a 6px pill track (`progress-track`) whose primary fill animates its width at 0.2s.
 - When nothing is left to buy, a completion panel ("Everything’s checked off.") offers the primary Review and finish.
 - The tick draws in about 0.3s with an exponential ease-out. A checked row stays in To buy for 1.5s so the tick is seen where it was tapped, then settles into Bought; keyboard focus moves on only when it settles. All animation is off under reduced motion.
-- **Undo bar:** each check or uncheck shows "Bananas bought. 6 left." with Undo in a dark bar near the bottom (above the phone navigation) for six seconds.
+- **Undo bar:** each check or uncheck shows "Bananas bought. 6 left." with Undo in a dark bar near the bottom (above the phone navigation) for three seconds. It rises and fades in, then sinks back down as it fades out over its last third of a second (no animation under reduced motion).
 
 ### CartCheck Assistant
 - **Launcher:** a 56px round Market Green button with a drawn chat icon, labelled "Open CartCheck Assistant", 20px from the bottom right on desktop. On phones it sits above the bottom bar and moves higher while the undo or added bar shows. Hidden during a Finish or correction review.
@@ -273,7 +273,7 @@ Soft, consistent rounding with thin 1px borders. Controls (buttons, inputs, sele
 - **Do** keep checklist actions primary and prices and budget visually secondary.
 - **Do** use the CSS custom properties in `client/src/styles.css`. Never hard-code a hex value in a component.
 - **Do** keep the official wordmark assets in `client/public/`.
-- **Do** honor `prefers-reduced-motion`; transitions stay short (0.16–0.2s ease).
+- **Do** honor `prefers-reduced-motion`; transitions stay short (0.16–0.2s ease). Page switches crossfade in about 0.18s where the browser supports View Transitions; elsewhere, and under reduced motion, they switch instantly. Deleting a list, trip or item fades that row out while the rows below slide up. The navigation and other fixed overlays switch instantly during these transitions. Saving cues (dimmed navigation, “Saving…”) appear only when a save takes longer than 0.3s.
 - **Do** keep every interactive target at least 44px tall, with a visible focus outline.
 - **Do** show a price only when one is recorded; the budget panel carries the incomplete counts.
 
