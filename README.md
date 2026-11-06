@@ -9,9 +9,10 @@ CartCheck is a private grocery checklist for planning a shop and keeping a recor
 - Provides a searchable catalog of 160 starter groceries and private custom items.
 - Keeps multiple named lists per account, with searchable groceries, custom items, quantities, and bought status.
 - Records a selected list as a named dated trip and keeps that list active, with its not-bought items or empty, as you choose. Other lists do not change; new lists are created explicitly.
-- Lets you review and correct past trips without changing their original finish date.
+- Lets you review and correct past trips without changing their original finish date, or delete a finished trip from history after confirmation.
+- Includes the CartCheck Assistant demo: a chat popup that turns a typed command into a change you confirm before anything saves, with daily message limits. Setup is in [docs/ASSISTANT_SETUP.md](docs/ASSISTANT_SETUP.md).
 - Tracks optional spending and budget in PHP, USD, or EUR. Missing prices stay visibly incomplete; a known free item can be entered as `0.00`.
-- Offers responsive layouts and Light, Dark, and System appearance settings.
+- Offers responsive layouts and Light, Dark, and System appearance settings. Page switches and row removals animate briefly where the browser supports View Transitions, and switch instantly under reduced motion.
 - Keeps shopper data behind authenticated Express routes with account ownership checks.
 - Supports email verification, password reset links, and password changes through configurable transactional email.
 
@@ -48,7 +49,7 @@ npm run dev
 
 Open `http://localhost:5173`. Vite proxies `/api` to Express on port 3000. `GET /healthz` checks the API process and `GET /readyz` checks database readiness. The React app uses the authenticated API.
 
-The [server environment example](server/.env.example) documents database, TLS, pool, CORS, and email settings. Follow the [account email setup guide](docs/ACCOUNT_EMAIL_SETUP.md) before enabling real delivery or required verification. Leave `VITE_API_BASE_URL` unset for the local proxy and approved single-origin Render service. The [client environment example](client/.env.example) documents a direct API origin only for a separately hosted development API. Never put secrets in a `VITE_` variable.
+The [server environment example](server/.env.example) documents database, TLS, pool, CORS, email, and assistant settings. Follow the [account email setup guide](docs/ACCOUNT_EMAIL_SETUP.md) before enabling real delivery or required verification. Leave `VITE_API_BASE_URL` unset for the local proxy and approved single-origin Render service. The [client environment example](client/.env.example) documents a direct API origin only for a separately hosted development API. Never put secrets in a `VITE_` variable.
 
 ## Verify
 
