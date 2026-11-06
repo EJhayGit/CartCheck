@@ -1,9 +1,9 @@
 // Explicit, non-destructive migration and seed runner. Review DATABASE_URL and
 // the SQL before invoking this against any retained database.
-import { createHash } from 'node:crypto'
 import { readFileSync, readdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { parseMigration } from './migrationFile.js'
 import { pool } from './pool.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -20,8 +20,7 @@ async function migrate() {
       applied_at timestamptz NOT NULL DEFAULT now()
     )`)
     for (const filename of files) {
-      const sql = readFileSync(join(here, 'migrations', filename), 'utf8')
-      const sha256 = createHash('sha256').update(sql).digest('hex')
+      const { sql, sha256 } = parseMigration(readFileSync(join(here, 'migrations', filename), 'utf8'))
       await client.query('BEGIN')
       try {
         const applied = await client.query('SELECT sha256 FROM cartcheck.schema_migrations WHERE filename = $1', [filename])

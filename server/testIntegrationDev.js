@@ -60,7 +60,7 @@ try {
   const child = spawn(process.execPath, [
     '--test', '--test-concurrency=1',
     'auth.integration.test.js', 'catalog.integration.test.js', 'cart.integration.test.js',
-    'accountEnhancements.integration.test.js',
+    'accountEnhancements.integration.test.js', 'assistant.integration.test.js',
   ], {
     cwd: new URL('.', import.meta.url),
     env: { ...process.env, CARTCHECK_TEST_DATABASE_URL: databaseUrl, CARTCHECK_TEST_RUN_ID: runId },

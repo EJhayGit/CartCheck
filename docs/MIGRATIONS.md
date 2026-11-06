@@ -5,7 +5,7 @@
 ## Rules
 
 - Migrations are numbered SQL files in `server/db/migrations/NNN_*.sql`, applied in order by `server/db/run.js` (`npm run db:migrate`).
-- The runner records checksums and rejects edits to applied migrations. Never edit an applied migration; add a new one.
+- The runner records checksums and rejects edits to applied migrations. Never edit an applied migration; add a new one. Checksums are taken after converting CRLF to LF, so a Windows checkout matches the committed file; any other difference is rejected.
 - Never reset a retained database. `server/db/schema.sql` is a reference only.
 - Check the target with `npm run db:preflight` first and verify with `npm run db:verify`. Use the [local setup steps](../README.md#run-locally) for a disposable local database.
 - Local setup instructions do not authorize production changes.
@@ -17,6 +17,8 @@ Migration `004_multiple_named_lists.sql` adds required list names and update tim
 The client and API use explicit list IDs. Registration and finishing no longer create an automatic empty list; users create lists explicitly. Legacy `/api/cart` endpoints are retired. Old server code depends on the removed unique index and cannot safely overlap the new schema.
 
 Migration `005_finish_keeps_list.sql` adds `finished_from_list_id` and `finished_from_revision` to `shopping_trips`, with a partial unique index on the pair. Finishing now saves the trip as a new row and leaves the list row active, so this link is how a retry finds its saved trip. It adds nullable columns only and backfills nothing; trips finished earlier keep their IDs and data. Old server code would still finish by completing the list row, so release the matching client and server together.
+
+Migration `006_assistant_usage.sql` adds `assistant_usage` and `assistant_app_usage` for the demo assistant's message counts. It only adds tables, so old server code keeps working during a release, and it holds no message text.
 
 Before an approved release to a retained database:
 

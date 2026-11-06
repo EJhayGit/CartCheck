@@ -241,6 +241,12 @@ Soft, consistent rounding with thin 1px borders. Controls (buttons, inputs, sele
 - The tick draws in about 0.3s with an exponential ease-out. A checked row stays in To buy for 1.5s so the tick is seen where it was tapped, then settles into Bought; keyboard focus moves on only when it settles. All animation is off under reduced motion.
 - **Undo bar:** each check or uncheck shows "Bananas bought. 6 left." with Undo in a dark bar near the bottom (above the phone navigation) for six seconds.
 
+### CartCheck Assistant
+- **Launcher:** a 56px round Market Green button with a drawn chat icon, labelled "Open CartCheck Assistant", 20px from the bottom right on desktop. On phones it sits above the bottom bar and moves higher while the undo or added bar shows. Hidden during a Finish or correction review.
+- **Popup:** a native `<dialog>` with no dark backdrop, about 380×560px over the launcher on desktop and full screen on phones. The header stays fixed, the demo notice and conversation scroll, and the message field stays at the bottom with "3 of 5 left today" and a character count.
+- **Confirmation card:** a muted surface inside the conversation with plain lines ("Create list: Weekly", "Add: eggs, rice"), a list picker when the list is unclear (same-named lists also show their item count and last update), then Cancel and Confirm side by side. Focus moves to its first control. When nothing can be saved there is no Confirm.
+- **Replies:** the shopper's messages sit in a soft tinted block on the right; CartCheck's replies are plain text; errors use the standard alert style. Every word is written by CartCheck, never by the model.
+
 ### Feedback & States
 - **Budget summary:** collapsed by default to one line ("Budget ₱15,000.00 · est. ₱13,220.00 (6 unpriced)"); open it for the subtotals, meters and budget editing. Incomplete totals use muted text; warning color is kept for over budget. Currencies are never combined.
 - **Finish review:** the decision comes first: "3 bought · 7 will be saved as not bought", recorded spending, then one choice when something was not bought ("Keep the 7 not-bought items on this list", the default, or "Clear the list"), then Keep shopping and Confirm (sticky above the phone navigation). The Not bought and Bought lists follow as collapsible groups.

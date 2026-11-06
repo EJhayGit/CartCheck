@@ -48,6 +48,7 @@ function mockFetch(handler) {
   return calls
 }
 const noop = () => {}
+// Inside waitFor, assert.ok rather than assert.equal on a DOM element: a retried failure formats the whole jsdom tree (46s, 21GB), which got CI cancelled.
 const appUser = { id: 'shopper-1', email: 'shopper@example.test', email_verified: true, verification_required: false, preferred_currency: 'PHP' }
 const starter = { id: 'product-1', name: 'Milk', category: 'Dairy & eggs', source: 'starter' }
 const cartItem = { id: 'cart-1', name: 'Milk', category: 'Dairy', quantity: '1', unitLabel: '', estimatedTotal: null, actualTotal: null, bought: false }
@@ -373,7 +374,7 @@ test('tapping the Add row creates a private Other item and adds it to this list'
   assert.deepEqual(posts, [{ name: 'Ube jam', category: 'Other' }])
   await waitFor(() => assert.equal(field.value, ''))
   assert.ok(screen.getByText('Ube jam added.'))
-  await waitFor(() => assert.equal(document.activeElement, field))
+  await waitFor(() => assert.ok(document.activeElement === field))
 })
 
 test('Enter with no catalog match creates the item once and adds it', async () => {
@@ -485,7 +486,7 @@ test('a failed create keeps the term and shows an error without adding', async (
   const field = await typeInFind('Ube jam')
   fireEvent.click(await screen.findByRole('button', { name: /^Add “Ube jam”/ }))
   assert.match((await screen.findByRole('alert')).textContent, /We could not create Ube jam/)
-  await waitFor(() => assert.equal(document.activeElement, field))
+  await waitFor(() => assert.ok(document.activeElement === field))
   assert.equal(field.value, 'Ube jam')
   assert.deepEqual(added, [])
   assert.ok(screen.getByRole('button', { name: /^Add “Ube jam”/ }))
@@ -566,9 +567,9 @@ test('stepping down to one hides the minus and moves focus to plus', async () =>
   const minus = await screen.findByRole('button', { name: 'Decrease Soy sauce quantity' })
   minus.focus()
   fireEvent.click(minus)
-  await waitFor(() => assert.equal(screen.queryByRole('button', { name: 'Decrease Soy sauce quantity' }), null))
+  await waitFor(() => assert.ok(!screen.queryByRole('button', { name: 'Decrease Soy sauce quantity' })))
   assert.equal(screen.getByRole('group', { name: 'Soy sauce quantity' }).textContent, '1')
-  await waitFor(() => assert.equal(document.activeElement, screen.getByRole('button', { name: 'Increase Soy sauce quantity' })))
+  await waitFor(() => assert.ok(document.activeElement === screen.getByRole('button', { name: 'Increase Soy sauce quantity' })))
   await waitFor(() => assert.deepEqual(writes, [{ quantity: '1' }]))
 })
 
@@ -626,7 +627,22 @@ test('adds show at once, keep the field free, and save one at a time in order', 
   finishers[0]()
   await waitFor(() => assert.deepEqual(started, ['p-1', 'p-2']))
   finishers[1]()
-  await waitFor(() => assert.equal(screen.queryByRole('checkbox', { name: 'Milk' }), null))
+  await waitFor(() => assert.ok(!screen.queryByRole('checkbox', { name: 'Milk' })))
+})
+
+test('a typed add shows at once on a list that has a row with no catalog link', async () => {
+  const pending = deferred()
+  typedItemFixture({
+    items: [{ id: 'i-1', productId: null, name: 'Rice', category: 'Pantry', quantity: '1', unitLabel: null, estimatedTotal: null, actualTotal: null, bought: false }],
+    createResponse: () => pending.promise,
+    onQuickAdd: async () => {},
+  })
+  await screen.findByRole('checkbox', { name: 'Rice' })
+  const field = await typeInFind('Kimchi')
+  await screen.findByRole('button', { name: /Add .*Kimchi/ })
+  fireEvent.keyDown(field, { key: 'Enter' })
+  assert.ok(await screen.findByText('Kimchi'))
+  pending.resolve(json({ item: { id: 'new-1', name: 'Kimchi', category: 'Other', source: 'custom' } }, 201))
 })
 
 test('a failed add removes the row, names it and returns it to an empty field', async () => {

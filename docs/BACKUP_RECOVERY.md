@@ -6,7 +6,7 @@ Backups contain private account and shopping data. Keep them in `server/.test-ru
 
 ## Export scope and approval
 
-The existing private JSON export records all nine `cartcheck` application tables, migration checksums, columns, constraints, indexes and sequence metadata in a repeatable-read, read-only transaction. The development record's export is a custom JSON file with a `.dump` suffix, not a `pg_dump` archive. Do not pass it to `pg_restore`.
+The existing private JSON export records all `cartcheck` application tables (eleven since migration 006; older exports have nine and still restore), migration checksums, columns, constraints, indexes and sequence metadata in a repeatable-read, read-only transaction. The development record's export is a custom JSON file with a `.dump` suffix, not a `pg_dump` archive. Do not pass it to `pg_restore`.
 
 Creating a fresh production export requires explicit approval of its private-data destination. The export must use verified TLS, confirm the selected CartCheck project, suppress credentials and row contents, parse its output back, compare every row, and record a SHA-256 hash and aggregate counts. Recheck its timestamp before any approved data update.
 

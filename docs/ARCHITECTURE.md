@@ -13,6 +13,7 @@ flowchart LR
     B[Browser: localhost:5173] --> V[Vite dev server]
     V -->|proxy /api| E[Express: localhost:3000]
     E -->|pg: verified TLS for hosted Supabase| P[(Supabase development PostgreSQL or disposable local PostgreSQL)]
+    E -->|assistant messages only| G[Google Gemini API]
 ```
 
 The client calls relative `/api` URLs. Vite proxies those requests to Express locally. Supabase provides PostgreSQL only; the browser does not connect to Supabase or Resend.
@@ -79,6 +80,7 @@ erDiagram
 | `users` | `id`, normalized unique `email`, `password_hash`, `preferred_currency DEFAULT 'PHP'`, email verification and legacy exemption flags (migration 003), timestamps. |
 | `sessions` | `id`, `user_id`, unique hashed token, expiry and creation timestamps. |
 | `auth_action_tokens`, `auth_email_limits` | Migration 003: hashed one-use verification/reset tokens, expiry, and persisted per-account email cooldowns. |
+| `assistant_usage`, `assistant_app_usage` | Migration 006: demo assistant message counts per account per Pacific day, and across all accounts. Counts only, never message text. |
 | `starter_products` | Stable seed `code`, name and category. No brand, variant, package size or price requirement. |
 | `products` | `id`, required owner `user_id`, optional `source_starter_code`, name, category, optional `image_url`, timestamps. Unique `(user_id, source_starter_code)` for copied starters. Owner-scoped editing and deletion. |
 | `shopping_trips` | `id`, owner `user_id`, `status` (`active`/`completed`), `currency`, nullable nonnegative `budget`, integer `revision`, required trimmed Unicode name (at most 100 code points), update/creation and nullable completion timestamps, and nullable `finished_from_list_id` and `finished_from_revision` linking a finished trip to its source list. Multiple active trips per user; owner/update-time index. |
@@ -105,10 +107,12 @@ All domain routes are JSON under `/api`. Private mutations require a session, or
 | `POST` | `/api/lists/:id/items` | Add a product to the selected list; duplicate selection is handled by the client edit flow. |
 | `PATCH`, `DELETE` | `/api/lists/:id/items/:itemId` | Edit displayed name, category, quantity, unit label, amounts or bought state; remove. |
 | `POST` | `/api/trips/:id/finish` | Save this exact list as a new trip using its revision, keeping the list active (`remaining`: `keep` or `clear`); idempotent retry. Returns `{ completedTrip, list }`; `list` is `null` only for a row completed before migration 005. |
-| `POST` | `/api/trips/:id/reuse` | Shop again: create a new active list from a completed trip (`items`: `all` or `notBought`, optional `name`). Copies names, categories, quantities and units; no prices or bought state. 404 for another account's trip. |
+| `POST` | `/api/trips/:id/reuse` | Shop again: create a new active list from a completed trip (`items`: `all` or `notBought`, optional `name`). Copies names, categories, quantities and units; no prices or bought state. Items link back to the catalog by name (repeats of one product merge into the first row), so adding that product again makes no second row. 404 for another account's trip. |
 | `GET` | `/api/trips`, `/api/trips/:id` | Paginated history and itemized detail. |
 | `PUT` | `/api/trips/:id` | Confirm a full correction set using expected revision. |
 | `DELETE` | `/api/trips/:id` | Delete one completed trip and its item snapshots. 404 for an active list or another account's trip. |
+| `GET` | `/api/assistant/status` | Whether the assistant is on, and this account's messages left today. |
+| `POST` | `/api/assistant/interpret` | Turn one message into validated JSON. Saves nothing; confirmed changes use the routes above. |
 | `GET` | `/healthz`, `/readyz` | Process and database readiness. |
 
 Search is escaped, case-insensitive, bounded, and paginated. Each cart/trip response explicitly distinguishes known subtotals from completeness flags and missing counts. An absent optional amount is JSON `null`, never `0` or an inferred catalog price.
@@ -124,6 +128,12 @@ Use [DESIGN.md](../DESIGN.md): semantic controls, visible focus, loading/empty/e
 The October 9 release also treats a shared-cookie change in another tab as a session boundary. It revalidates identity before focus/online refresh, uses a credential-free cross-tab notification, discards private state on a confirmed boundary, and supplies the rendered account ID on private API requests. Express compares this hint with the authenticated cookie identity before accessing data. The hint is a consistency check, never an authorization source; server ownership predicates remain authoritative. All `/api` responses carry `Cache-Control: no-store`. These controls were released in approved commit `0db7eb7` after CI passed.
 
 Private screens share an account-session in-memory cache through `DataCacheProvider` and `useDataQuery`. Active-list summaries, complete catalog, and the first history-summary page prefetch concurrently after session restoration. Lists/history use a 30-second stale period; catalog and bounded lazy trip details remain cached until changed or explicitly refreshed. Cached content survives background refresh/error. Reads deduplicate, accept abort signals, and use version guards; optimistic mutation locks prevent stale GETs replacing writes. Session/provider disposal aborts and clears private resources. Server persistence, ownership checks, and revision-based Finish/correction confirmation remain authoritative. List detail caches and mutations are scoped by list ID; reads deduplicate and optimistic writes reconcile API responses without full-list refetches. List-screen adds are held in component state outside the cache and saved one at a time, so a list response cannot drop an unconfirmed row.
+
+### CartCheck Assistant
+
+`server/assistantModel.js` is the only file that talks to Google. `assistantService.js` runs each message: reserve quota, call the model, validate the JSON, and refund the account if there is no usable reply. Reservations commit before the model call, so no database connection is held during it. A failed call keeps the app-wide count, because it may still have used Google's quota.
+
+Only the message and a fixed prompt go to Google. The browser matches names against the shopper's own data and saves through the existing routes after Confirm, so validation and account scoping are unchanged. Env vars and limits are in [ASSISTANT_SETUP.md](ASSISTANT_SETUP.md).
 
 ## 6. Authentication and security
 

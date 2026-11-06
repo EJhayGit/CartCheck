@@ -6,6 +6,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { resolve, relative, isAbsolute, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import pg from 'pg'
+import { parseMigration } from './migrationFile.js'
 
 const privateRoot = await realpath(fileURLToPath(new URL('../.test-runs/backups/', import.meta.url)))
 const file = await realpath(resolve(process.argv[2] || ''))
@@ -15,7 +16,10 @@ const bytes = await readFile(file)
 const backup = JSON.parse(bytes)
 assert.equal(backup.format, 'CartCheck private JSON export v1')
 assert.equal(backup.scope, 'cartcheck schema')
-const order = ['schema_migrations', 'users', 'starter_products', 'products', 'sessions', 'auth_action_tokens', 'auth_email_limits', 'shopping_trips', 'trip_items']
+const baseOrder = ['schema_migrations', 'users', 'starter_products', 'products', 'sessions', 'auth_action_tokens', 'auth_email_limits', 'shopping_trips', 'trip_items']
+const assistantTables = ['assistant_usage', 'assistant_app_usage']
+// Exports taken before migration 006 have only the nine older tables.
+const order = Object.hasOwn(backup.tables, assistantTables[0]) ? [...baseOrder.slice(0, 2), ...assistantTables, ...baseOrder.slice(2)] : baseOrder
 assert.deepEqual(Object.keys(backup.tables).sort(), [...order].sort())
 const target = JSON.parse(await readFile(new URL('../.test-runs/local-target.json', import.meta.url)))
 assert.equal(target.host, '127.0.0.1')
@@ -38,8 +42,8 @@ try {
   await db.query('CREATE SCHEMA cartcheck; CREATE TABLE cartcheck.schema_migrations(filename text PRIMARY KEY,sha256 text NOT NULL,applied_at timestamptz NOT NULL DEFAULT now())')
   for (const migration of [...backup.tables.schema_migrations].sort((a, b) => a.filename.localeCompare(b.filename))) {
     assert.match(migration.filename, /^00[1-5]_[\w-]+\.sql$/)
-    const sql = await readFile(new URL(`./migrations/${migration.filename}`, import.meta.url), 'utf8')
-    assert.equal(createHash('sha256').update(sql).digest('hex'), migration.sha256, 'Export migration checksum must match repository')
+    const { sql, sha256 } = parseMigration(await readFile(new URL(`./migrations/${migration.filename}`, import.meta.url), 'utf8'))
+    assert.equal(sha256, migration.sha256, 'Export migration checksum must match repository')
     await db.query(sql)
   }
   for (const table of order) {

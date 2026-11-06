@@ -37,6 +37,10 @@ import {
   sessionCookie,
 } from './authSecurity.js'
 import { sendAccountEmail } from './emailService.js'
+import * as assistantRepo from './assistantRepo.js'
+import { assistantConfig, interpretMessage } from './assistantModel.js'
+import { respondToMessage } from './assistantService.js'
+import { assistantErrorBody, validateAssistantMessage } from './assistantValidation.js'
 import { accountActionUrl } from './accountLinks.js'
 
 const app = express()
@@ -510,6 +514,30 @@ app.delete('/api/trips/:id', checkRequestOrigin, authenticate, async (request, r
   try {
     if (!await tripRepo.deleteTrip(pool, request.user.id, id)) return response.status(404).json({ error: 'Trip not found' })
     response.status(204).end()
+  } catch (error) { next(error) }
+})
+
+const assistant = assistantConfig(process.env)
+
+app.get('/api/assistant/status', authenticate, async (request, response, next) => {
+  if (!assistant.enabled) return response.json({ enabled: false })
+  try { response.json({ enabled: true, ...await assistantRepo.getUsage(pool, request.user.id, assistant.dailyLimit) }) }
+  catch (error) { next(error) }
+})
+
+app.post('/api/assistant/interpret', checkRequestOrigin, authenticate, async (request, response, next) => {
+  if (!assistant.enabled) return response.status(503).json(assistantErrorBody('ASSISTANT_UNAVAILABLE'))
+  const input = validateAssistantMessage(request.body)
+  if (input.error) return response.status(400).json({ error: input.error })
+  const userId = request.user.id
+  try {
+    const result = await respondToMessage(input.message, assistant, {
+      reserve: () => assistantRepo.reserveMessage(pool, userId, assistant),
+      interpret: (message) => interpretMessage(message, assistant),
+      refund: (usageDate) => assistantRepo.refundMessage(pool, userId, usageDate),
+    })
+    if (result.retryAfter) response.set('Retry-After', String(result.retryAfter))
+    response.status(result.status).json(result.body)
   } catch (error) { next(error) }
 })
 

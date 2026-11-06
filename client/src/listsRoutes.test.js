@@ -105,7 +105,7 @@ test('deleting a list asks inline and Keep leaves it in place', async () => {
   assert.match(prompt.textContent, /Trip history is unaffected/)
   fireEvent.click(screen.getByRole('button', { name: 'Keep' }))
   assert.ok(screen.getByRole('button', { name: /Summer groceries/ }))
-  await waitFor(() => assert.equal(document.activeElement, screen.getByRole('button', { name: 'Delete' })))
+  await waitFor(() => assert.ok(document.activeElement === screen.getByRole('button', { name: 'Delete' })))
   assert.equal(calls.some((call) => call.options.method === 'DELETE'), false)
 })
 
