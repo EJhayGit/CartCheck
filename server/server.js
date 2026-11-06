@@ -504,6 +504,15 @@ app.put('/api/trips/:id', checkRequestOrigin, authenticate, async (request, resp
   }
 })
 
+app.delete('/api/trips/:id', checkRequestOrigin, authenticate, async (request, response, next) => {
+  const id = parseTripId(request.params.id)
+  if (id === null) return response.status(400).json({ error: 'Invalid trip ID' })
+  try {
+    if (!await tripRepo.deleteTrip(pool, request.user.id, id)) return response.status(404).json({ error: 'Trip not found' })
+    response.status(204).end()
+  } catch (error) { next(error) }
+})
+
 // Is the process alive?
 app.get('/healthz', (request, response) => {
   response.json({ ok: true })
