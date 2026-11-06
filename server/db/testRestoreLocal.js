@@ -16,7 +16,10 @@ const bytes = await readFile(file)
 const backup = JSON.parse(bytes)
 assert.equal(backup.format, 'CartCheck private JSON export v1')
 assert.equal(backup.scope, 'cartcheck schema')
-const order = ['schema_migrations', 'users', 'starter_products', 'products', 'sessions', 'auth_action_tokens', 'auth_email_limits', 'shopping_trips', 'trip_items']
+const baseOrder = ['schema_migrations', 'users', 'starter_products', 'products', 'sessions', 'auth_action_tokens', 'auth_email_limits', 'shopping_trips', 'trip_items']
+const assistantTables = ['assistant_usage', 'assistant_app_usage']
+// Exports taken before migration 006 have only the nine older tables.
+const order = Object.hasOwn(backup.tables, assistantTables[0]) ? [...baseOrder.slice(0, 2), ...assistantTables, ...baseOrder.slice(2)] : baseOrder
 assert.deepEqual(Object.keys(backup.tables).sort(), [...order].sort())
 const target = JSON.parse(await readFile(new URL('../.test-runs/local-target.json', import.meta.url)))
 assert.equal(target.host, '127.0.0.1')

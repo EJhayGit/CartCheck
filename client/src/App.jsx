@@ -12,6 +12,7 @@ import { confirmationError, passwordError } from './passwordPolicy.js'
 import { resetAndRevalidate, revalidateCurrentSession } from './resetSession.js'
 import { createDataCache } from './dataCache.js'
 import { DataCacheProvider, fetchLists } from './dataCache.jsx'
+import Assistant from './Assistant.jsx'
 import { hasPurchaseMutation, mergePendingListResponse, purchaseIntentVersion } from './purchaseMutations.js'
 import Lists from './Lists.jsx'
 import { replaceListSummary } from './dataCache.js'
@@ -69,6 +70,7 @@ export default function App() {
   const [cartPending, setCartPending] = useState(false)
   const [catalogAddPending, setCatalogAddPending] = useState(false)
   const [reviewOpen, setReviewOpen] = useState(false)
+  const [assistantPending, setAssistantPending] = useState(false)
   const [preferredCurrency, setPreferredCurrency] = useState('PHP')
   const [settingsError, setSettingsError] = useState('')
   const [settingsNotice, setSettingsNotice] = useState('')
@@ -503,19 +505,19 @@ export default function App() {
   }
 
   function navigation() {
-    const switchingDisabled = cartPending || catalogAddPending || settingsBusy || reviewOpen
+    const switchingDisabled = cartPending || catalogAddPending || assistantPending || settingsBusy || reviewOpen
     return <>
       <button type="button" className={page === 'lists' || page === 'list' ? 'active' : ''} aria-current={page === 'lists' || page === 'list' ? 'page' : undefined} onClick={() => { if (!cartPendingRef.current && !catalogAddPendingRef.current) navigate('lists') }} disabled={switchingDisabled}><NavIcon destination="cart" /><span>My Lists</span></button>
       <button type="button" className={page === 'catalog' ? 'active' : ''} aria-current={page === 'catalog' ? 'page' : undefined} onClick={() => browseCatalog()} disabled={switchingDisabled}><NavIcon destination="catalog" /><span>Catalog</span></button>
       <button type="button" className={page === 'trips' ? 'active' : ''} aria-current={page === 'trips' ? 'page' : undefined} onClick={() => { if (!switchingDisabled) navigate('trips') }} disabled={switchingDisabled}><NavIcon destination="trips" /><span>Trips</span></button>
       <button type="button" className={page === 'settings' ? 'active' : ''} aria-current={page === 'settings' ? 'page' : undefined} onClick={() => { if (!switchingDisabled) navigate('settings') }} disabled={switchingDisabled}><NavIcon destination="settings" /><span>Settings</span></button>
-      <button type="button" onClick={signOut} disabled={busy || settingsBusy || cartPending || catalogAddPending || reviewOpen}>Sign out</button>
+      <button type="button" onClick={signOut} disabled={busy || settingsBusy || cartPending || catalogAddPending || assistantPending || reviewOpen}>Sign out</button>
     </>
   }
 
   return (
     <div className={`app ${!user || accountView || status !== 'ready' || user.verification_required ? 'auth-app' : ''}`}>
-      <header className="site-header"><div className="header-inner"><Brand onHome={goHome} disabled={busy || settingsBusy || cartPending || catalogAddPending || reviewOpen || status !== 'ready'} />{status === 'ready' && user && !user.verification_required && !accountView && <nav className="catalog-nav" aria-label="Main navigation">{navigation()}</nav>}</div></header>
+      <header className="site-header"><div className="header-inner"><Brand onHome={goHome} disabled={busy || settingsBusy || cartPending || catalogAddPending || assistantPending || reviewOpen || status !== 'ready'} />{status === 'ready' && user && !user.verification_required && !accountView && <nav className="catalog-nav" aria-label="Main navigation">{navigation()}</nav>}</div></header>
       {privateReady && <a className="skip-link" href="#main-content">Skip to main content</a>}
       {privateReady ? <DataCacheProvider key={`${user.id}:${renderedGeneration}`} cache={dataCache} onRevalidate={validatePrivateSession}><div id="main-content" tabIndex="-1">
         {error && <p className="alert" role="alert">{error}</p>}
@@ -539,6 +541,7 @@ export default function App() {
           <section className="catalog-panel appearance-panel" aria-labelledby="appearance-heading"><h2 id="appearance-heading">Appearance</h2><p className="appearance-help">Choose your look. Saved in this browser across visits.</p><div className="appearance-options" role="group" aria-label="Appearance">{['light', 'dark', 'system'].map((option) => <button type="button" key={option} aria-pressed={appearance === option} onClick={() => setAppearance(option)}>{option[0].toUpperCase() + option.slice(1)}</button>)}</div><p className="appearance-help">System follows your device’s color preference.</p></section>
           <ChangePassword onChanged={clearRevokedSession} />
         </main>}
+        <Assistant currentListId={page === 'list' ? routeListId : null} preferredCurrency={preferredCurrency} otherSavesPending={cartPending || catalogAddPending} hidden={reviewOpen} onOpenList={(id) => navigate('list', id)} onPendingChange={setAssistantPending} />
       </div></DataCacheProvider> : <main className="auth-main"><AuthBrand onHome={goHome} disabled={busy || accountBusy || status !== 'ready' || user?.verification_required} /><div className="auth-form-area">
         {status === 'loading' && <section className="auth-card" role="status"><h1>Restoring your session</h1><p>Checking your account…</p></section>}
         {status === 'error' && <section className="auth-card"><h1>Could not connect</h1><p className="alert" role="alert">{error}</p><button className="primary-button" onClick={retryRestore}>Try again</button></section>}
