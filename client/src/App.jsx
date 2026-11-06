@@ -88,10 +88,13 @@ export default function App() {
   function navigate(nextPage, id = null, { replace = false, flash: nextFlash = null } = {}) {
     const path = nextPage === 'list' ? `/lists/${encodeURIComponent(id)}` : nextPage === 'trips' && id ? `/trips/${encodeURIComponent(id)}` : ({ lists: '/lists', catalog: '/catalog', trips: '/trips', settings: '/settings' }[nextPage] || '/lists')
     window.history[replace ? 'replaceState' : 'pushState']({ page: nextPage, listId: id }, '', path)
-    withViewTransition(() => {
+    const apply = () => {
       setFlash(nextFlash)
       setRoute({ page: nextPage, listId: id })
-    })
+    }
+    // Redirects (sign-in, session resets, finishing a trip) must land in the same commit as their other state.
+    if (replace) apply()
+    else withViewTransition(apply)
   }
 
   useEffect(() => {
