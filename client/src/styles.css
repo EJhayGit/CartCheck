@@ -416,12 +416,14 @@ details[open] > summary .when-open { display: inline; }
 @keyframes assistant-rise { from { opacity: 0; transform: translateY(8px); } }
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .18s; animation-timing-function: var(--ease-out); }
 ::view-transition-group(*) { animation-duration: .2s; animation-timing-function: var(--ease-out); }
-/* Fixed overlays get their own layers so named rows never slide over them mid-transition. */
+/* Fixed overlays get their own layers, raised below, so rows never cover them mid-transition. */
 .catalog-mobile-nav { view-transition-name: app-nav; }
 .assistant-launcher { view-transition-name: assistant-launcher; }
 .check-status { view-transition-name: check-status; }
 ::view-transition-old(app-nav), ::view-transition-old(assistant-launcher), ::view-transition-old(check-status) { display: none; }
 ::view-transition-new(app-nav), ::view-transition-new(assistant-launcher), ::view-transition-new(check-status) { animation: none; }
+/* Groups stack in capture order, so rows that exist only on the new page would cover the nav without this. */
+::view-transition-group(app-nav), ::view-transition-group(assistant-launcher), ::view-transition-group(check-status) { z-index: 1; }
 .assistant-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 6px 6px 18px; border-bottom: 1px solid var(--border); }
 .assistant-head h2 { margin: 0; font-size: 16px; font-weight: 700; }
 .assistant-close { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: var(--radius-control); background: none; color: var(--muted-text); }
