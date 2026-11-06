@@ -101,6 +101,9 @@ input:focus, select:focus { border-color: var(--primary); }
 .catalog-nav button.active { background: var(--mint); color: var(--brand); }
 .catalog-nav button:focus-visible { outline-color: var(--mint); }
 .catalog-nav button:active:not(:disabled), .catalog-mobile-nav button:active:not(:disabled) { filter: brightness(.94); }
+/* Saves disable navigation; only dim it when a save is slow enough to notice. */
+.catalog-nav button, .catalog-mobile-nav button { transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease, opacity .16s ease; }
+.catalog-nav button:disabled, .catalog-mobile-nav button:disabled { transition-delay: .3s; }
 .catalog-mobile-nav { display: none; }
 .site-footer { padding: 24px 16px; text-align: center; color: var(--muted-text); font-size: 12px; line-height: 1.8; }
 .site-footer a { display: inline-block; padding: 12px 4px; margin: -12px 0; color: var(--primary); text-decoration: none; border-radius: 3px; }
@@ -134,7 +137,8 @@ input:focus, select:focus { border-color: var(--primary); }
 .list-title h1 { overflow-wrap: anywhere; }
 .list-progress-line { margin: 6px 0 0; color: var(--muted-text); font-size: 15px; font-variant-numeric: tabular-nums; }
 .list-progress-line strong { color: var(--text); }
-.saving-note { color: var(--muted-text); }
+.saving-note { color: var(--muted-text); animation: saving-appear .16s ease .3s both; }
+@keyframes saving-appear { from { opacity: 0; } }
 .list-header > .progress-track { grid-column: 1 / -1; }
 .progress-track { height: 6px; overflow: hidden; border-radius: 99px; background: var(--progress-track); }
 .progress-track span { display: block; height: 100%; border-radius: inherit; background: var(--primary); transition: width .2s ease; }
@@ -416,6 +420,8 @@ details[open] > summary .when-open { display: inline; }
 .catalog-mobile-nav { view-transition-name: app-nav; }
 .assistant-launcher { view-transition-name: assistant-launcher; }
 .check-status { view-transition-name: check-status; }
+::view-transition-old(app-nav), ::view-transition-old(assistant-launcher), ::view-transition-old(check-status) { display: none; }
+::view-transition-new(app-nav), ::view-transition-new(assistant-launcher), ::view-transition-new(check-status) { animation: none; }
 .assistant-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 6px 6px 18px; border-bottom: 1px solid var(--border); }
 .assistant-head h2 { margin: 0; font-size: 16px; font-weight: 700; }
 .assistant-close { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: var(--radius-control); background: none; color: var(--muted-text); }
@@ -522,4 +528,5 @@ details[open] > summary .when-open { display: inline; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; transition-delay: 0s !important; }
   ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+  .catalog-nav button:disabled, .catalog-mobile-nav button:disabled { transition-delay: .3s !important; transition-duration: 0s !important; }
 }
