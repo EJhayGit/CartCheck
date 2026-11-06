@@ -80,3 +80,18 @@ test('Delete is sent once', async () => {
   await screen.findByText('Weekly Groceries deleted.')
   assert.equal(deletes.length, 1)
 })
+
+test('A deleted trip does not come back from a cached history page', async () => {
+  const cache = createDataCache()
+  cache.set('trips', { items: [trip('a', 'Weekly Groceries')], nextCursor: 'p2' })
+  cache.set('trips:page:p2', { items: [trip('b', 'Party Supplies')], nextCursor: null })
+  globalThis.fetch = async (url) => {
+    if (url === '/api/trips?cursor=p2') return json({ items: [], nextCursor: null })
+    if (url === '/api/trips') return json({ items: [trip('a', 'Weekly Groceries')], nextCursor: 'p2' })
+    throw new Error(`Unexpected request ${url}`)
+  }
+  render(React.createElement(DataCacheProvider, { cache }, React.createElement(Trips, { onReviewChange: () => {} })))
+  fireEvent.click(screen.getByRole('button', { name: 'Load more trips' }))
+  await waitFor(() => assert.equal(cache.get('trips').data.nextCursor, null))
+  assert.equal(screen.queryByRole('heading', { name: 'Party Supplies' }), null)
+})

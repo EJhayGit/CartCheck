@@ -93,9 +93,10 @@ export default function Trips({ onReviewChange, initialTripId = null, onExit, on
     pageBusyRef.current = true
     setPageLoading(true)
     setPageError('')
+    // A fresh page each time, so a trip deleted since an earlier load cannot come back.
     const key = `trips:page:${next}`
     try {
-      const result = await cache.load(key, (signal) => getTrips(next, { signal }), { staleTime: 30000 })
+      const result = await cache.load(key, (signal) => getTrips(next, { signal }), { force: true })
       cache.set('trips', (current) => {
         if (!current || !result || current.nextCursor !== next) return current
         const ids = new Set((current.items || []).map((trip) => String(trip.id)))
