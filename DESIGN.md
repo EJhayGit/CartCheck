@@ -273,7 +273,7 @@ Soft, consistent rounding with thin 1px borders. Controls (buttons, inputs, sele
 - **Do** keep checklist actions primary and prices and budget visually secondary.
 - **Do** use the CSS custom properties in `client/src/styles.css`. Never hard-code a hex value in a component.
 - **Do** keep the official wordmark assets in `client/public/`.
-- **Do** honor `prefers-reduced-motion`; transitions stay short (0.16–0.2s ease). Page switches crossfade in about 0.18s where the browser supports View Transitions; elsewhere, and under reduced motion, they switch instantly.
+- **Do** honor `prefers-reduced-motion`; transitions stay short (0.16–0.2s ease). Page switches crossfade in about 0.18s where the browser supports View Transitions; elsewhere, and under reduced motion, they switch instantly. Deleting a list, trip or item fades that row out while the rows below slide up.
 - **Do** keep every interactive target at least 44px tall, with a visible focus outline.
 - **Do** show a price only when one is recorded; the budget panel carries the incomplete counts.
 

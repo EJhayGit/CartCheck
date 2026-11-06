@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { withViewTransition } from './viewTransition.js'
 import { createCatalogItem, deleteListItem, finishTrip, getCatalog, getList, getTrip, getTrips, updateList, updateListItem } from './api/httpApi.js'
 import { formatQuantity, getShoppingProgress, isWholeQuantity, listRowQuantity, sortShoppingItems, stepQuantity } from './shoppingProgress.js'
 import { isItemList, lastTripProductIds, matchTier, parseItemList, rankSuggestions, resolveItemList } from './findSuggestions.js'
@@ -399,9 +400,11 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
     setBusyAction('remove')
     setActionError('')
     setNotice('')
-    setItems((current) => current.filter((entry) => entry.id !== item.id))
-    setEditor(null)
-    setConfirmRemove(false)
+    await withViewTransition(() => {
+      setItems((current) => current.filter((entry) => entry.id !== item.id))
+      setEditor(null)
+      setConfirmRemove(false)
+    })
     focusTarget.current = neighbor && neighbor.id !== item.id ? `edit-${neighbor.id}` : 'find-item'
     try {
       const result = await deleteListItem(listId, item.id)
@@ -632,7 +635,7 @@ export default function ShoppingList({ listId, active = true, editItem, onEditHa
       const note = priceNote(item, currency)
       const steppable = item.bought !== true && !editing && !item.pending && isWholeQuantity(item.quantity)
       const count = Number(item.quantity)
-      return <li className={`shopping-item${item.bought ? ' is-purchased' : ''}${editing ? ' is-editing' : ''}${steppable ? ' has-stepper' : ''}`} key={item.id}>
+      return <li className={`shopping-item${item.bought ? ' is-purchased' : ''}${editing ? ' is-editing' : ''}${steppable ? ' has-stepper' : ''}`} key={item.id} style={{ viewTransitionName: `item-${item.id}` }}>
         <label className="purchased-control"><input id={`check-${item.id}`} type="checkbox" checked={item.bought === true} onChange={(event) => setBought(item, event.target.checked)} disabled={busy || reviewBusy || item.pending} aria-label={item.name} /><Tick /></label>
         <button id={`edit-${item.id}`} className="row-edit" type="button" onClick={() => openEdit(item)} disabled={busy || item.pending} aria-expanded={editing}>
           <span className="visually-hidden">Edit </span><span className="shopping-item-info"><strong>{item.name}</strong><small>{steppable && item.unitLabel ? `${item.unitLabel} · ` : ''}{item.category || 'Grocery'}{note ? ` · ${note}` : ''}</small></span>
