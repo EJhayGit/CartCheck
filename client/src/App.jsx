@@ -7,7 +7,7 @@ import ListRoute from './ListRoute.jsx'
 import Trips from './Trips.jsx'
 import AccountFlows from './AccountFlows.jsx'
 import ChangePassword from './ChangePassword.jsx'
-import { AuthBrand, PasswordField, PasswordMeter } from './AuthUI.jsx'
+import { AuthBrand, PasswordField, PasswordMeter, preloadPasswordMeter } from './AuthUI.jsx'
 import { confirmationError, passwordError } from './passwordPolicy.js'
 import { resetAndRevalidate, revalidateCurrentSession } from './resetSession.js'
 import { createDataCache } from './dataCache.js'
@@ -105,6 +105,18 @@ export default function App() {
     window.addEventListener('popstate', pop)
     return () => window.removeEventListener('popstate', pop)
   }, [])
+
+  const signedOut = status === 'ready' && !user
+  useEffect(() => {
+    if (!signedOut) return
+    // Fetch the password meter while the sign-in screen is idle so Create account shows it at once.
+    if (window.requestIdleCallback) {
+      const handle = window.requestIdleCallback(preloadPasswordMeter)
+      return () => window.cancelIdleCallback(handle)
+    }
+    const timer = setTimeout(preloadPasswordMeter, 2000)
+    return () => clearTimeout(timer)
+  }, [signedOut])
 
   function reportCartPending(pending) {
     if (renderedGeneration !== accountGeneration.current) return
